@@ -1,3 +1,5 @@
+![NoNameOS Screenshot](https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.jpg)
+
 # NoNameOS
 Pure C++ Hobbyist OS simulation.
 
