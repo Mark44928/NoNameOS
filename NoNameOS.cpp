@@ -1,3 +1,4 @@
+// Core headers: I/O streams, string manipulation, containers, utilities, and C time
 #include <iostream>
 #include <string>
 #include <vector>
@@ -10,12 +11,14 @@
 #include <algorithm>
 #include <sstream>
 #include <random>
+// POSIX headers for terminal control (raw input) and non-blocking I/O detection
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
 
 using namespace std;
 
+// Generate a human-readable timestamp string (e.g. "Jul 05 09:53") for VFS metadata
 string get_timestamp() {
     time_t now = time(nullptr);
     tm* t = localtime(&now);
@@ -24,26 +27,31 @@ string get_timestamp() {
     return string(buf);
 }
 
+// Virtual File System (VFS) node -- represents either a directory or a file
 struct FSNode {
-    bool is_dir;
-    string content;
-    size_t size;
-    string created_at;
+    bool is_dir;              // true if this node is a directory
+    string content;           // file content (unused for directories)
+    size_t size;              // byte length of content
+    string created_at;        // creation timestamp from get_timestamp()
+
     FSNode() : is_dir(false), content(""), size(0), created_at("") {}
     FSNode(bool d, string c, size_t s = 0) : is_dir(d), content(c), size(c.length()), created_at(get_timestamp()) {}
 };
 
+// Boot-sequence animation delay
 void boot_delay(int ms) {
     this_thread::sleep_for(chrono::milliseconds(ms));
 }
 
+// Split raw input into a command token and its arguments string
 pair<string, string> parse_command(const string& input) {
     size_t first_space = input.find(' ');
     if (first_space == string::npos) return {input, ""};
     return {input.substr(0, first_space), input.substr(first_space + 1)};
 }
 
-// POSIX Non-blocking keyboard hit detection
+// POSIX non-blocking keyboard hit detection
+// Temporarily puts stdin into raw non-blocking mode, peeks for a character, then restores the terminal
 int kbhit() {
     struct termios oldt, newt;
     int ch;
@@ -65,6 +73,8 @@ int kbhit() {
 }
 
 // --- ASCIIDASH ENGINE ---
+// A side-scrolling obstacle runner that renders frames using ANSI escape sequences
+// Controls: SPACE or ENTER to jump over '^' obstacles
 void play_asciidash(string map_data) {
     cout << "\033[2J\033[1;1H";
     cout << "INITIALIZING ASCIIDASH ENGINE...\n";
@@ -125,11 +135,11 @@ void play_asciidash(string map_data) {
         cout << "\033[32m[ ^_^ ] LEVEL COMPLETE! GG!\033[0m\n";
     }
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(10000, '\n');
+    cin.ignore(static_cast<std::streamsize>(10000), '\n');
     cin.get();
 }
 
-int main() {
+    int main() {
     cout << "\033[2J\033[1;1H";
     cout << "[    0.000000] Booting NoNameOS Core v0.4.0...\n";
     boot_delay(300);
@@ -146,7 +156,7 @@ int main() {
     map<string, FSNode> file_system;
     file_system["/"] = FSNode(true, "");
 
-    // Default custom level mapping
+    // Default custom level mapping -- pre-load AsciiDash obstacle map into VFS
     file_system["/geometry/"] = FSNode(true, "");
     file_system["/geometry/jumper.gmd"] = FSNode(false, "_______^_______^^_______^___^^^___");
 
@@ -164,6 +174,7 @@ int main() {
         auto [cmd, args] = parse_command(input);
 
         if (cmd == "help") {
+            // Display available commands grouped by category
             cout << "NoNameOS v0.4.0 Commands:\n";
             cout << "\033[1;33m  Filesystem:\033[0m ls, ls -l, cd, mkdir, touch, cat, echo, rm, pwd, grep, find\n";
             cout << "\033[1;33m  System:\033[0m    whoami, date, history, clear, cfetch, exit\n";
@@ -171,6 +182,7 @@ int main() {
             cout << "\033[1;33m  Games:\033[0m     play [file], guess, trivia, adventure\n";
         } 
         else if (cmd == "ls") {
+            // List VFS entries under current_dir; long mode (-l) shows perms, size, and timestamp
             bool long_mode = (args == "-l");
             bool empty = true;
             for (auto const& [path, node] : file_system) {
@@ -194,9 +206,11 @@ int main() {
             cout << "\n";
         } 
         else if (cmd == "mkdir") {
+            // Create a new directory node in the VFS
             if (!args.empty()) file_system[current_dir + args + "/"] = FSNode(true, "");
         }
         else if (cmd == "cd") {
+            // Change the active working directory, handling absolute, parent, and child navigation
             if (args.empty() || args == "/") current_dir = "/";
             else if (args == "..") {
                 if (current_dir != "/") {
@@ -213,6 +227,7 @@ int main() {
             }
         }
         else if (cmd == "echo") {
+            // Write text content to a file in the VFS
             size_t first_space = args.find(' ');
             if (first_space != string::npos) {
                 string filename = args.substr(0, first_space);
@@ -225,16 +240,19 @@ int main() {
             }
         }
         else if (cmd == "cat") {
+            // Print the content of a VFS file to stdout
             if (file_system.find(current_dir + args) != file_system.end()) cout << file_system[current_dir + args].content << "\n";
             else cout << "File not found.\n";
         }
         else if (cmd == "rm") {
+            // Remove a file or directory node from the VFS
             file_system.erase(current_dir + args);
             file_system.erase(current_dir + args + "/");
         }
         else if (cmd == "clear") cout << "\033[2J\033[1;1H";
         else if (cmd == "exit") break;
         else if (cmd == "play") {
+            // Launch the AsciiDash obstacle runner; optionally load a custom map from VFS
             if (args.empty()) {
                 cout << "Loading Default Map: Stereo Madness...\n";
                 play_asciidash("_______^_______^_____^^_______^___");
@@ -248,8 +266,9 @@ int main() {
                 }
             }
         }
-        // THE NEW COWSAY COMMAND
+        // --- UTILITIES ---
         else if (cmd == "cowsay") {
+            // Render an ASCII cow with a speech bubble containing the provided message
             string text = args.empty() ? "Moo." : args;
             if (text.length() >= 2 && text.front() == '"' && text.back() == '"') {
                 text = text.substr(1, text.length() - 2);
@@ -266,12 +285,15 @@ int main() {
         }
         // --- NEW COMMANDS v0.4.0 ---
         else if (cmd == "pwd") {
+            // Print the current working directory path
             cout << current_dir << "\n";
         }
         else if (cmd == "whoami") {
+            // Display the current logged-in user
             cout << current_user << "\n";
         }
         else if (cmd == "date") {
+            // Print the current system date and time
             time_t now = time(nullptr);
             tm* t = localtime(&now);
             char buf[64];
@@ -279,11 +301,13 @@ int main() {
             cout << buf << "\n";
         }
         else if (cmd == "history") {
+            // Display the current shell session's command history with line numbers
             for (size_t i = 0; i < cmd_history.size(); i++) {
                 cout << "  " << (i + 1) << "  " << cmd_history[i] << "\n";
             }
         }
         else if (cmd == "grep") {
+            // Search for a text pattern inside the content of a VFS file and print matching lines
             size_t sp = args.find(' ');
             if (sp == string::npos) {
                 cout << "Usage: grep <pattern> <filename>\n";
@@ -308,6 +332,7 @@ int main() {
             }
         }
         else if (cmd == "find") {
+            // Recursively search VFS node paths and print any path containing the given name
             if (args.empty()) {
                 cout << "Usage: find <name>\n";
             } else {
@@ -322,6 +347,7 @@ int main() {
             }
         }
         else if (cmd == "cfetch") {
+            // Display system info block (OS version, kernel, shell, VFS node count, uptime, user)
             cout << "\033[36m";
             cout << "       ___          \n";
             cout << "      /   \\         \n";
@@ -344,6 +370,7 @@ int main() {
             cout << "------------------------\n";
         }
         else if (cmd == "touch") {
+            // Create an empty file node in the VFS (no-op if it already exists)
             if (!args.empty()) {
                 string fullpath = current_dir + args;
                 if (file_system.find(fullpath) == file_system.end()) {
@@ -353,6 +380,7 @@ int main() {
         }
         // --- GAMES ---
         else if (cmd == "guess") {
+            // Guess the Number: pick a random 1-100 target and loop until the user guesses it
             cout << "\033[33m--- Guess the Number ---\033[0m\n";
             cout << "I'm thinking of a number between 1 and 100.\n";
             srand(time(nullptr));
@@ -384,6 +412,7 @@ int main() {
             }
         }
         else if (cmd == "trivia") {
+            // Trivia Quiz: 5 multiple-choice questions about computers and technology
             cout << "\033[33m--- Trivia Quiz ---\033[0m\n";
             struct Question { string q; vector<string> opts; int correct; };
             vector<Question> questions;
@@ -417,6 +446,7 @@ int main() {
             cout << "\nScore: " << score << "/5\n";
         }
         else if (cmd == "adventure") {
+            // Text RPG dungeon crawler: explore, collect gold, fight monsters, manage HP
             cout << "\033[33m--- The Dungeon of NoNameOS ---\033[0m\n\n";
             cout << "You awaken in a dark dungeon.\n";
             cout << "A faint glow comes from two paths.\n\n";
@@ -473,6 +503,7 @@ int main() {
         }
         // --- SYSTEM TOOLS ---
         else if (cmd == "nano") {
+            // Built-in line-by-line text editor that writes content back to the VFS
             if (args.empty()) {
                 cout << "Usage: nano <filename>\n";
             } else {
@@ -493,6 +524,7 @@ int main() {
             }
         }
         else if (cmd == "calc") {
+            // Simple arithmetic calculator supporting +, -, *, and / on integer/decimal expressions
             if (args.empty()) {
                 cout << "Usage: calc <expression>  (e.g. calc 2+3*4)\n";
             } else {
@@ -504,7 +536,7 @@ int main() {
                 bool has_num = false;
                 for (size_t i = 0; i < args.length(); i++) {
                     char c = args[i];
-                    if (c >= '0' && c <= '9' || c == '.') {
+                    if (c >= '0' && c <= '9') {
                         current_num = current_num * 10 + (c - '0');
                         has_num = true;
                     } else if (c == '+' || c == '-' || c == '*' || c == '/') {
