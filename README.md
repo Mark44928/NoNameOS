@@ -223,6 +223,27 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ---
 
+---
+
+## You Might Also Like
+
+- [Termux TUI Package Store](https://github.com/Mark44928/Termux-TUI-Package-Store) - Interactive fzf-powered package browser for Termux
+- [Anti-Bloatware List](https://github.com/Mark44928/Anti-bloatware-list-for-Android-TV-Boxes-and-Sticks-for-rooted) - Debloat rooted Android TV sticks
+
+---
+
+## Star History
+
+<a href="https://star-history.com/#Mark44928/NoNameOS&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Mark44928/NoNameOS&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Mark44928/NoNameOS&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Mark44928/NoNameOS&type=Date" />
+ </picture>
+</a>
+
+---
+
 <p align="center">
   If you like NoNameOS, give it a star! It helps others discover the project.
 </p>
