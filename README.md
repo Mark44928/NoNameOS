@@ -2,20 +2,25 @@
   <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
 </p>
 
-> **Note:** This screenshot is from v0.3.1. The latest version (v0.4.0) has more commands, games, and tools not shown here.
-
 <h1 align="center">NoNameOS</h1>
 
+> **Note:** This screenshot is from v0.3.1. The latest version (v0.4.0) has more commands, games, and tools not shown here.
+
 <p align="center">
-  <b>A pure C++ hobbyist OS simulation with a virtual filesystem, shell, games, and more.</b>
+  <b>A pure C++ hobbyist operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 4 built-in games, and developer tools — all contained in a single source file. No external dependencies. No framework. Just compile and run.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Mark44928/NoNameOS/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Mark44928/NoNameOS?color=blue" alt="License"/></a>
+  <a href="https://github.com/Mark44928/NoNameOS/network/members"><img src="https://img.shields.io/github/forks/Mark44928/NoNameOS?style=social" alt="Forks"/></a>
   <a href="https://github.com/Mark44928/NoNameOS/stargazers"><img src="https://img.shields.io/github/stars/Mark44928/NoNameOS?style=social" alt="Stars"/></a>
+  <a href="https://github.com/Mark44928/NoNameOS/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Mark44928/NoNameOS?color=blue" alt="License"/></a>
   <a href="https://github.com/Mark44928/NoNameOS/issues"><img src="https://img.shields.io/github/issues/Mark44928/NoNameOS" alt="Issues"/></a>
+  <a href="https://github.com/Mark44928/NoNameOS/releases"><img src="https://img.shields.io/github/v/release/Mark44928/NoNameOS" alt="Release"/></a>
   <img src="https://img.shields.io/badge/version-0.4.0-green" alt="Version"/>
   <img src="https://img.shields.io/badge/language-C%2B%2B-blue" alt="Language"/>
+  <img src="https://img.shields.io/github/languages/top/Mark44928/NoNameOS" alt="Top Language"/>
+  <img src="https://img.shields.io/github/repo-size/Mark44928/NoNameOS" alt="Repo Size"/>
+  <a href="https://github.com/Mark44928/NoNameOS/pulse"><img src="https://img.shields.io/github/commit-activity/m/Mark44928/NoNameOS" alt="Commit Activity"/></a>
 </p>
 
 ---
@@ -31,6 +36,9 @@
 - [Quick Start](#quick-start)
 - [Build Instructions](#build-instructions)
 - [Command Reference](#command-reference)
+  - [Filesystem Commands](#filesystem-commands)
+  - [System Commands](#system-commands)
+  - [Tools](#tools)
 - [Games](#games)
 - [Custom Maps](#custom-maps)
 - [Platform Requirements](#platform-requirements)
@@ -43,21 +51,22 @@
 
 | Category | What You Get |
 |----------|-------------|
-| **Shell** | Interactive command prompt with 25+ commands |
-| **Virtual Filesystem** | Create, read, delete files and directories with sizes & timestamps |
-| **Games** | AsciiDash runner, Guess the Number, Trivia Quiz, Text Adventure |
-| **System Tools** | Text editor (`nano`), calculator (`calc`), system fetch (`cfetch`) |
-| **Utilities** | Command history, `grep` search, `cowsay`, `find`, and more |
+| **Interactive Shell** | Command prompt with 25+ commands, command history, and context-aware help |
+| **Virtual Filesystem** | Create, read, delete files and directories with sizes & creation timestamps |
+| **Games (4 built-in)** | AsciiDash runner, Guess the Number, Trivia Quiz, and a Text Adventure RPG |
+| **System Tools** | Text editor (`nano`), calculator (`calc`), system info (`cfetch`) |
+| **Utilities** | `grep` search, `find`, `cowsay`, `history`, `echo` file writer, and more |
 
 ---
 
 ## What's New in v0.4.0
 
-- **9 new commands:** `pwd`, `whoami`, `date`, `history`, `grep`, `find`, `cfetch`, `touch`, `nano`, `calc`, `cowsay`
+- **11+ new commands:** `pwd`, `whoami`, `date`, `history`, `grep`, `find`, `cfetch`, `touch`, `nano`, `calc`, `cowsay`, and more
 - **3 new games:** `guess` (Guess the Number), `trivia` (Trivia Quiz), `adventure` (Text RPG)
 - **Enhanced `ls -l`** with file sizes and creation timestamps
 - **Improved VFS** tracking file metadata
-- **Command history** -- use `history` to view past commands
+- **Command history** — use `history` to view past commands
+- **Easy compilation:** single-file build, no external dependencies beyond a C++ compiler and POSIX headers
 
 ---
 
@@ -195,6 +204,15 @@ The default map `jumper.gmd` is pre-loaded in `/geometry/`.
 - A C++ compiler (`g++` or `clang++`)
 - POSIX-compatible system (uses `<termios.h>`, `<unistd.h>`, `<fcntl.h>`)
 - **Windows is not supported** due to POSIX-only dependencies
+
+---
+
+## Perfect For
+
+- **C++ learners** exploring OS concepts without kernel-level complexity
+- **Students** studying filesystems, shells, and process simulation
+- **Hackers** wanting a terminal sandbox with games and tools
+- **Termux users** looking for a fun single-file project to compile and run
 
 ---
 
