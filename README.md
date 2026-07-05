@@ -2,6 +2,8 @@
   <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
 </p>
 
+> **Note:** This screenshot is from v0.3.1. The latest version (v0.4.0) has more commands, games, and tools not shown here.
+
 <h1 align="center">NoNameOS</h1>
 
 <p align="center">
