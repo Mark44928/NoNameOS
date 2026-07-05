@@ -3,7 +3,15 @@
 # NoNameOS
 Pure C++ Hobbyist OS simulation.
 
-### 😬 Warming: NoNameOS is **NOT** a OS. it was just a C++ OS simulation.
+### Warning: NoNameOS is **NOT** an OS. It is a C++ OS simulation.
+
+## What's New in v0.4.0
+
+- **New commands:** `pwd`, `whoami`, `date`, `history`, `grep`, `find`, `cfetch`, `touch`, `nano`, `calc`
+- **New games:** `guess` (Guess the Number), `trivia` (Trivia Quiz), `adventure` (Text Adventure)
+- **Enhanced `ls -l`** with file sizes and timestamps
+- **Improved VFS** with timestamps and file size tracking
+- **Command history** (use `history` to view)
 
 ## 📥 Getting the Code
 
