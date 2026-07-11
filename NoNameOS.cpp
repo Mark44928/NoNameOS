@@ -885,7 +885,7 @@ void play_rps() {
                 "pwd","whoami","date","history","grep","find","cfetch","ps","uname","uptime","cal","rainbow",
                 "man","help","nano","calc","guess","trivia","adventure","snake","minesweeper","tictactoe","ttt",
                 "hangman","rps","yes","env","hostname","sleep","which","head","tail","sort","wc","tee","alias",
-                "users","banner","fortune","factor","shuf","cp","mv","chmod","su","alias","unalias"};
+                "users","banner","fortune","factor","shuf","cp","mv","chmod","su","unalias"};
             if (args.empty()) cout << "Usage: which <command>\n";
             else if (commands.find(args) != commands.end()) cout << "/bin/" << args << "\n";
             else cout << args << " not found\n";
@@ -1111,7 +1111,8 @@ void play_rps() {
                 manpages["hostname"] = "HOSTNAME(1)\t\tUser Commands\n\nNAME\n\thostname - print system hostname\n\nSYNOPSIS\n\thostname\n\nDESCRIPTION\n\tDisplay the system's hostname.";
                 manpages["sleep"] = "SLEEP(1)\t\tUser Commands\n\nNAME\n\tsleep - delay execution\n\nSYNOPSIS\n\tsleep <seconds>\n\nDESCRIPTION\n\tPause the shell for the specified number of seconds (max 30).";
                 manpages["which"] = "WHICH(1)\t\tUser Commands\n\nNAME\n\twhich - locate a command\n\nSYNOPSIS\n\twhich <command>\n\nDESCRIPTION\n\tShow the full path of a command if it exists in the shell.";
-                manpages["alias"] = "ALIAS(1)\t\tUser Commands\n\nNAME\n\talias - show command aliases\n\nSYNOPSIS\n\talias\n\nDESCRIPTION\n\tDisplay defined command aliases (ll, .., ttt).";
+                manpages["alias"] = "ALIAS(1)\t\tUser Commands\n\nNAME\n\talias - show or create command aliases\n\nSYNOPSIS\n\talias [name=command]\n\nDESCRIPTION\n\tDisplay all aliases or create a new alias. Created aliases resolve at the shell prompt.";
+                manpages["unalias"] = "UNALIAS(1)\t\tUser Commands\n\nNAME\n\tunalias - remove an alias\n\nSYNOPSIS\n\tunalias <name>\n\nDESCRIPTION\n\tRemove a previously defined alias by name.";
                 manpages["users"] = "USERS(1)\t\tUser Commands\n\nNAME\n\tusers - show logged in users\n\nSYNOPSIS\n\tusers\n\nDESCRIPTION\n\tDisplay the currently logged-in users.";
                 manpages["banner"] = "BANNER(1)\t\tUser Commands\n\nNAME\n\tbanner - print ASCII banner\n\nSYNOPSIS\n\tbanner [text]\n\nDESCRIPTION\n\tDisplay a large ASCII banner with the given text.";
                 manpages["fortune"] = "FORTUNE(1)\t\tUser Commands\n\nNAME\n\tfortune - random quote\n\nSYNOPSIS\n\tfortune\n\nDESCRIPTION\n\tDisplay a random programming quote.";

@@ -7,7 +7,7 @@
 > **Note:** This screenshot is from v0.3.1. The latest version (v0.6.0) has more commands, games, and tools not shown here.
 
 <p align="center">
-  <b>A pure C++ hobbyist operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 8 built-in games, and developer tools — all contained in a single source file. No external dependencies. No framework. Just compile and run.</b>
+  <b>A pure C++ hobbyist operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 9 built-in games, and developer tools — all contained in a single source file. No external dependencies. No framework. Just compile and run.</b>
 </p>
 
 <p align="center">
@@ -53,7 +53,7 @@
 |----------|-------------|
 | **Interactive Shell** | Command prompt with 55+ commands, alias support, command history, and man pages |
 | **Virtual Filesystem** | Create, read, copy, move, delete files and directories with sizes & timestamps |
-| **Games (8 built-in)** | AsciiDash, Snake, Minesweeper, Tic-Tac-Toe, Hangman, RPS, Trivia, Adventure RPG |
+| **Games (9 built-in)** | AsciiDash, Snake, Minesweeper, Tic-Tac-Toe, Hangman, RPS, Guess, Trivia, Adventure RPG |
 | **System Tools** | Text editor (`nano`), calculator (`calc`), system info (`cfetch`), `ps`, `uname` |
 | **Utilities** | `grep`, `find`, `sort`, `wc`, `head`, `tail`, `cowsay`, `fortune`, `banner`, and more |
 
@@ -178,8 +178,6 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | `fortune` | `fortune` | Random programming quote |
 | `factor` | `factor <n>` | Prime factorization of a number |
 | `shuf` | `shuf <text>` | Randomly shuffle text characters |
-| `grep` | `grep <pattern> <file>` | Search for a pattern in a file |
-| `find` | `find <name>` | Find files by name |
 
 ---
 
