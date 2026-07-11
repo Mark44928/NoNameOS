@@ -24,7 +24,7 @@ If applicable, add screenshots.
 **Environment:**
 - OS: [e.g. Ubuntu 22.04, Termux]
 - Compiler: [e.g. g++ 11.3, clang++ 14]
-- Version: [e.g. v0.4.0]
+- Version: [e.g. v0.6.0]
 
 **Additional context**
 Add any other context about the problem here.
