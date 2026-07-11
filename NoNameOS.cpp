@@ -541,7 +541,7 @@ void play_rps() {
 
     int main() {
     cout << "\033[2J\033[1;1H";
-    cout << "[    0.000000] Booting NoNameOS Core v0.5.0...\n";
+    cout << "[    0.000000] Booting NoNameOS Core v0.6.0...\n";
     boot_delay(300);
     cout << "[    1.102304] Loading Termios Input Hijacker...\n";
     boot_delay(300);
@@ -549,7 +549,7 @@ void play_rps() {
     boot_delay(200);
     cout << "[    1.700000] Loading Bovine Speech Synthesizer...\n";
     boot_delay(150);
-    cout << "[    1.850000] Loading Game Engines (guess, trivia, adventure)...\n";
+    cout << "[    1.850000] Loading Game Engines (guess, trivia, adventure, snake)...\n";
     boot_delay(150);
     cout << "[    2.000000] Loading System Tools (nano, calc)...\n";
     boot_delay(150);
@@ -578,6 +578,10 @@ void play_rps() {
     string current_dir = "/";
     string input;
     vector<string> cmd_history;
+    map<string, string> aliases;
+    aliases["ll"] = "ls -l";
+    aliases[".."] = "cd ..";
+    aliases["ttt"] = "tictactoe";
 
     while (true) {
         cout << current_user << "@NoNameOS:" << current_dir << "# ";
@@ -587,16 +591,27 @@ void play_rps() {
         cmd_history.push_back(input);
         auto [cmd, args] = parse_command(input);
 
+        // Resolve aliases
+        if (aliases.find(cmd) != aliases.end()) {
+            string alias_cmd = aliases[cmd];
+            if (!args.empty()) alias_cmd += " " + args;
+            auto [resolved_cmd, resolved_args] = parse_command(alias_cmd);
+            cmd = resolved_cmd;
+            args = resolved_args;
+        }
+
         if (cmd == "help") {
             // Display available commands grouped by category
             cout << "NoNameOS v0.6.0 Commands:\n";
-            cout << "\033[1;33m  Filesystem:\033[0m ls, ls -l, cd, mkdir, touch, cat, echo, rm, pwd, grep, find, cp, mv, head, tail\n";
-            cout << "\033[1;33m  System:\033[0m    whoami, date, uptime, history, clear, cfetch, ps, uname, exit, hostname\n";
-            cout << "\033[1;33m  Tools:\033[0m     nano <file>, calc <expr>, cowsay [msg], man <cmd>, cal, rainbow [msg]\n";
-            cout << "\033[1;33m  Tools:\033[0m     sort <file>, wc <file>, tee <file> <text>, yes, env, sleep, which\n";
-            cout << "\033[1;33m  Tools:\033[0m     alias, users, banner [msg], fortune, factor <n>, shuf <text>\n";
-            cout << "\033[1;33m  Tools:\033[0m     chmod, su <user>\n";
-            cout << "\033[1;33m  Games:\033[0m     play [file], guess, trivia, adventure, snake, minesweeper, ttt, hangman, rps\n";
+            cout << "\033[1;33m  General:\033[0m  help, man <cmd>, clear, exit\n";
+            cout << "\033[1;33m  Filesystem:\033[0m ls, ls -l, cd, mkdir, touch, cat, echo, rm, pwd, grep, find, cp, mv\n";
+            cout << "\033[1;33m  File View:\033[0m  head <f>, tail <f>, sort <f>, wc <f>, tee <f> <t>\n";
+            cout << "\033[1;33m  System:\033[0m    whoami, date, uptime, history, cfetch, ps, uname, hostname, env\n";
+            cout << "\033[1;33m  Tools:\033[0m     nano <f>, calc <x>, cowsay [m], cal, rainbow [m], yes, sleep, which\n";
+            cout << "\033[1;33m  Tools:\033[0m     alias [x=y], unalias, su <user>, chmod, users, banner [m]\n";
+            cout << "\033[1;33m  Tools:\033[0m     fortune, factor <n>, shuf <text>\n";
+            cout << "\033[1;33m  Games:\033[0m     play [f], guess, trivia, adventure, snake, minesweeper\n";
+            cout << "\033[1;33m  Games:\033[0m     tictactoe (ttt), hangman, rps\n";
         } 
         else if (cmd == "ls") {
             // List VFS entries under current_dir; long mode (-l) shows perms, size, and timestamp
@@ -700,7 +715,7 @@ void play_rps() {
             cout << "                ||----w |\n";
             cout << "                ||     ||\n";
         }
-        // --- NEW COMMANDS v0.4.0 ---
+        // --- ADDITIONAL COMMANDS ---
         else if (cmd == "pwd") {
             // Print the current working directory path
             cout << current_dir << "\n";
@@ -795,8 +810,8 @@ void play_rps() {
         else if (cmd == "uname") {
             string flag = args;
             if (flag == "-a" || flag.empty()) {
-                cout << "NoNameOS nonameos 0.5.0 C++ POSIX x86_64 GNU/C++\n";
-            } else if (flag == "-r") cout << "0.5.0\n";
+                cout << "NoNameOS nonameos 0.6.0 C++ POSIX x86_64 GNU/C++\n";
+            } else if (flag == "-r") cout << "0.6.0\n";
             else if (flag == "-s") cout << "NoNameOS\n";
             else if (flag == "-m") cout << "x86_64\n";
         }
@@ -876,9 +891,28 @@ void play_rps() {
             else cout << args << " not found\n";
         }
         else if (cmd == "alias") {
-            cout << "alias ll='ls -l'\n";
-            cout << "alias ..='cd ..'\n";
-            cout << "alias ttt='tictactoe'\n";
+            if (args.empty()) {
+                for (auto& [name, cmd_str] : aliases)
+                    cout << "alias " << name << "='" << cmd_str << "'\n";
+            } else {
+                size_t eq = args.find('=');
+                if (eq != string::npos) {
+                    string name = args.substr(0, eq);
+                    string val = args.substr(eq + 1);
+                    if (val.front() == '\'' && val.back() == '\'')
+                        val = val.substr(1, val.length() - 2);
+                    aliases[name] = val;
+                    cout << "Alias created: " << name << "='" << val << "'\n";
+                }
+            }
+        }
+        else if (cmd == "unalias") {
+            if (aliases.find(args) != aliases.end()) {
+                aliases.erase(args);
+                cout << "Alias '" << args << "' removed.\n";
+            } else {
+                cout << "Alias '" << args << "' not found.\n";
+            }
         }
         else if (cmd == "users") {
             cout << current_user << "\n";
@@ -1056,7 +1090,7 @@ void play_rps() {
                 manpages["minesweeper"] = "MINESWEEPER(1)\t\tGame Commands\n\nNAME\n\tminesweeper - terminal minesweeper\n\nSYNOPSIS\n\tminesweeper\n\nDESCRIPTION\n\tReveal cells by entering coordinates (x y). Avoid mines. Flag with 'f x y'.";
                 manpages["cfetch"] = "CFETCH(1)\t\tUser Commands\n\nNAME\n\tcfetch - system info display\n\nSYNOPSIS\n\tcfetch\n\nDESCRIPTION\n\tDisplay system information similar to neofetch.";
                 manpages["ps"] = "PS(1)\t\t\tUser Commands\n\nNAME\n\tps - list running processes\n\nSYNOPSIS\n\tps\n\nDESCRIPTION\n\tDisplay a snapshot of current simulated processes.";
-                manpages["uname"] = "UNAME(1)\t\tUser Commands\n\nNAME\n\tuname - system information\n\nSYNOPSIS\n\tuname [-a | -r | -s | -m]\n\nDESCRIPTION\n\tPrint system information. -a for all, -r for release, -s for OS name, -m for architecture.";
+                manpages["uname"] = "UNAME(1)\t\tUser Commands\n\nNAME\n\tuname - system information\n\nSYNOPSIS\n\tuname [-a | -r | -s | -m]\n\nDESCRIPTION\n\tPrint system information. -a for all, -r for release, -s for OS on Name, -m for architecture.";
                 manpages["uptime"] = "UPTIME(1)\t\tUser Commands\n\nNAME\n\tuptime - system uptime\n\nSYNOPSIS\n\tuptime\n\nDESCRIPTION\n\tDisplay how long the system has been running.";
                 manpages["cal"] = "CAL(1)\t\t\tUser Commands\n\nNAME\n\tcal - display calendar\n\nSYNOPSIS\n\tcal\n\nDESCRIPTION\n\tDisplay the current month's calendar with today highlighted.";
                 manpages["rainbow"] = "RAINBOW(1)\t\tUser Commands\n\nNAME\n\trainbow - rainbow text\n\nSYNOPSIS\n\trainbow [message]\n\nDESCRIPTION\n\tPrint text with rainbow color cycling animation.";

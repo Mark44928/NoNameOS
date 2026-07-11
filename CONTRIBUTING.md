@@ -28,10 +28,10 @@ g++ -O3 NoNameOS.cpp -o nonameos
 
 ## Ideas for Contributions
 
-- Add new games (snake, minesweeper, etc.)
+- Add new games (2048, Tetris, Pong, etc.)
 - Add new shell commands
 - Improve the AsciiDash engine
-- Add color themes
+- Add pipe support (`cmd1 | cmd2`)
 - Fix bugs
 
 ## Reporting Bugs
@@ -44,4 +44,4 @@ Use the [Feature Request](https://github.com/Mark44928/NoNameOS/issues/new?templ
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+By contributing, you agree that your contributions will be licensed under the [GNU General Public License v3](LICENSE).

@@ -4,19 +4,19 @@
 
 <h1 align="center">NoNameOS</h1>
 
-> **Note:** This screenshot is from v0.3.1. The latest version (v0.4.0) has more commands, games, and tools not shown here.
+> **Note:** This screenshot is from v0.3.1. The latest version (v0.6.0) has more commands, games, and tools not shown here.
 
 <p align="center">
-  <b>A pure C++ hobbyist operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 4 built-in games, and developer tools — all contained in a single source file. No external dependencies. No framework. Just compile and run.</b>
+  <b>A pure C++ hobbyist operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 8 built-in games, and developer tools — all contained in a single source file. No external dependencies. No framework. Just compile and run.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Mark44928/NoNameOS/network/members"><img src="https://img.shields.io/github/forks/Mark44928/NoNameOS?style=social" alt="Forks"/></a>
+  <a href="https://github.com/Mark44928/NoNameOS/forks"><img src="https://img.shields.io/github/forks/Mark44928/NoNameOS?style=social" alt="Forks"/></a>
   <a href="https://github.com/Mark44928/NoNameOS/stargazers"><img src="https://img.shields.io/github/stars/Mark44928/NoNameOS?style=social" alt="Stars"/></a>
   <a href="https://github.com/Mark44928/NoNameOS/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Mark44928/NoNameOS?color=blue" alt="License"/></a>
   <a href="https://github.com/Mark44928/NoNameOS/issues"><img src="https://img.shields.io/github/issues/Mark44928/NoNameOS" alt="Issues"/></a>
   <a href="https://github.com/Mark44928/NoNameOS/releases"><img src="https://img.shields.io/github/v/release/Mark44928/NoNameOS" alt="Release"/></a>
-  <img src="https://img.shields.io/badge/version-0.4.0-green" alt="Version"/>
+  <img src="https://img.shields.io/badge/version-0.6.0-green" alt="Version"/>
   <img src="https://img.shields.io/badge/language-C%2B%2B-blue" alt="Language"/>
   <img src="https://img.shields.io/github/languages/top/Mark44928/NoNameOS" alt="Top Language"/>
   <img src="https://img.shields.io/github/repo-size/Mark44928/NoNameOS" alt="Repo Size"/>
@@ -32,7 +32,7 @@
 ## Table of Contents
 
 - [Features](#features)
-- [What's New in v0.4.0](#whats-new-in-v040)
+- [What's New in v0.6.0](#whats-new-in-v060)
 - [Quick Start](#quick-start)
 - [Build Instructions](#build-instructions)
 - [Command Reference](#command-reference)
@@ -51,22 +51,21 @@
 
 | Category | What You Get |
 |----------|-------------|
-| **Interactive Shell** | Command prompt with 25+ commands, command history, and context-aware help |
-| **Virtual Filesystem** | Create, read, delete files and directories with sizes & creation timestamps |
-| **Games (4 built-in)** | AsciiDash runner, Guess the Number, Trivia Quiz, and a Text Adventure RPG |
-| **System Tools** | Text editor (`nano`), calculator (`calc`), system info (`cfetch`) |
-| **Utilities** | `grep` search, `find`, `cowsay`, `history`, `echo` file writer, and more |
+| **Interactive Shell** | Command prompt with 55+ commands, alias support, command history, and man pages |
+| **Virtual Filesystem** | Create, read, copy, move, delete files and directories with sizes & timestamps |
+| **Games (8 built-in)** | AsciiDash, Snake, Minesweeper, Tic-Tac-Toe, Hangman, RPS, Trivia, Adventure RPG |
+| **System Tools** | Text editor (`nano`), calculator (`calc`), system info (`cfetch`), `ps`, `uname` |
+| **Utilities** | `grep`, `find`, `sort`, `wc`, `head`, `tail`, `cowsay`, `fortune`, `banner`, and more |
 
 ---
 
-## What's New in v0.4.0
+## What's New in v0.6.0
 
-- **11+ new commands:** `pwd`, `whoami`, `date`, `history`, `grep`, `find`, `cfetch`, `touch`, `nano`, `calc`, `cowsay`, and more
-- **3 new games:** `guess` (Guess the Number), `trivia` (Trivia Quiz), `adventure` (Text RPG)
-- **Enhanced `ls -l`** with file sizes and creation timestamps
-- **Improved VFS** tracking file metadata
-- **Command history** — use `history` to view past commands
-- **Easy compilation:** single-file build, no external dependencies beyond a C++ compiler and POSIX headers
+- **3 new games:** Tic-Tac-Toe (with minimax AI), Hangman, Rock Paper Scissors (best-of-7)
+- **18 new commands:** `cp`, `mv`, `head`, `tail`, `sort`, `wc`, `tee`, `yes`, `env`, `hostname`, `sleep`, `which`, `alias`/`unalias`, `users`, `banner`, `fortune`, `factor`, `shuf`, `chmod`, `su`
+- **Man pages** for all 55+ commands via `man <cmd>`
+- **Working alias system** — create custom shortcuts with `alias name='command'`
+- **Updated boot**, help, and cfetch to v0.6.0
 
 ---
 
@@ -132,6 +131,13 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | `pwd` | `pwd` | Print current working directory |
 | `grep` | `grep <pattern> <file>` | Search for a pattern in a file |
 | `find` | `find <name>` | Find files by name |
+| `cp` | `cp <source> <dest>` | Copy a file |
+| `mv` | `mv <source> <dest>` | Move or rename a file/directory |
+| `head` | `head <file>` | Display first 10 lines of a file |
+| `tail` | `tail <file>` | Display last 10 lines of a file |
+| `sort` | `sort <file>` | Sort lines of a file alphabetically |
+| `wc` | `wc <file>` | Count lines, words, and characters |
+| `tee` | `tee <file> <text>` | Write to file and display on stdout |
 
 ### System
 
@@ -139,6 +145,11 @@ g++ -O3 NoNameOS.cpp -o nonameos
 |---------|-------|-------------|
 | `whoami` | `whoami` | Show current user |
 | `date` | `date` | Show current date and time |
+| `uptime` | `uptime` | Show system uptime and load |
+| `hostname` | `hostname` | Print system hostname |
+| `uname` | `uname [-a\|-r\|-s\|-m]` | Print system information |
+| `ps` | `ps` | List running processes |
+| `env` | `env` | Show environment variables |
 | `history` | `history` | Show command history |
 | `cfetch` | `cfetch` | Display system info (like neofetch) |
 | `clear` | `clear` | Clear the screen |
@@ -150,8 +161,25 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | Command | Usage | Description |
 |---------|-------|-------------|
 | `nano` | `nano <file>` | Built-in line-by-line text editor |
-| `calc` | `calc <expr>` | Calculator (e.g. `calc 2+3*4`, supports `+` `-` `*` `/`) |
+| `calc` | `calc <expr>` | Calculator (`+` `-` `*` `/` with precedence) |
 | `cowsay` | `cowsay [msg]` | ASCII cow with a speech bubble |
+| `man` | `man <command>` | Display manual pages for any command |
+| `cal` | `cal` | Display current month's calendar |
+| `rainbow` | `rainbow [msg]` | Print text in rainbow colors |
+| `yes` | `yes [text]` | Print text repeatedly |
+| `sleep` | `sleep <sec>` | Pause for N seconds (max 30) |
+| `which` | `which <command>` | Locate a command |
+| `alias` | `alias [name=cmd]` | Show or create aliases |
+| `unalias` | `unalias <name>` | Remove an alias |
+| `su` | `su <user>` | Switch user (root/user) |
+| `chmod` | `chmod` | Show VFS permission info |
+| `users` | `users` | Show logged-in users |
+| `banner` | `banner [msg]` | Display colored ASCII banner |
+| `fortune` | `fortune` | Random programming quote |
+| `factor` | `factor <n>` | Prime factorization of a number |
+| `shuf` | `shuf <text>` | Randomly shuffle text characters |
+| `grep` | `grep <pattern> <file>` | Search for a pattern in a file |
+| `find` | `find <name>` | Find files by name |
 
 ---
 
@@ -182,6 +210,36 @@ A dungeon RPG with HP and gold. Explore left or right, find treasure, fight mons
 adventure
 ```
 
+### Snake (`snake`)
+Terminal Snake game. Use WASD to move, eat food (`*`) to grow. Don't hit walls or yourself.
+```bash
+snake
+```
+
+### Minesweeper (`minesweeper`)
+Classic Minesweeper on a 10x10 grid with 12 mines. Enter `x y` to reveal, `f x y` to flag.
+```bash
+minesweeper
+```
+
+### Tic-Tac-Toe (`tictactoe` / `ttt`)
+Play against an AI opponent that uses minimax strategy. You are X, AI is O.
+```bash
+tictactoe
+```
+
+### Hangman (`hangman`)
+Guess letters to reveal a hidden word before the stick figure is complete.
+```bash
+hangman
+```
+
+### Rock Paper Scissors (`rps`)
+Best-of-7 series against the AI. First to 4 wins.
+```bash
+rps
+```
+
 ---
 
 ## Custom Maps
@@ -189,8 +247,8 @@ adventure
 Create your own AsciiDash maps using `^` for obstacles and `_` for flat ground:
 
 ```bash
-mkdir /geometry
-echo /geometry/mymap.gmd ____^^____^^^^____^___^
+cd /geometry
+echo mymap.gmd ____^^____^^^^____^___^
 play mymap.gmd
 ```
 
@@ -227,17 +285,17 @@ Contributions are welcome! Here's how:
 5. Open a Pull Request
 
 Ideas for contributions:
-- Add more games (snake, minesweeper, etc.)
-- Add more built-in tools (text-based paint, calendar, etc.)
-- Improve the AsciiDash engine
-- Add color themes
-- Add a `man` command with detailed docs
+- Add more games (2048, Tetris, Pong, etc.)
+- Add more built-in tools (text-based paint, cron, etc.)
+- Improve the AsciiDash engine with graphics
+- Add a package manager simulation
+- Add pipe support (`cmd1 | cmd2`)
 
 ---
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3. See the [LICENSE](LICENSE) file for details.
 
 ---
 
