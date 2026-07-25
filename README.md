@@ -67,18 +67,18 @@
 
 ## Features
 
-| Category | What You Get |
-|----------|-------------|
-| **Interactive Shell** | Color-coded prompt with command duration, 135+ commands, alias support, command history, man pages, fuzzy command suggestions |
-| **Virtual Filesystem** | Create, read, copy, move, delete, symlink files and directories with sizes, timestamps & permissions; trash/recycle |
-| **Games (24+ built-in)** | AsciiDash, Snake, Minesweeper, Tic-Tac-Toe, Hangman, RPS, Guess, Trivia, Adventure RPG, 2048, Typing Test, Reaction Test, Number Memory, Tetris, Pong, Sudoku, Flappy Bird, Memory Cards, Connect Four, Lights Out, Sliding Puzzle, Breakout, Whack-a-Mole, Wordle, Quiz |
-| **System Tools** | Text editor (`nano`), calculator (`calc`/`bc`), system info (`cfetch`), `free`, `dmesg`, `lscpu`, `ps`, `top`, `uname`, `mem`, `cpu`, `disk` |
-| **Utilities** | `grep`, `find`, `locate`, `sort`, `wc`, `head`, `tail`, `rev`, `tr`, `cut`, `uniq`, `nl`, `fold`, `cowsay`, `fortune`, `lolcat`, `sl`, `matrix`, `colors`, `weather`, and more |
-| **Converters & Encoding** | `base64`, `rot13`, `morse`, `roman`, `binary`, `hash`, `urlencode`/`urldecode`, `hexdump`, `encode` |
-| **Math & Stats** | `calc`, `calc2`, `bc`, `bmi`, `tip`, `stats`, `factor`, `random`, `dice`, `coin`, `scrabble` |
-| **Productivity** | `todo`, `notes`, `stopwatch`, `timer`, `pom` (pomodoro), `alarm`, `countdown`, `password`, `worldclock` |
-| **Text Tools** | `wordcount`, `diff`, `capitalize`, `reverse`, `repeat`, `csv`, `sparkline`, `bar` |
-| **Fun** | `quote`, `joke`, `emoji`, `pick`, `zodiac`, `age`, `datecalc`, `weather`, `ip` |
+| Category | What You Get | Highlights |
+|----------|-------------|------------|
+| **Interactive Shell** | Color-coded prompt, command duration, 135+ commands | Arrow keys, history, fuzzy suggestions |
+| **Virtual Filesystem** | Files, directories, symlinks, permissions, trash | Timestamps, sizes, `ls -l`, `chmod` |
+| **24+ Games** | Arcade, puzzle, strategy, word, reflex games | Tetris, Pong, Sudoku, Wordle, Flappy Bird |
+| **System Tools** | Text editor, calculators, system info | `nano`, `calc`, `cfetch`, `free`, `top` |
+| **Text Processing** | grep, find, sort, word count, diff | `rev`, `tr`, `cut`, `uniq`, `nl`, `fold` |
+| **Converters** | Base64, ROT13, Morse, Roman, Binary | `urlencode`, `hexdump`, `hash` |
+| **Math & Stats** | Calculators, BMI, tip, statistics | `calc2`, `bmi`, `stats`, `dice`, `coin` |
+| **Productivity** | Todo list, notes, timers, password gen | `pom`, `countdown`, `worldclock` |
+| **Visual Effects** | Matrix rain, rainbow text, color themes | `matrix`, `lolcat`, `colors`, `disco` |
+| **Fun & Easter Eggs** | 25+ hidden commands | `sudo`, `rickroll`, `konami`, `hack` |
 
 ---
 
@@ -114,11 +114,12 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/Mark44928/NoNameOS.git
-cd NoNameOS
-g++ -O3 NoNameOS.cpp -o nonameos
-./nonameos
+git clone https://github.com/Mark44928/NoNameOS.git && cd NoNameOS && g++ -O3 NoNameOS.cpp -o nonameos && ./nonameos
 ```
+
+> One command. One file. One terminal. Pure C++ fun.
+
+Or use `make`:
 
 ---
 
@@ -364,6 +365,33 @@ g++ -O3 NoNameOS.cpp -o nonameos
 
 ---
 
+## See It In Action
+
+```
+$ ./nonameos
+
+  _   __      _   __                     ____  _____
+ / | / /___  / | / /___ _____ ___  ___  / __ \/ ___/
+/  |/ / __ \/  |/ / __ `/ __ `__ \/ _ \/ / / /\__ \
+/ /|  / /_/ / /|  / /_/ / / / / / /  __/ /_/ /___/ /
+/_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
+
+root@nonameos:/$
+❯ tetris
+
+  🧱 TETRIS  Score: 4200  (AD/←→=move W/↑=rotate S/↓=drop Q=quit)
+
+  ┌──────────────────┐
+  │          ■       │
+  │        ■■■       │
+  │                  │
+  │ ■■■■             │
+  │                  │
+  └──────────────────┘
+```
+
+---
+
 ## Games
 
 ### Classic Arcade
@@ -475,6 +503,28 @@ The default map `jumper.gmd` is pre-loaded in `/geometry/`.
 
 ---
 
+## Tech Stack
+
+| Technology | Usage |
+|------------|-------|
+| **C++17** | Core language — STL containers, lambdas, structured bindings, optional |
+| **POSIX I/O** | Terminal control via `termios`, non-blocking input via `fcntl` |
+| **ANSI Escape Codes** | 256-color and truecolor (RGB) terminal rendering |
+| **RAII** | `TerminalGuard` ensures terminal state is always restored |
+| **Single-file Design** | Entire project in one `.cpp` file — zero build complexity |
+
+## Fun Facts
+
+- **4,819 lines** of hand-written C++ in a single file
+- **Zero external dependencies** — only standard library + POSIX
+- **Compiles in ~10 seconds** on a modern machine
+- **Runs on anything**: Linux, macOS, Termux (Android), WSL
+- **37 bugs found and fixed** across 4 automated audit passes
+- **25+ easter eggs** hidden throughout the codebase
+- **Built with**: C++, POSIX, and questionable life choices
+
+---
+
 ## Version History
 
 | Version | Lines | Games | Commands | Key Changes |
@@ -525,6 +575,15 @@ This project is licensed under the GNU General Public License v3. See the [LICEN
 ---
 
 <p align="center">
-  If you like NoNameOS, give it a star! It helps others discover the project.<br/>
-  <sub>Built with C++, POSIX, and questionable life choices.</sub>
+  <b>Star this repo if you like NoNameOS!</b><br/>
+  <sub>It helps others discover the project.</sub><br/><br/>
+  <img src="https://img.shields.io/badge/Made_with-❤️-red?style=for-the-badge" alt="Made with love"/>
+  <img src="https://img.shields.io/badge/Powered_by-C%2B%2B-blue?style=for-the-badge" alt="C++"/>
+  <img src="https://img.shields.io/badge/Termux-Ready-green?style=for-the-badge" alt="Termux"/>
+</p>
+
+---
+
+<p align="center">
+  <sub><i>NoNameOS — because who needs a real OS when you can have 24+ games and a terminal that judges your typing speed?</i></sub>
 </p>
