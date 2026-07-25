@@ -384,12 +384,12 @@ string readline_global(vector<string>& history) {
     string saved;
 
     auto redraw_from = [&](size_t pos) {
-        // Move to start of input area (after prompt "❯ ")
-        cout << "\r" << "\033[" << (pos + 4) << "C" << flush;
+        // Move to start of input area (after prompt "❯ " = 2 chars)
+        cout << "\r" << "\033[" << (pos + 2) << "C" << flush;
         cout << "\033[K" << flush;
         for (size_t i = pos; i < line.size(); i++) cout << line[i];
         // Move cursor back to correct position
-        cout << "\r" << "\033[" << (cursor + 4) << "C" << flush;
+        cout << "\r" << "\033[" << (cursor + 2) << "C" << flush;
     };
 
     while (true) {
@@ -3050,14 +3050,14 @@ void cmd_emoji2() {
 
     // --- Boot Logo ---
     const vector<string> logo = {
-        R"(  _   _                      _____                       _             )",
-        R"( | \ | |                    / ____|                     | |            )",
-        R"( |  \| | _____   _____ _ __| (___  _ __   __ _ _ __ ___| |__   ___   )",
-        R"( | . ` |/ _ \ \ / / _ \ '__\___ \| '_ \ / _` | '__/ __| '_ \ / _ \  )",
-        R"( | |\  |  __/\ V /  __/ |  ____) | |_) | (_| | | | (__| | | |  __/  )",
-        R"( |_| \_|\___| \_/ \___|_| |_____/| .__/ \__,_|_|  \___|_| |_|\___|  )",
-        R"(                                 | |                                 )",
-        R"(                                 |_|                                 )"
+        "  _   _                      _____                       _",
+        " | \\ | |                    / ____|                     | |",
+        " |  \\| | _____   _____ _ __| (___  _ __   __ _ _ __ ___| |__   ___",
+        " | . ` |/ _ \\ \\ / / _ \\ '__\\___ \\| '_ \\ / _` | '__/ __| '_ \\ / _ \\",
+        " | |\\  |  __/\\ V /  __/ |  ____) | |_) | (_| | | | (__| | | |  __/",
+        " |_| \\_|\\___| \\_/ \\___|_| |_____/| .__/ \\__,_|_|  \\___|_| |_|\\___|",
+        "                                 | |",
+        "                                 |_|"
     };
 
     // Animated logo with color gradient
@@ -3066,9 +3066,7 @@ void cmd_emoji2() {
         int g = (128 + i * 20) % 256;
         int b = (255 - i * 30) % 256;
         string color = clr::rgb(r, g, b);
-        // Slide in from left
-        int pad = max(0, (int)(50 - i * 3));
-        cout << string(pad, ' ') << color << clr::bold << logo[i] << clr::reset << "\n";
+        cout << color << clr::bold << logo[i] << clr::reset << "\n";
         this_thread::sleep_for(chrono::milliseconds(40));
     }
     cout << "\n";
