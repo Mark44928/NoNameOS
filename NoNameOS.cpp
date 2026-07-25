@@ -808,9 +808,9 @@ void play_asciidash(string map_data) {
     string pad(ASCIIDASH_PADDING, '_');
     map_data = pad + map_data + pad;
     size_t map_len = map_data.length();
-    if (map_len <= (size_t)(ASCIIDASH_PADDING / 2 + 1)) { cout << "Map too short.\n"; return; }
+    if (map_len <= static_cast<size_t>(ASCIIDASH_PADDING) / 2 + 1) { cout << "Map too short.\n"; return; }
 
-    for (size_t i = 0; i < map_len - (size_t)(ASCIIDASH_PADDING / 2); i++) {
+    for (size_t i = 0; i < map_len - static_cast<size_t>(ASCIIDASH_PADDING) / 2; i++) {
         if (kbhit()) {
             int k = getkey();
             if ((k == KEY_SPACE || k == KEY_UP || k == 'w') && player_y == 0) {
@@ -873,7 +873,6 @@ void play_snake() {
         int ny = snake[0].second + dy;
 
         if (nx < 0 || nx >= SNAKE_W || ny < 0 || ny >= SNAKE_H) {
-            game_over = true;
             break;
         }
 
@@ -1494,7 +1493,7 @@ void play_number_memory() {
     int max_digits = 0;
     for (int len = 3; len <= 20; len++) {
         string num;
-        for (int i = 0; i < len; i++) num += '0' + rng_int(0, 9);
+        for (int i = 0; i < len; i++) num += static_cast<char>('0' + rng_int(0, 9));
         cout << "\033[2J\033[1;1H";
         cout << "Level " << (len - 2) << " (" << len << " digits)\n\n";
         cout << "\033[1;36m" << num << "\033[0m\n\n";
@@ -1848,7 +1847,7 @@ void play_flappy() {
         bird_vy += 1;
         if (bird_vy > 3) bird_vy = 3;
         bird_y += bird_vy;
-        if (bird_y < 0 || bird_y >= FLAPPY_H) { game_over = true; break; }
+        if (bird_y < 0 || bird_y >= FLAPPY_H) { break; }
 
         // Spawn pipes
         if (frame % 20 == 0) {
@@ -2180,6 +2179,7 @@ void cmd_calc2(const string& args) {
             case '-': return a - b;
             case '*': return a * b;
             case '/': return b != 0 ? a / b : 0;
+            default: return 0;
         }
         return 0;
     };
@@ -2492,7 +2492,7 @@ void play_breakout() {
         ball_x += dx; ball_y += dy;
         if (ball_x <= 0 || ball_x >= W-1) dx = -dx;
         if (ball_y <= 0) dy = -dy;
-        if (ball_y >= H) { game_over = true; break; }
+        if (ball_y >= H) { break; }
 
         // Paddle bounce
         if (ball_y == H-2 && ball_x >= paddle && ball_x < paddle + paddle_w) { dy = -1; }
@@ -2788,8 +2788,8 @@ void cmd_datecalc(const string& args) {
         t.tm_year = y - 1900; t.tm_mon = m - 1; t.tm_mday = d;
         t.tm_hour = 12;
         time_t tt = mktime(&t);
-        if (op == "+") tt += days * 86400;
-        else tt -= days * 86400;
+        if (op == "+") tt += static_cast<time_t>(days) * 86400;
+        else tt -= static_cast<time_t>(days) * 86400;
         tm result;
         localtime_r(&tt, &result);
         cout << "  " << clr::cyan << (result.tm_year+1900) << "-" << setw(2) << setfill('0') << result.tm_mon+1 << "-" << setw(2) << setfill('0') << result.tm_mday << clr::reset << "\n";
@@ -2968,7 +2968,7 @@ void cmd_worldclock() {
     };
     cout << "\n  " << clr::bold << "World Clock:" << clr::reset << "\n\n";
     for (auto& [offset, name] : zones) {
-        time_t tz_time = now + offset * 3600;
+        time_t tz_time = now + static_cast<time_t>(offset) * 3600;
         tm t_buf;
         localtime_r(&tz_time, &t_buf);
         char buf[20];
@@ -3052,7 +3052,6 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
     istringstream ss(*c);
     string line;
     bool header = true;
-    int header_cols = 0;
     while (getline(ss, line)) {
         istringstream ls(line);
         string cell;
@@ -3062,8 +3061,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
                 cout << "  " << clr::bold << clr::cyan << setw(12) << cell << clr::reset;
                 col++;
             }
-            header_cols = col;
-            cout << "\n  " << clr::dgray << repeat(header_cols * 14, "─") << clr::reset << "\n";
+            cout << "\n  " << clr::dgray << repeat(col * 14, "─") << clr::reset << "\n";
             header = false;
         } else {
             while (getline(ls, cell, ',')) {
