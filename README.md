@@ -2,6 +2,8 @@
   <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
 </p>
 
+<p align="center"><sub><i>Screenshot from v0.3.1 — current version (v1.0.2) has 24+ games, 135+ commands, and full color support not shown here.</i></sub></p>
+
 <h1 align="center">NoNameOS</h1>
 
 <p align="center">
