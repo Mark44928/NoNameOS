@@ -1,4 +1,20 @@
-// Core headers: I/O streams, string manipulation, containers, utilities, and C time
+// ══════════════════════════════════════════════════════════════════════════════
+// NoNameOS - A pure C++ hobbyist operating-system simulation
+// ══════════════════════════════════════════════════════════════════════════════
+// Single-file C++ project (~4700 lines) featuring:
+//   - Interactive shell with color-coded prompt, arrow key support, history
+//   - Virtual filesystem (VFS) with files, directories, symlinks, permissions
+//   - 24+ built-in games (Snake, Tetris, Sudoku, Pong, 2048, etc.)
+//   - 135+ commands (text tools, converters, math, productivity, fun)
+//   - 256-color ANSI visuals with animated boot logo
+//   - 25+ hidden easter eggs
+//
+// Build: g++ -O3 NoNameOS.cpp -o nonameos
+// Run:   ./nonameos
+// License: GPLv3
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION 1: Includes, Constants, and Utility Functions
+// ══════════════════════════════════════════════════════════════════════════════
 #include <iostream>
 #include <string>
 #include <vector>
@@ -24,7 +40,10 @@
 
 using namespace std;
 
-// --- Signal safety: save terminal state globally so SIGINT can restore it ---
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION 2: Signal Handling and Terminal State Management
+// ══════════════════════════════════════════════════════════════════════════════
+// SIGINT handler restores terminal to cooked mode on Ctrl+C
 static struct termios g_orig_term;
 static bool g_term_saved = false;
 static void sigint_handler(int) {
@@ -35,7 +54,10 @@ static void sigint_handler(int) {
 static const auto program_start = chrono::steady_clock::now();
 const string VERSION = "v1.0.2";
 
-// --- Truecolor + 256-color ANSI helpers ---
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION 3: ANSI Color System and Visual Helpers
+// ══════════════════════════════════════════════════════════════════════════════
+// 256-color and truecolor ANSI escape code wrappers for terminal coloring
 namespace clr {
     // 256-color foreground
     inline string fg256(int c) { return "\033[38;5;" + to_string(c) + "m"; }
@@ -141,6 +163,13 @@ constexpr int PONG_H = 15;
 constexpr int FLAPPY_W = 30;
 constexpr int FLAPPY_H = 15;
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION 4: Core Data Structures (FSNode, TerminalGuard, Question)
+// ══════════════════════════════════════════════════════════════════════════════
+// FSNode: Virtual filesystem node (file/directory/symlink)
+// TerminalGuard: RAII wrapper for raw terminal mode (auto-restores on destruction)
+// Question: Trivia quiz question with options and correct answer index
+
 struct Question {
     string q;
     vector<string> opts;
@@ -183,6 +212,13 @@ string get_timestamp() {
     strftime(buf, sizeof(buf), "%b %d %H:%M", &t_buf);
     return string(buf);
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION 5: Virtual Filesystem (VFS) Implementation
+// ══════════════════════════════════════════════════════════════════════════════
+// FSNode represents a file, directory, or symlink in the in-memory VFS
+// resolved_path follows symlink chains (max 8 deep to prevent cycles)
+// vfs_read returns file content as optional<string> (nullopt if not found)
 
 struct FSNode {
     bool is_dir;
@@ -326,6 +362,13 @@ bool has_traversal(const string& path) {
     return path.find("..") != string::npos;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION 6: Input Handling (kbhit, getkey, readline_global)
+// ══════════════════════════════════════════════════════════════════════════════
+// kbhit: non-blocking key detection using static peek buffer
+// getkey: reads keys including arrow escape sequences (ESC [ A/B/C/D)
+// readline_global: full readline with cursor movement, history, backspace
+
 static int peek_buf = EOF;
 
 int kbhit() {
@@ -446,6 +489,13 @@ optional<string> vfs_read(const string& path, map<string,FSNode>& fs, const stri
     if (fs.find(fp) != fs.end() && !fs[fp].is_dir) return fs[fp].content;
     return nullopt;
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION 7: Command Database and Fuzzy Matching
+// ══════════════════════════════════════════════════════════════════════════════
+// ALL_COMMANDS: Set of valid command names for validation and fuzzy matching
+// edit_dist: Levenshtein distance for "did you mean?" suggestions
+// closest_cmd: Finds the nearest valid command for typo correction
 
 const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","clear","exit","play","cowsay",
     "pwd","whoami","date","history","grep","find","cfetch","ps","uname","uptime","cal","rainbow",
@@ -735,6 +785,13 @@ void cmd_bc(const string& args, map<string,FSNode>&, const string&) {
     }
     cout << "= " << result << "\n";
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION 8: Built-in Games (24+ games)
+// ══════════════════════════════════════════════════════════════════════════════
+// Each game runs in its own loop with ANSI rendering
+// Games use kbhit()/getkey() for non-blocking input
+// Arrow keys and WASD supported in all real-time games
 
 // --- ASCIIDASH ENGINE ---
 // A side-scrolling obstacle runner that renders frames using ANSI escape sequences
@@ -3030,8 +3087,11 @@ void cmd_emoji2() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  MAIN
 // ═══════════════════════════════════════════════════════════════
+// SECTION 12: Main Entry Point
+// ═══════════════════════════════════════════════════════════════
+// Initializes terminal, shows boot logo, runs the command loop
+// Handles VFS setup, aliases, and dispatches to command handlers
 
     int main() {
     signal(SIGINT, sigint_handler);
@@ -3048,18 +3108,19 @@ void cmd_emoji2() {
 
     // --- Boot Logo ---
     const vector<string> logo = {
-        "  _   ____  _____    _    _     ",
-        " / \\ |  _ \\| ____|  / \\  | |    ",
-        "/ _ \\| |_) |  _|   / _ \\ | |    ",
-        "/ ___ \\  __/| |___ / ___ \\| |___ ",
-        "/_/   \\_\\   |_____/_/   \\_\\_____|",
+        "    _   __      _   __                     ____  _____",
+        "   / | / /___  / | / /___ _____ ___  ___  / __ \\/ ___/",
+        "  /  |/ / __ \\/  |/ / __ `/ __ `__ \\/ _ \\ / / / /\\__ \\ ",
+        " / /|  / /_/ / /|  / /_/ / / / / / /  __/ /_/ /___/ / ",
+        "/_/ |_|\\____/_/ |_|\\__,_/_/ /_/ /_/\\___/\\____//____/  "
     };
 
     // Animated logo with color gradient
     for (size_t i = 0; i < logo.size(); i++) {
-        int r = (int)(i * 36) % 256;
-        int g = (int)(128 + i * 20) % 256;
-        int b = (int)(255 - i * 30) % 256;
+        int r = (int)(i * 18) % 256;
+        int g = (int)(100 + i * 15) % 256;
+        int b = (int)(200 - i * 20) % 256;
+        if (b < 0) b = 0;
         string color = clr::rgb(r, g, b);
         cout << color << clr::bold << logo[i] << clr::reset << "\n";
         this_thread::sleep_for(chrono::milliseconds(40));
