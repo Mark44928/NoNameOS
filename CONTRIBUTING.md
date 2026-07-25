@@ -28,10 +28,11 @@ g++ -O3 NoNameOS.cpp -o nonameos
 
 ## Ideas for Contributions
 
-- Add new games (2048, Tetris, Pong, etc.)
+- Add pipe support (`cmd1 | cmd2`)
 - Add new shell commands
 - Improve the AsciiDash engine
-- Add pipe support (`cmd1 | cmd2`)
+- Add more trivia questions and quiz content
+- Add persistent state across sessions
 - Fix bugs
 
 ## Reporting Bugs

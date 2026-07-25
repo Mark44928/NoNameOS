@@ -4,10 +4,10 @@
 
 <h1 align="center">NoNameOS</h1>
 
-> **Note:** This screenshot is from v0.3.1. The latest version (v0.7.0) has more commands, games, and tools not shown here.
+> **Note:** This screenshot is from v0.3.1. The latest version (v1.0.0) has more commands, games, and tools not shown here.
 
 <p align="center">
-  <b>A pure C++ hobbyist operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 13+ built-in games, and 75+ developer tools — all contained in a single source file. No external dependencies. No framework. Just compile and run.</b>
+  <b>A pure C++ hobbyist operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 24+ built-in games, and 135+ developer tools — all contained in a single source file. No external dependencies. No framework. Just compile and run.</b>
 </p>
 
 <p align="center">
@@ -16,7 +16,7 @@
   <a href="https://github.com/Mark44928/NoNameOS/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Mark44928/NoNameOS?color=blue" alt="License"/></a>
   <a href="https://github.com/Mark44928/NoNameOS/issues"><img src="https://img.shields.io/github/issues/Mark44928/NoNameOS" alt="Issues"/></a>
   <a href="https://github.com/Mark44928/NoNameOS/releases"><img src="https://img.shields.io/github/v/release/Mark44928/NoNameOS" alt="Release"/></a>
-  <img src="https://img.shields.io/badge/version-0.7.0-green" alt="Version"/>
+  <img src="https://img.shields.io/badge/version-1.0.0-green" alt="Version"/>
   <img src="https://img.shields.io/badge/language-C%2B%2B-blue" alt="Language"/>
   <img src="https://img.shields.io/github/languages/top/Mark44928/NoNameOS" alt="Top Language"/>
   <img src="https://img.shields.io/github/repo-size/Mark44928/NoNameOS" alt="Repo Size"/>
@@ -32,7 +32,7 @@
 ## Table of Contents
 
 - [Features](#features)
-- [What's New in v0.7.0](#whats-new-in-v070)
+- [What's New in v1.0.0](#whats-new-in-v100)
 - [Quick Start](#quick-start)
 - [Build Instructions](#build-instructions)
 - [Command Reference](#command-reference)
@@ -51,30 +51,25 @@
 
 | Category | What You Get |
 |----------|-------------|
-| **Interactive Shell** | Color-coded prompt with command duration, 75+ commands, alias support, command history, man pages, fuzzy command suggestions |
+| **Interactive Shell** | Color-coded prompt with command duration, 135+ commands, alias support, command history, man pages, fuzzy command suggestions |
 | **Virtual Filesystem** | Create, read, copy, move, delete, symlink files and directories with sizes, timestamps & permissions; trash/recycle |
-| **Games (13+ built-in)** | AsciiDash, Snake, Minesweeper, Tic-Tac-Toe, Hangman, RPS, Guess, Trivia, Adventure RPG, 2048, Wordle, Typing Test, Reaction Test, Number Memory |
-| **System Tools** | Text editor (`nano`), calculator (`calc`/`bc`), system info (`cfetch`), `free`, `dmesg`, `lscpu`, `ps`, `top`, `uname` |
-| **Utilities** | `grep`, `find`, `locate`, `sort`, `wc`, `head`, `tail`, `rev`, `tr`, `cut`, `uniq`, `nl`, `fold`, `cowsay`, `fortune`, `lolcat`, `sl`, and more |
-| **Productivity** | `todo`, `notes`, `stopwatch`, `timer`, `pom` (pomodoro), `alarm`, colored `help <cmd>` descriptions |
+| **Games (24+ built-in)** | AsciiDash, Snake, Minesweeper, Tic-Tac-Toe, Hangman, RPS, Guess, Trivia, Adventure RPG, 2048, Typing Test, Reaction Test, Number Memory, Tetris, Pong, Sudoku, Flappy Bird, Memory Cards, Connect Four, Lights Out, Sliding Puzzle, Breakout, Whack-a-Mole, Wordle, Quiz |
+| **System Tools** | Text editor (`nano`), calculator (`calc`/`bc`), system info (`cfetch`), `free`, `dmesg`, `lscpu`, `ps`, `top`, `uname`, `mem`, `cpu`, `disk` |
+| **Utilities** | `grep`, `find`, `locate`, `sort`, `wc`, `head`, `tail`, `rev`, `tr`, `cut`, `uniq`, `nl`, `fold`, `cowsay`, `fortune`, `lolcat`, `sl`, `matrix`, `colors`, `weather`, and more |
+| **Converters & Encoding** | `base64`, `rot13`, `morse`, `roman`, `binary`, `hash`, `urlencode`/`urldecode`, `hexdump`, `encode` |
+| **Math & Stats** | `calc`, `calc2`, `bc`, `bmi`, `tip`, `stats`, `factor`, `random`, `dice`, `coin`, `scrabble` |
+| **Productivity** | `todo`, `notes`, `stopwatch`, `timer`, `pom` (pomodoro), `alarm`, `countdown`, `password`, `worldclock` |
+| **Text Tools** | `wordcount`, `diff`, `capitalize`, `reverse`, `repeat`, `csv`, `sparkline`, `bar` |
+| **Fun** | `quote`, `joke`, `emoji`, `pick`, `zodiac`, `age`, `datecalc`, `weather`, `ip` |
 
 ---
 
-## What's New in v0.7.0
+## What's New in v1.0.0
 
-- **5 new games:** 2048, Wordle (coming soon), Typing Test (WPM), Reaction Time Test, Number Memory
-- **20+ new commands:** `tree`, `watch`, `ping`, `top`, `df`, `seq`, `free`, `dmesg`, `lscpu`, `lsusb`, `arch`, `nproc`, `rev`, `tr`, `cut`, `paste`, `uniq`, `nl`, `fold`, `basename`, `dirname`, `ln -s`, `du`, `locate`, `trash`, `pom`, `alarm`, `bc`, `lolcat`, `sl`/`train`, `stopwatch`, `timer`, `who`, `useradd`, `userdel`
-- **Productivity tools:** `todo` (task list), `notes` (VFS notes), `pom` (pomodoro timer), `alarm`, `stopwatch`, `timer`
-- **Scientific calc** — `sin()`, `cos()`, `tan()`, `sqrt()`, `log()`, `pow()`, `%` modulo, `^` power
-- **Symlinks** via `ln -s` with follow resolution
-- **Trash/recycle** — `rm` moves to `/trash/` instead of deleting; `trash list`/`trash empty`
-- **VFS permissions** — `chmod` now writes real mode strings, `ls -l` shows dynamic perms
-- **Color-coded prompt** — green user, white host, blue directory; shows last command duration
-- **Polished boot** — progress bars during startup
-- **Fuzzy command suggestions** — "Did you mean `cal`?" on typos like `clac`
-- **`help <cmd>`** — one-line description per command
-- **Man pages** for all 75+ commands via `man <cmd>`
-- **RAII TerminalGuard** — safe terminal state restoration
+- **11 new games:** Tetris, Pong, Sudoku, Flappy Bird, Memory Cards, Connect Four, Lights Out, Sliding Puzzle, Breakout, Whack-a-Mole, Wordle, Quiz
+- **60+ new commands:** `tetris`, `pong`, `sudoku`, `flappy`, `memory`, `connect4`, `lightsout`, `puzzle`, `breakout`, `whack`, `wordle`, `quiz`, `colors`, `weather`, `epoch`, `uuid`, `base64`, `rot13`, `uppercase`, `lowercase`, `wordcount`, `matrix`, `cmtheme`, `countdown`, `ascii`, `hexdump`, `password`, `quote`, `joke`, `ip`, `mem`, `cpu`, `disk`, `calc2`, `bmi`, `tip`, `units`, `roman`, `binary`, `morse`, `bar`, `sparkline`, `colorgen`, `palette`, `diff`, `csv`, `stats`, `age`, `datecalc`, `encode`, `hash`, `urlencode`, `urldecode`, `reverse`, `capitalize`, `repeat`, `scrabble`, `emoji`, `random`, `pick`, `dice`, `coin`, `zodiac`, `worldclock`, `quiz`, `wordle`
+- **Enhanced visuals** — 256-color ANSI support, truecolor, animated boot logo with RGB gradient, styled game headers, progress bars, color-coded system info
+- **All previous v0.7.0 features** — 75+ commands, 13 games, VFS, shell, man pages, fuzzy suggestions
 
 ---
 
@@ -238,6 +233,75 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | `timer` | `timer <sec>` | Countdown timer with visual feedback |
 | `pom` | `pom` | Pomodoro timer (25min focus / 5min break) |
 | `alarm` | `alarm <sec>` | Set an alarm that counts down |
+| `countdown` | `countdown <sec>` | Countdown with progress bar (1-600s) |
+| `password` | `password` | Generate secure random password (12-20 chars) |
+| `worldclock` | `worldclock` | Show times across 6 time zones |
+
+### Converters & Encoding
+
+| Command | Usage | Description |
+|---------|-------|-------------|
+| `base64` | `base64 <file\|text>` | Base64 encode text or file |
+| `rot13` | `rot13 <text>` | ROT13 text rotation |
+| `morse` | `morse <text>` | Convert text to Morse code |
+| `roman` | `roman <num>` | Convert number to Roman numerals (1-3999) |
+| `binary` | `binary <num>` | Convert number to binary |
+| `hash` | `hash <text>` | Generate DJB2 hash |
+| `urlencode` | `urlencode <text>` | URL-encode text |
+| `urldecode` | `urldecode <text>` | URL-decode text |
+| `hexdump` | `hexdump <file\|text>` | Hex dump with ASCII sidebar |
+| `encode` | `encode <text>` | Show ROT13, uppercase, and lowercase |
+
+### Math & Stats
+
+| Command | Usage | Description |
+|---------|-------|-------------|
+| `calc2` | `calc2 <expr>` | Infix calculator with proper precedence |
+| `bmi` | `bmi <weight_kg> <height_m>` | Calculate BMI |
+| `tip` | `tip <bill> <percent>` | Calculate tip and total |
+| `stats` | `stats <num1> <num2> ...` | Mean, median, std dev, min, max |
+| `random` | `random [lo] [hi]` | Random number (default 1-100) |
+| `dice` | `dice [n]` | Roll n dice (default 1) |
+| `coin` | `coin` | Flip a coin |
+| `scrabble` | `scrabble <word>` | Calculate Scrabble score |
+| `age` | `age <year> <month> <day>` | Calculate age from birthdate |
+| `datecalc` | `datecalc <y m d> +\|- <days>` | Add/subtract days from a date |
+| `units` | `units <val> <from> <to>` | Convert units (km/mi, kg/lb, C/F, etc.) |
+
+### Text Tools
+
+| Command | Usage | Description |
+|---------|-------|-------------|
+| `wordcount` | `wordcount <file>` | Word/line/char count + frequency chart |
+| `diff` | `diff <file1> <file2>` | Show differences between two files |
+| `capitalize` | `capitalize <text>` | Capitalize first letter of each word |
+| `reverse` | `reverse <text>` | Reverse a string |
+| `repeat` | `repeat <n> <text>` | Repeat text n times |
+| `bar` | `bar <label value> ...` | Draw a bar chart |
+| `sparkline` | `sparkline <n1> <n2> ...` | Draw a sparkline |
+| `csv` | `csv <file>` | Display CSV as formatted table |
+
+### Fun & Info
+
+| Command | Usage | Description |
+|---------|-------|-------------|
+| `colors` | `colors` | Show all 16 color palette swatches |
+| `cmtheme` | `cmtheme` | Show color theme options |
+| `colorgen` | `colorgen` | Generate random color with RGB + hex |
+| `palette` | `palette` | Generate 10-color palette from seed |
+| `matrix` | `matrix [rows]` | Matrix rain animation |
+| `ascii` | `ascii` | Random ASCII art |
+| `emoji` | `emoji [name]` | Show emoji or list all emojis |
+| `pick` | `pick a \| b \| c` | Randomly pick from options |
+| `zodiac` | `zodiac <month> <day>` | Get zodiac sign |
+| `quote` | `quote` | Random inspirational quote |
+| `joke` | `joke` | Random programming joke |
+| `weather` | `weather` | Simulated weather report |
+| `ip` | `ip` | Show simulated IP addresses |
+| `uptime2` | `uptime2` | Detailed uptime with progress bar |
+| `mem` | `mem` | Memory usage with bar |
+| `cpu` | `cpu` | Per-core CPU usage |
+| `disk` | `disk` | Disk usage across mounts |
 
 ---
 
@@ -322,6 +386,78 @@ Memorize a growing sequence of digits and type it back. How many can you remembe
 nummem
 ```
 
+### Tetris (`tetris`)
+Classic falling-block puzzle. Move with A/D, rotate with W, hard-drop with S.
+```bash
+tetris
+```
+
+### Pong (`pong`)
+Two-player Pong with AI. Left paddle: W/S. Right paddle: O/L. First to 5 wins.
+```bash
+pong
+```
+
+### Sudoku (`sudoku`)
+9x9 Sudoku puzzle with pre-filled clues. Enter `r c value` to place numbers.
+```bash
+sudoku
+```
+
+### Flappy Bird (`flappy`)
+Flap through pipes! SPACE or W to flap. How far can you go?
+```bash
+flappy
+```
+
+### Memory Cards (`memory`)
+Match emoji pairs on a 4x4 grid. Enter `r c` to flip cards.
+```bash
+memory
+```
+
+### Connect Four (`connect4`)
+Drop discs into a 7-column grid. First to 4 in a row wins. AI opponent.
+```bash
+connect4
+```
+
+### Lights Out (`lightsout`)
+Toggle lights on a 5x5 grid. Each toggle flips neighbors too. Turn all lights off.
+```bash
+lightsout
+```
+
+### Sliding Puzzle (`puzzle`)
+The classic 15-puzzle. Slide tiles with WASD to arrange them in order.
+```bash
+puzzle
+```
+
+### Breakout (`breakout`)
+Break all the bricks with a bouncing ball. A/D to move the paddle.
+```bash
+breakout
+```
+
+### Whack-a-Mole (`whack`)
+Whack moles as they pop up! Press 1-9 to whack. 3 misses and you're out.
+```bash
+whack
+```
+
+### Wordle (`wordle`)
+Guess the 5-letter word in 6 attempts. Green = correct, Yellow = wrong position.
+```bash
+wordle
+```
+
+### Quiz (`quiz`)
+5 random questions from a pool of 10. Test your general knowledge.
+```bash
+quiz
+```
+
 ---
 
 ## Custom Maps
@@ -367,11 +503,11 @@ Contributions are welcome! Here's how:
 5. Open a Pull Request
 
 Ideas for contributions:
-- Add more games (Tetris, Pong, Sudoku, etc.)
 - Add pipe support (`cmd1 | cmd2`)
 - Add a package manager simulation
 - Add persistent state across sessions
 - Improve the AsciiDash engine with graphics
+- Add more trivia questions and quiz content
 
 ---
 

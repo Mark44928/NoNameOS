@@ -1,0 +1,15 @@
+# Compiled binary
+nonameos
+*.o
+*.out
+
+# Editor/IDE
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS metadata
+.DS_Store
+Thumbs.db
