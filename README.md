@@ -4,7 +4,14 @@
 
 <h1 align="center">NoNameOS</h1>
 
-> **Note:** This screenshot is from v0.3.1. The latest version (v1.0.0) has more commands, games, and tools not shown here.
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.0.2-green?style=for-the-badge" alt="Version"/>
+  <img src="https://img.shields.io/badge/language-C%2B%2B-blue?style=for-the-badge" alt="C++"/>
+  <img src="https://img.shields.io/badge/license-GPLv3-purple?style=for-the-badge" alt="License"/>
+  <img src="https://img.shields.io/badge/4%2C774-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
+  <img src="https://img.shields.io/badge/24%2B_games-red?style=for-the-badge" alt="Games"/>
+  <img src="https://img.shields.io/badge/135%2B_commands-cyan?style=for-the-badge" alt="Commands"/>
+</p>
 
 <p align="center">
   <b>A pure C++ hobbyist operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 24+ built-in games, and 135+ developer tools — all contained in a single source file. No external dependencies. No framework. Just compile and run.</b>
@@ -13,13 +20,8 @@
 <p align="center">
   <a href="https://github.com/Mark44928/NoNameOS/forks"><img src="https://img.shields.io/github/forks/Mark44928/NoNameOS?style=social" alt="Forks"/></a>
   <a href="https://github.com/Mark44928/NoNameOS/stargazers"><img src="https://img.shields.io/github/stars/Mark44928/NoNameOS?style=social" alt="Stars"/></a>
-  <a href="https://github.com/Mark44928/NoNameOS/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Mark44928/NoNameOS?color=blue" alt="License"/></a>
-  <a href="https://github.com/Mark44928/NoNameOS/issues"><img src="https://img.shields.io/github/issues/Mark44928/NoNameOS" alt="Issues"/></a>
   <a href="https://github.com/Mark44928/NoNameOS/releases"><img src="https://img.shields.io/github/v/release/Mark44928/NoNameOS" alt="Release"/></a>
-  <img src="https://img.shields.io/badge/version-1.0.0-green" alt="Version"/>
-  <img src="https://img.shields.io/badge/language-C%2B%2B-blue" alt="Language"/>
-  <img src="https://img.shields.io/github/languages/top/Mark44928/NoNameOS" alt="Top Language"/>
-  <img src="https://img.shields.io/github/repo-size/Mark44928/NoNameOS" alt="Repo Size"/>
+  <a href="https://github.com/Mark44928/NoNameOS/issues"><img src="https://img.shields.io/github/issues/Mark44928/NoNameOS" alt="Issues"/></a>
   <a href="https://github.com/Mark44928/NoNameOS/pulse"><img src="https://img.shields.io/github/commit-activity/m/Mark44928/NoNameOS" alt="Commit Activity"/></a>
 </p>
 
@@ -29,20 +31,34 @@
 
 ---
 
+## Why NoNameOS?
+
+| | |
+|---|---|
+| **Single File** | Entire project is one `.cpp` file — no build system, no dependencies, no headaches |
+| **Fun to Use** | 24+ games, easter eggs, colored output, animated boot — it's actually enjoyable |
+| **Learn C++** | See real-world use of STL containers, OOP, RAII, ANSI escape codes, POSIX I/O |
+| **Hackable** | Every feature is in one file — easy to read, modify, and extend |
+| **Portable** | Compiles on any Linux system with g++ or clang++ (including Termux on Android) |
+
+---
+
 ## Table of Contents
 
+- [Why NoNameOS?](#why-nonameos)
 - [Features](#features)
-- [What's New in v1.0.0](#whats-new-in-v100)
+- [What's New in v1.0.2](#whats-new-in-v102)
 - [Quick Start](#quick-start)
+- [Keyboard Shortcuts](#keyboard-shortcuts)
 - [Build Instructions](#build-instructions)
 - [Command Reference](#command-reference)
-  - [Filesystem Commands](#filesystem-commands)
-  - [System Commands](#system-commands)
-  - [Tools](#tools)
 - [Games](#games)
+- [Easter Eggs](#easter-eggs)
 - [Custom Maps](#custom-maps)
 - [Platform Requirements](#platform-requirements)
+- [Perfect For](#perfect-for)
 - [Contributing](#contributing)
+- [Version History](#version-history)
 - [License](#license)
 
 ---
@@ -64,12 +80,32 @@
 
 ---
 
-## What's New in v1.0.0
+## What's New in v1.0.2
 
+### Bug Fixes (37 total across all audits)
+- Fixed 2 critical Sudoku infinite loops in initialization
+- Fixed `setfill('0')` state leak across commands
+- Fixed 5 dead easter eggs (moved inside primary handlers)
+- Fixed hangman — now draws complete figure at game end
+- Fixed Tic-Tac-toe error pause in raw mode
+- Added `cin.ignore` before `cin.get()` in all 21 prompts
+- Added quit mechanism to guess game
+- Fixed 2048 duplicate win message
+- Whack-a-mole '0' now triggers miss as documented
+- World clock uses UTC offset math (no global `TZ` modification)
+- Tetris J-piece now has 4 rotations
+- kbhit/getkey use static peek buffer (race-free)
+- CSV separator width fixed
+
+### New in v1.0.1
+- Global arrow key support in all 7 real-time games
+- Shell readline with cursor movement, backspace, history navigation
+- 25+ easter eggs (`sudo`, `konami`, `rickroll`, `disco`, `matrix`, etc.)
+
+### New in v1.0.0
 - **11 new games:** Tetris, Pong, Sudoku, Flappy Bird, Memory Cards, Connect Four, Lights Out, Sliding Puzzle, Breakout, Whack-a-Mole, Wordle, Quiz
-- **60+ new commands:** `tetris`, `pong`, `sudoku`, `flappy`, `memory`, `connect4`, `lightsout`, `puzzle`, `breakout`, `whack`, `wordle`, `quiz`, `colors`, `weather`, `epoch`, `uuid`, `base64`, `rot13`, `uppercase`, `lowercase`, `wordcount`, `matrix`, `cmtheme`, `countdown`, `ascii`, `hexdump`, `password`, `quote`, `joke`, `ip`, `mem`, `cpu`, `disk`, `calc2`, `bmi`, `tip`, `units`, `roman`, `binary`, `morse`, `bar`, `sparkline`, `colorgen`, `palette`, `diff`, `csv`, `stats`, `age`, `datecalc`, `encode`, `hash`, `urlencode`, `urldecode`, `reverse`, `capitalize`, `repeat`, `scrabble`, `emoji`, `random`, `pick`, `dice`, `coin`, `zodiac`, `worldclock`, `quiz`, `wordle`
-- **Enhanced visuals** — 256-color ANSI support, truecolor, animated boot logo with RGB gradient, styled game headers, progress bars, color-coded system info
-- **All previous v0.7.0 features** — 75+ commands, 13 games, VFS, shell, man pages, fuzzy suggestions
+- **60+ new commands:** Converters, math tools, text processing, fun utilities
+- **Enhanced visuals:** 256-color ANSI, truecolor RGB, animated boot, styled prompts
 
 ---
 
@@ -81,6 +117,27 @@ cd NoNameOS
 g++ -O3 NoNameOS.cpp -o nonameos
 ./nonameos
 ```
+
+---
+
+## Keyboard Shortcuts
+
+### Shell
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate command history |
+| `←` / `→` | Move cursor left/right |
+| `Backspace` | Delete character at cursor |
+| `Enter` | Execute command |
+
+### Games
+| Key | Action |
+|-----|--------|
+| `WASD` / `Arrow Keys` | Move (snake, tetris, pong, breakout) |
+| `SPACE` / `W` / `↑` | Jump (flappy, asciidash) |
+| `Q` | Quit any game |
+| `1-9` | Whack-a-mole input |
+| `Enter` | Confirm / continue |
 
 ---
 
@@ -307,156 +364,80 @@ g++ -O3 NoNameOS.cpp -o nonameos
 
 ## Games
 
-### AsciiDash (`play`)
-A side-scrolling obstacle runner. Jump over `^` obstacles with the **SPACE** key.
-```bash
-play                # Run default map "Stereo Madness"
-play jumper.gmd     # Run a custom map from the VFS
-```
+### Classic Arcade
+| Game | Command | Description | Controls |
+|------|---------|-------------|----------|
+| **Snake** | `snake` | Eat food to grow. Don't hit walls or yourself. | WASD / Arrows |
+| **Tetris** | `tetris` | Falling blocks. Clear lines to score. | AD=move W=rotate S=drop |
+| **Pong** | `pong` | Classic Pong vs AI. First to 5 wins. | WS=move |
+| **Breakout** | `breakout` | Break bricks with a bouncing ball. | AD=move |
+| **Flappy Bird** | `flappy` | Flap through pipes. How far can you go? | SPACE=flap |
 
-### Guess the Number (`guess`)
-Guess a random number between 1 and 100. You get unlimited attempts.
-```bash
-guess
-```
+### Puzzle & Logic
+| Game | Command | Description | Controls |
+|------|---------|-------------|----------|
+| **2048** | `2048` | Slide tiles to merge them. Reach 2048. | WASD |
+| **Sudoku** | `sudoku` | 9x9 number puzzle with pre-filled clues. | r c value |
+| **Minesweeper** | `minesweeper` | 10x10 grid. Find mines without blowing up. | x y to reveal |
+| **Sliding Puzzle** | `puzzle` | Classic 15-puzzle. Arrange tiles in order. | WASD / Arrows |
+| **Lights Out** | `lightsout` | Toggle lights on 5x5 grid. Turn all off. | r c |
 
-### Trivia Quiz (`trivia`)
-Answer 5 multiple-choice questions about computers and technology.
-```bash
-trivia
-```
+### Strategy
+| Game | Command | Description | Controls |
+|------|---------|-------------|----------|
+| **Tic-Tac-Toe** | `tictactoe` | Play against minimax AI. You are X. | 1-9 |
+| **Connect Four** | `connect4` | Drop discs. First to 4 in a row wins. | 1-7 |
 
-### Text Adventure (`adventure`)
-A dungeon RPG with HP and gold. Explore left or right, find treasure, fight monsters, and survive.
-```bash
-adventure
-```
+### Word & Knowledge
+| Game | Command | Description | Controls |
+|------|---------|-------------|----------|
+| **Wordle** | `wordle` | Guess the 5-letter word in 6 attempts. | Type word |
+| **Hangman** | `hangman` | Guess letters before the figure is complete. | Type letter |
+| **Trivia** | `trivia` | 5 tech questions. Test your knowledge. | 1-4 |
+| **Quiz** | `quiz` | 5 random general knowledge questions. | 1-4 |
 
-### Snake (`snake`)
-Terminal Snake game. Use WASD to move, eat food (`*`) to grow. Don't hit walls or yourself.
-```bash
-snake
-```
+### Reflex & Speed
+| Game | Command | Description | Controls |
+|------|---------|-------------|----------|
+| **Whack-a-Mole** | `whack` | Whack moles as they pop up! | 1-9 |
+| **Typing Test** | `typing` | Test your typing speed and accuracy. | Type |
+| **Reaction Time** | `reaction` | Press key when screen flashes. 3 rounds. | Any key |
 
-### Minesweeper (`minesweeper`)
-Classic Minesweeper on a 10x10 grid with 12 mines. Enter `x y` to reveal, `f x y` to flag.
-```bash
-minesweeper
-```
+### Other
+| Game | Command | Description | Controls |
+|------|---------|-------------|----------|
+| **AsciiDash** | `play` | Side-scrolling obstacle runner. | SPACE=jump |
+| **Adventure** | `adventure` | Dungeon RPG with HP and gold. | left/right/rest |
+| **Guess** | `guess` | Guess a number 1-100. | Type number |
+| **Rock Paper Scissors** | `rps` | Best-of-7 vs AI. | 1-3 |
+| **Number Memory** | `nummem` | Memorize growing digit sequences. | Type digits |
 
-### Tic-Tac-Toe (`tictactoe` / `ttt`)
-Play against an AI opponent that uses minimax strategy. You are X, AI is O.
-```bash
-tictactoe
-```
+---
 
-### Hangman (`hangman`)
-Guess letters to reveal a hidden word before the stick figure is complete.
-```bash
-hangman
-```
+## Easter Eggs
 
-### Rock Paper Scissors (`rps`)
-Best-of-7 series against the AI. First to 4 wins.
-```bash
-rps
-```
+NoNameOS has **25+ hidden easter eggs**. Try these:
 
-### 2048 (`2048`)
-Slide numbered tiles with WASD to merge them. Reach the 2048 tile to win.
-```bash
-2048
-```
-
-### Typing Test (`typing`)
-Test your typing speed. Type the shown sentence as fast as you can and get your WPM and accuracy.
-```bash
-typing
-```
-
-### Reaction Time (`reaction`)
-Test your reflexes. Press any key when the screen flashes green. 3 rounds, average displayed.
-```bash
-reaction
-```
-
-### Number Memory (`nummem`)
-Memorize a growing sequence of digits and type it back. How many can you remember?
-```bash
-nummem
-```
-
-### Tetris (`tetris`)
-Classic falling-block puzzle. Move with A/D, rotate with W, hard-drop with S.
-```bash
-tetris
-```
-
-### Pong (`pong`)
-Two-player Pong with AI. Left paddle: W/S. Right paddle: O/L. First to 5 wins.
-```bash
-pong
-```
-
-### Sudoku (`sudoku`)
-9x9 Sudoku puzzle with pre-filled clues. Enter `r c value` to place numbers.
-```bash
-sudoku
-```
-
-### Flappy Bird (`flappy`)
-Flap through pipes! SPACE or W to flap. How far can you go?
-```bash
-flappy
-```
-
-### Memory Cards (`memory`)
-Match emoji pairs on a 4x4 grid. Enter `r c` to flip cards.
-```bash
-memory
-```
-
-### Connect Four (`connect4`)
-Drop discs into a 7-column grid. First to 4 in a row wins. AI opponent.
-```bash
-connect4
-```
-
-### Lights Out (`lightsout`)
-Toggle lights on a 5x5 grid. Each toggle flips neighbors too. Turn all lights off.
-```bash
-lightsout
-```
-
-### Sliding Puzzle (`puzzle`)
-The classic 15-puzzle. Slide tiles with WASD to arrange them in order.
-```bash
-puzzle
-```
-
-### Breakout (`breakout`)
-Break all the bricks with a bouncing ball. A/D to move the paddle.
-```bash
-breakout
-```
-
-### Whack-a-Mole (`whack`)
-Whack moles as they pop up! Press 1-9 to whack. 3 misses and you're out.
-```bash
-whack
-```
-
-### Wordle (`wordle`)
-Guess the 5-letter word in 6 attempts. Green = correct, Yellow = wrong position.
-```bash
-wordle
-```
-
-### Quiz (`quiz`)
-5 random questions from a pool of 10. Test your general knowledge.
-```bash
-quiz
-```
+| Command | What Happens |
+|---------|-------------|
+| `sudo make me a sandwich` | "Okay." |
+| `sudo rm -rf /` | "NUCLEAR LAUNCH DENIED" |
+| `42` | The Answer to the Ultimate Question |
+| `konami` | Konami Code activated! |
+| `rickroll` | Never gonna give you up... |
+| `hack` | Hollywood-style hacking animation |
+| `disco` | Rainbow disco mode |
+| `dance` | Dancing stick figure |
+| `matrix -r` | "Wake up, Neo..." |
+| `whoami really` | Existential crisis |
+| `lenny` | ( ͡° ͜ʖ ͡°) |
+| `tableflip` | (╯°□°)╯︵ ┻━┻ |
+| `dealwithit` | (⌐■_■) |
+| `loading` | Fake loading bar |
+| `glhf` | Good luck, have fun! |
+| `version -a` | Developer stats |
+| `cat /dev/brain` | "You're already using it" |
+| `echo hello world` | Hello, World! greeting |
 
 ---
 
@@ -492,6 +473,20 @@ The default map `jumper.gmd` is pre-loaded in `/geometry/`.
 
 ---
 
+## Version History
+
+| Version | Lines | Games | Commands | Key Changes |
+|---------|-------|-------|----------|-------------|
+| **v1.0.2** | 4,774 | 24 | 135 | 16 audit bug fixes (37 total) |
+| **v1.0.1** | 4,561 | 24 | 135 | Arrow keys, cursor movement, easter eggs |
+| **v1.0.0** | 4,500 | 24 | 135 | 11 new games, 60+ commands, visual overhaul |
+| **v0.7.0** | 2,500 | 13 | 75 | VFS, games, tools, alias system |
+| **v0.6.0** | 1,800 | 9 | 55 | 3 games, 18 commands, man pages |
+| **v0.4.0** | 1,100 | 6 | 35 | 13 new features |
+| **v0.3.1** | 800 | 3 | 20 | Initial release |
+
+---
+
 ## Contributing
 
 Contributions are welcome! Here's how:
@@ -502,12 +497,15 @@ Contributions are welcome! Here's how:
 4. Push to the branch (`git push origin feature/my-feature`)
 5. Open a Pull Request
 
-Ideas for contributions:
+### Ideas for contributions:
 - Add pipe support (`cmd1 | cmd2`)
 - Add a package manager simulation
 - Add persistent state across sessions
 - Improve the AsciiDash engine with graphics
 - Add more trivia questions and quiz content
+- Add new games (Tetris Pong variants, puzzles, etc.)
+- Add `vim` command with basic modal editing
+- Add tab completion for commands and paths
 
 ---
 
@@ -525,5 +523,6 @@ This project is licensed under the GNU General Public License v3. See the [LICEN
 ---
 
 <p align="center">
-  If you like NoNameOS, give it a star! It helps others discover the project.
+  If you like NoNameOS, give it a star! It helps others discover the project.<br/>
+  <sub>Built with C++, POSIX, and questionable life choices.</sub>
 </p>
