@@ -315,8 +315,7 @@ string resolve_user_path(const string& arg, const string& current_dir) {
     string result = "/";
     for (size_t i = 0; i < parts.size(); i++) {
         result += parts[i];
-        if (i + 1 < parts.size()) result += "/";
-        else result += "/";
+        result += "/";
     }
     if (parts.empty()) result = "/";
     return result;
@@ -377,7 +376,7 @@ int getkey() {
 }
 
 // Global readline with arrow key support for history navigation
-string readline_global(vector<string>& history) {
+string readline_global(const vector<string>& history) {
     string line;
     size_t cursor = 0;
     int hist_idx = (int)history.size();
@@ -435,7 +434,7 @@ string readline_global(vector<string>& history) {
             }
         }
         else if (k >= 32 && k < 127) { // Printable
-            line.insert(line.begin() + cursor, (char)k);
+            line.insert(line.begin() + (int)cursor, (char)k);
             cursor++;
             redraw_from(cursor - 1);
         }
@@ -1218,8 +1217,8 @@ vector<string> SYSTEM_USERS = {"root", "user", "guest", "admin"};
 
 void show_progress(int current, int total, const string& label) {
     int bar_width = 30;
-    float pct = total > 0 ? (float)current / total : 0.0f;
-    int pos = (int)(bar_width * pct);
+    float pct = total > 0 ? (float)current / (float)total : 0.0f;
+    int pos = (int)((float)bar_width * pct);
     cout << "\r" << label << " [";
     for (int i = 0; i < bar_width; i++) {
         if (i < pos) cout << "\033[32m=\033[0m";
@@ -1380,14 +1379,14 @@ void play_typing_test() {
     string input;
     getline(cin, input);
     auto end = chrono::steady_clock::now();
-    double elapsed_s = chrono::duration_cast<chrono::milliseconds>(end - start).count() / 1000.0;
+    double elapsed_s = (double)chrono::duration_cast<chrono::milliseconds>(end - start).count() / 1000.0;
     int chars_typed = (int)input.length();
     double wpm = elapsed_s > 0 ? (chars_typed / 5.0) / (elapsed_s / 60.0) : 0.0;
     int correct = 0;
     for (size_t i = 0; i < min(input.length(), sentence.length()); i++)
         if (input[i] == sentence[i]) correct++;
-    int maxlen = max(input.length(), sentence.length());
-    double accuracy = maxlen > 0 ? 100.0 * correct / maxlen : 0.0;
+    size_t maxlen = max(input.length(), sentence.length());
+    double accuracy = maxlen > 0 ? 100.0 * correct / (double)maxlen : 0.0;
     cout << "\nTime: " << elapsed_s << "s\n";
     cout << "WPM: " << (int)wpm << "\n";
     cout << "Accuracy: " << (int)accuracy << "%\n";
@@ -1413,7 +1412,7 @@ void play_reaction_time() {
         while (!kbhit()) this_thread::sleep_for(chrono::milliseconds(1));
         (void)getchar();
         auto end = chrono::steady_clock::now();
-        times[r] = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+        times[r] = (double)chrono::duration_cast<chrono::milliseconds>(end - start).count();
         cout << "\r  " << times[r] << " ms\n";
         while (kbhit()) (void)getchar();
         if (r < 2) {
@@ -1932,7 +1931,8 @@ void cmd_wordcount(const string& args, map<string,FSNode>& fs, const string& cdi
     map<string, int> freq;
     istringstream ss(*c);
     string word;
-    int words = 0, lines = 0, chars = c->size();
+    int words = 0, lines = 0;
+    size_t chars = c->size();
     bool in_word = false;
     for (char ch : *c) {
         if (ch == '\n') lines++;
@@ -1982,7 +1982,7 @@ void cmd_countdown(int sec) {
     if (sec <= 0 || sec > 600) { cout << "Usage: countdown <1-600>\n"; return; }
     for (int i = sec; i > 0; i--) {
         int m = i / 60, s = i % 60;
-        cout << "\r  " << clr::bold << clr::cyan << (m < 10 ? "0" : "") << m << ":" << (s < 10 ? "0" : "") << s << clr::reset << "  " << clr::dgray << repeat((int)((float)i / sec * 30), "█") << repeat(max(0, 30 - (int)((float)i / sec * 30)), "░") << clr::reset << flush;
+        cout << "\r  " << clr::bold << clr::cyan << (m < 10 ? "0" : "") << m << ":" << (s < 10 ? "0" : "") << s << clr::reset << "  " << clr::dgray << repeat((int)((double)i / sec * 30), "█") << repeat(max(0, 30 - (int)((double)i / sec * 30)), "░") << clr::reset << flush;
         this_thread::sleep_for(chrono::seconds(1));
     }
     cout << "\r  " << clr::success << "00:00  " << repeat(30, "█") << clr::reset << "  TIME'S UP!\n\n";
@@ -2102,7 +2102,7 @@ void cmd_disk() {
 
 void cmd_uptime2() {
     auto elapsed = chrono::duration_cast<chrono::seconds>(chrono::steady_clock::now() - program_start).count();
-    int d = elapsed / 86400, h = (elapsed % 86400) / 3600, m = (elapsed % 3600) / 60, s = elapsed % 60;
+    long long d = elapsed / 86400, h = (elapsed % 86400) / 3600, m = (elapsed % 3600) / 60, s = elapsed % 60;
     cout << "\n  " << clr::bold << "System Uptime:" << clr::reset << "\n\n";
     cout << "  " << clr::cyan << d << "d " << h << "h " << m << "m " << s << "s" << clr::reset << "\n\n";
     cout << "  " << clr::dgray << "[";
@@ -2694,10 +2694,10 @@ void cmd_stats(const string& args) {
     if (vals.empty()) { cout << "Usage: stats <num1> <num2> ...\n"; return; }
     double sum = 0;
     for (double x : vals) sum += x;
-    double mean = sum / vals.size();
+    double mean = sum / (double)vals.size();
     double variance = 0;
     for (double x : vals) variance += (x - mean) * (x - mean);
-    variance /= vals.size();
+    variance /= (double)vals.size();
     sort(vals.begin(), vals.end());
     double median = vals.size() % 2 ? vals[vals.size()/2] : (vals[vals.size()/2-1]+vals[vals.size()/2])/2;
     cout << "\n  " << clr::bold << "Statistics:" << clr::reset << "\n\n";
@@ -3062,9 +3062,9 @@ void cmd_emoji2() {
 
     // Animated logo with color gradient
     for (size_t i = 0; i < logo.size(); i++) {
-        int r = (i * 36) % 256;
-        int g = (128 + i * 20) % 256;
-        int b = (255 - i * 30) % 256;
+        int r = (int)(i * 36) % 256;
+        int g = (int)(128 + i * 20) % 256;
+        int b = (int)(255 - i * 30) % 256;
         string color = clr::rgb(r, g, b);
         cout << color << clr::bold << logo[i] << clr::reset << "\n";
         this_thread::sleep_for(chrono::milliseconds(40));
@@ -3087,9 +3087,9 @@ void cmd_emoji2() {
     };
 
     for (size_t i = 0; i < boot_steps.size(); i++) {
-        float pct = (float)(i + 1) / boot_steps.size();
+        float pct = (float)(i + 1) / (float)boot_steps.size();
         int bar_w = 35;
-        int pos = (int)(bar_w * pct);
+        int pos = (int)((float)bar_w * pct);
         cout << "\r  " << clr::dgray << "[" << clr::reset;
         for (int j = 0; j < bar_w; j++) {
             if (j < pos) cout << clr::green << "━" << clr::reset;
@@ -3428,7 +3428,7 @@ void cmd_emoji2() {
             print_cfetch_logo();
             auto elapsed = chrono::duration_cast<chrono::seconds>(
                 chrono::steady_clock::now() - program_start).count();
-            int hrs = elapsed / 3600, mins = (elapsed % 3600) / 60;
+            long long hrs = elapsed / 3600, mins = (elapsed % 3600) / 60;
             const int FW = 30;
 
             auto row = [&](const string& key, const string& val) {
@@ -3474,9 +3474,9 @@ void cmd_emoji2() {
         else if (cmd == "uptime") {
             auto elapsed = chrono::duration_cast<chrono::seconds>(
                 chrono::steady_clock::now() - program_start).count();
-            int days = elapsed / 86400;
-            int hours = (elapsed % 86400) / 3600;
-            int mins = (elapsed % 3600) / 60;
+            long long days = elapsed / 86400;
+            long long hours = (elapsed % 86400) / 3600;
+            long long mins = (elapsed % 3600) / 60;
             cout << " up " << days << " day" << (days != 1 ? "s" : "")
                  << ", " << (hours < 10 ? "0" : "") << hours << ":" << (mins < 10 ? "0" : "") << mins
                  << ",  " << current_user << ",  load average: 0.00, 0.00, 0.00\n";
@@ -3824,7 +3824,8 @@ void cmd_emoji2() {
                 string fullpath = resolve_user_path(fn, current_dir);
                 if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir) {
                     string content = file_system[fullpath].content;
-                    int lines = 0, words = 0, chars = content.length();
+                    int lines = 0, words = 0;
+                    size_t chars = content.length();
                     bool in_word = false;
                     for (char c : content) {
                         if (c == '\n') lines++;
@@ -4490,7 +4491,7 @@ void cmd_emoji2() {
         else if (cmd == "lolcat") {
             string text = args.empty() ? "NoNameOS" : args;
             for (size_t i = 0; i < text.length(); i++) {
-                int ci = (i * 4) % 36;
+                int ci = (int)(i * 4) % 36;
                 int r = ci < 12 ? ci * 21 : (ci < 24 ? 255 - (ci - 12) * 21 : 0);
                 int g = ci < 12 ? 0 : (ci < 24 ? (ci - 12) * 21 : 255 - (ci - 24) * 21);
                 int b = ci < 12 ? 255 - ci * 21 : (ci < 24 ? 0 : (ci - 24) * 21);
