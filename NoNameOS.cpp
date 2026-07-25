@@ -1929,8 +1929,6 @@ void cmd_wordcount(const string& args, map<string,FSNode>& fs, const string& cdi
     auto c = vfs_read(args, fs, cdir);
     if (!c) { cout << "error: file not found.\n"; return; }
     map<string, int> freq;
-    istringstream ss(*c);
-    string word;
     int words = 0, lines = 0;
     size_t chars = c->size();
     bool in_word = false;
@@ -3518,14 +3516,6 @@ void cmd_emoji2() {
             string text = args.empty() ? "y" : args;
             for (int i = 0; i < YES_COUNT; i++) cout << text << "\n";
         }
-        else if (cmd == "env") {
-            cout << "USER=" << current_user << "\n";
-            cout << "SHELL=/bin/nonamesh\n";
-            cout << "PWD=" << current_dir << "\n";
-            cout << "HOME=/\n";
-            cout << "OS=NoNameOS\n";
-            cout << "TERM=" << (getenv("TERM") ? getenv("TERM") : "xterm-256color") << "\n";
-        }
         else if (cmd == "hostname") {
             cout << "nonameos\n";
         }
@@ -4345,7 +4335,7 @@ void cmd_emoji2() {
                 for (int i = start; i <= end; i++) cout << i << "\n";
             }
         }
-        else if (cmd == "printenv") {
+        else if (cmd == "printenv" || cmd == "env") {
             cout << "USER=" << current_user << "\n";
             cout << "SHELL=/bin/nonamesh\n";
             cout << "PWD=" << current_dir << "\n";
@@ -4512,7 +4502,6 @@ void cmd_emoji2() {
                 cout << "\033[2J\033[1;1H";
                 for (int r = 0; r < 5; r++) {
                     if (offset > 0) cout << string(offset, ' ');
-                    else cout << string(0, ' ');
                     cout << train[r] << "\n";
                 }
                 this_thread::sleep_for(chrono::milliseconds(TRAIN_FRAME_MS));
