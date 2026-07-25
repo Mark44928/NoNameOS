@@ -9,7 +9,8 @@ nonameos
 *~
 .vscode/
 .idea/
-
+.mimocode/
+.kilo/
 # OS metadata
 .DS_Store
 Thumbs.db
