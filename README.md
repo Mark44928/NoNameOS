@@ -8,15 +8,25 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-1.0.2-green?style=for-the-badge" alt="Version"/>
-  <img src="https://img.shields.io/badge/language-C%2B%2B-blue?style=for-the-badge" alt="C++"/>
+  <img src="https://img.shields.io/badge/language-C%2B%2B17-blue?style=for-the-badge" alt="C++17"/>
   <img src="https://img.shields.io/badge/license-GPLv3-purple?style=for-the-badge" alt="License"/>
-  <img src="https://img.shields.io/badge/4%2C774-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
+  <img src="https://img.shields.io/badge/4%2C932-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
   <img src="https://img.shields.io/badge/24%2B_games-red?style=for-the-badge" alt="Games"/>
   <img src="https://img.shields.io/badge/135%2B_commands-cyan?style=for-the-badge" alt="Commands"/>
+  <img src="https://img.shields.io/badge/49_bugs_fixed-2ea44f?style=for-the-badge" alt="Bugs Fixed"/>
+  <img src="https://img.shields.io/badge/dependencies-zero-brightgreen?style=for-the-badge" alt="Zero Dependencies"/>
+  <img src="https://img.shields.io/badge/platform-linux-lightgrey?style=for-the-badge" alt="Linux"/>
+  <img src="https://img.shields.io/github/languages/code-size/Mark44928/NoNameOS?style=for-the-badge" alt="Code Size"/>
+  <img src="https://img.shields.io/github/last-commit/Mark44928/NoNameOS?style=for-the-badge" alt="Last Commit"/>
 </p>
 
+<blockquote align="center">
+  <b>One file. Zero dependencies. 24 games. 135 commands. One terminal.</b>
+</blockquote>
+
 <p align="center">
-  <b>A pure C++ hobbyist operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 24+ built-in games, and 135+ developer tools — all contained in a single source file. No external dependencies. No framework. Just compile and run.</b>
+  <b>A pure C++ terminal operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 24+ built-in games, and 135+ developer tools — all contained in a single source file.</b><br/>
+  <sub>No external dependencies. No framework. No build system headaches. Just compile and run.</sub>
 </p>
 
 <p align="center">
@@ -43,11 +53,17 @@
 | **Hackable** | Every feature is in one file — easy to read, modify, and extend |
 | **Portable** | Compiles on any Linux system with g++ or clang++ (including Termux on Android) |
 
----
+## Perfect For
+
+- **C++ learners** exploring OS concepts without kernel-level complexity
+- **Students** studying filesystems, shells, and process simulation
+- **Hackers** wanting a terminal sandbox with games and tools
+- **Termux users** looking for a fun single-file project to compile and run
 
 ## Table of Contents
 
 - [Why NoNameOS?](#why-nonameos)
+- [Perfect For](#perfect-for)
 - [Features](#features)
 - [What's New in v1.0.2](#whats-new-in-v102)
 - [Quick Start](#quick-start)
@@ -57,10 +73,14 @@
 - [Games](#games)
 - [Easter Eggs](#easter-eggs)
 - [Custom Maps](#custom-maps)
+- [Architecture](#architecture)
+- [What You'll Learn](#what-youll-learn)
+- [FAQ](#faq)
 - [Platform Requirements](#platform-requirements)
-- [Perfect For](#perfect-for)
-- [Contributing](#contributing)
+- [Tech Stack](#tech-stack)
+- [Fun Facts](#fun-facts)
 - [Version History](#version-history)
+- [Contributing](#contributing)
 - [License](#license)
 
 ---
@@ -84,7 +104,7 @@
 
 ## What's New in v1.0.2
 
-### Bug Fixes (37 total across all audits)
+### Bug Fixes (43 total across all audits)
 - Fixed 2 critical Sudoku infinite loops in initialization
 - Fixed `setfill('0')` state leak across commands
 - Fixed 5 dead easter eggs (moved inside primary handlers)
@@ -114,7 +134,7 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/Mark44928/NoNameOS.git && cd NoNameOS && g++ -O3 NoNameOS.cpp -o nonameos && ./nonameos
+git clone https://github.com/Mark44928/NoNameOS.git && cd NoNameOS && g++ -O3 NoNameOS.cpp -o nonameos -lpthread && ./nonameos
 ```
 
 > One command. One file. One terminal. Pure C++ fun.
@@ -151,28 +171,28 @@ NoNameOS is written in pure C++ and uses POSIX headers. It compiles on any Linux
 ### Android (Termux)
 ```bash
 pkg install clang
-clang++ -O3 NoNameOS.cpp -o nonameos
+clang++ -O3 NoNameOS.cpp -o nonameos -lpthread
 ./nonameos
 ```
 
 ### Debian / Ubuntu
 ```bash
 sudo apt update && sudo apt install g++
-g++ -O3 NoNameOS.cpp -o nonameos
+g++ -O3 NoNameOS.cpp -o nonameos -lpthread
 ./nonameos
 ```
 
 ### Fedora
 ```bash
 sudo dnf install gcc-c++
-g++ -O3 NoNameOS.cpp -o nonameos
+g++ -O3 NoNameOS.cpp -o nonameos -lpthread
 ./nonameos
 ```
 
 ### Arch Linux
 ```bash
 sudo pacman -S gcc
-g++ -O3 NoNameOS.cpp -o nonameos
+g++ -O3 NoNameOS.cpp -o nonameos -lpthread
 ./nonameos
 ```
 
@@ -180,7 +200,8 @@ g++ -O3 NoNameOS.cpp -o nonameos
 
 ## Command Reference
 
-### Filesystem
+<details>
+<summary><b>📁 Filesystem (24 commands)</b></summary>
 
 | Command | Usage | Description |
 |---------|-------|-------------|
@@ -211,7 +232,10 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | `wc` | `wc <file>` | Count lines, words, and characters |
 | `tee` | `tee <file> <text>` | Write to file and display on stdout |
 
-### System
+</details>
+
+<details>
+<summary><b>⚙️ System (25 commands)</b></summary>
 
 | Command | Usage | Description |
 |---------|-------|-------------|
@@ -241,7 +265,10 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | `help` | `help [cmd]` | Show all commands or describe a command |
 | `exit` | `exit` | Exit NoNameOS |
 
-### Tools
+</details>
+
+<details>
+<summary><b>🛠️ Tools (24 commands)</b></summary>
 
 | Command | Usage | Description |
 |---------|-------|-------------|
@@ -269,7 +296,10 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | `sl` | `sl` | Steam locomotive animation |
 | `train` | `train` | Same as `sl` |
 
-### Text Processing
+</details>
+
+<details>
+<summary><b>📝 Text Processing (9 commands)</b></summary>
 
 | Command | Usage | Description |
 |---------|-------|-------------|
@@ -283,7 +313,10 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | `basename` | `basename <path>` | Strip directory from path |
 | `dirname` | `dirname <path>` | Extract directory from path |
 
-### Productivity
+</details>
+
+<details>
+<summary><b>📋 Productivity (9 commands)</b></summary>
 
 | Command | Usage | Description |
 |---------|-------|-------------|
@@ -297,7 +330,10 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | `password` | `password` | Generate secure random password (12-20 chars) |
 | `worldclock` | `worldclock` | Show times across 6 time zones |
 
-### Converters & Encoding
+</details>
+
+<details>
+<summary><b>🔄 Converters & Encoding (10 commands)</b></summary>
 
 | Command | Usage | Description |
 |---------|-------|-------------|
@@ -312,7 +348,10 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | `hexdump` | `hexdump <file\|text>` | Hex dump with ASCII sidebar |
 | `encode` | `encode <text>` | Show ROT13, uppercase, and lowercase |
 
-### Math & Stats
+</details>
+
+<details>
+<summary><b>🧮 Math & Stats (11 commands)</b></summary>
 
 | Command | Usage | Description |
 |---------|-------|-------------|
@@ -328,7 +367,10 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | `datecalc` | `datecalc <y m d> +\|- <days>` | Add/subtract days from a date |
 | `units` | `units <val> <from> <to>` | Convert units (km/mi, kg/lb, C/F, etc.) |
 
-### Text Tools
+</details>
+
+<details>
+<summary><b>📊 Text Tools (8 commands)</b></summary>
 
 | Command | Usage | Description |
 |---------|-------|-------------|
@@ -341,7 +383,10 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | `sparkline` | `sparkline <n1> <n2> ...` | Draw a sparkline |
 | `csv` | `csv <file>` | Display CSV as formatted table |
 
-### Fun & Info
+</details>
+
+<details>
+<summary><b>🎨 Fun & Info (17 commands)</b></summary>
 
 | Command | Usage | Description |
 |---------|-------|-------------|
@@ -362,6 +407,8 @@ g++ -O3 NoNameOS.cpp -o nonameos
 | `mem` | `mem` | Memory usage with bar |
 | `cpu` | `cpu` | Per-core CPU usage |
 | `disk` | `disk` | Disk usage across mounts |
+
+</details>
 
 ---
 
@@ -448,6 +495,9 @@ root@nonameos:/$
 
 NoNameOS has **25+ hidden easter eggs**. Try these:
 
+<details>
+<summary><b>🥚 Spoiler: Easter Eggs (click to reveal)</b></summary>
+
 | Command | What Happens |
 |---------|-------------|
 | `sudo make me a sandwich` | "Okay." |
@@ -469,6 +519,8 @@ NoNameOS has **25+ hidden easter eggs**. Try these:
 | `cat /dev/brain` | "You're already using it" |
 | `echo hello world` | Hello, World! greeting |
 
+</details>
+
 ---
 
 ## Custom Maps
@@ -485,21 +537,79 @@ The default map `jumper.gmd` is pre-loaded in `/geometry/`.
 
 ---
 
+## What You'll Learn
+
+NoNameOS is a goldmine for C++ learners. Here's what each feature teaches:
+
+| Feature | C++ Concept | Real-World Pattern |
+|---------|-------------|-------------------|
+| `TerminalGuard` | RAII (Resource Acquisition Is Initialization) | Always restore resources in destructors |
+| `map<string, FSNode>` | STL associative containers | Virtual filesystems, databases, caches |
+| `mt19937 rng{...}` | Modern C++ random | Cryptographic vs. pseudo-random generation |
+| `namespace color` | Namespaces & constants | Avoiding global pollution, naming conventions |
+| `cooked_readline()` | POSIX terminal I/O | How shells actually read input |
+| Command dispatch | String parsing & routing | Interpreter design, plugin systems |
+| `cp -r` iterator | Iterator safety | Avoiding undefined behavior with containers |
+| `cmd_bc` shunting-yard | Algorithm implementation | Expression parsing, operator precedence |
+| `has_traversal()` | Input validation | Security: path traversal attacks |
+| `volatile sig_atomic_t` | Signal handling | Async-signal-safe programming |
+| ANSI escape codes | Terminal rendering | How `htop`, `vim`, `tmux` draw UIs |
+| `fork()`/`waitpid()` | Process simulation | Conceptual: how real OS process management works (simulated in NoNameOS) |
+
+---
+
+## FAQ
+
+<details>
+<summary><b>Does NoNameOS work on Windows?</b></summary>
+
+No. NoNameOS uses POSIX headers (`<termios.h>`, `<unistd.h>`, `<fcntl.h>`) that don't exist on Windows. However, it works perfectly under **WSL** (Windows Subsystem for Linux) and **Git Bash**.
+
+</details>
+
+<details>
+<summary><b>How do I exit?</b></summary>
+
+Type `exit` or press `Ctrl+C`. The `TerminalGuard` RAII class will restore your terminal settings automatically.
+
+</details>
+
+<details>
+<summary><b>Can I save data between sessions?</b></summary>
+
+No. The virtual filesystem is entirely in-memory. When you exit, everything is gone. This is by design — it's a simulation, not a real OS.
+
+</details>
+
+<details>
+<summary><b>How is this different from a real OS?</b></summary>
+
+NoNameOS is a **simulation** for learning and fun. It has a shell, filesystem, and processes — but they're all implemented in userspace C++ code. There's no kernel, no hardware access, no real multitasking.
+
+</details>
+
+<details>
+<summary><b>Can I add my own commands?</b></summary>
+
+Yes! The entire project is one file. Find the command dispatcher (around line 3153) and add your own `else if (cmd == "mycommand")` block. Then recompile.
+
+</details>
+
+<details>
+<summary><b>Why is it called "NoNameOS"?</b></summary>
+
+Because naming things is hard. The author couldn't decide on a name, so... NoNameOS it is.
+
+</details>
+
+---
+
 ## Platform Requirements
 
 - **Linux** (Termux on Android, Debian, Ubuntu, Fedora, Arch, etc.)
 - A C++ compiler (`g++` or `clang++`)
 - POSIX-compatible system (uses `<termios.h>`, `<unistd.h>`, `<fcntl.h>`)
 - **Windows is not supported** due to POSIX-only dependencies
-
----
-
-## Perfect For
-
-- **C++ learners** exploring OS concepts without kernel-level complexity
-- **Students** studying filesystems, shells, and process simulation
-- **Hackers** wanting a terminal sandbox with games and tools
-- **Termux users** looking for a fun single-file project to compile and run
 
 ---
 
@@ -513,13 +623,59 @@ The default map `jumper.gmd` is pre-loaded in `/geometry/`.
 | **RAII** | `TerminalGuard` ensures terminal state is always restored |
 | **Single-file Design** | Entire project in one `.cpp` file — zero build complexity |
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        NoNameOS Architecture                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐   │
+│  │ Terminal I/O  │───▶│  Shell (REPL)   │───▶│  Dispatcher  │   │
+│  │ termios.h     │    │ cooked_readline │    │  if/else map │   │
+│  │ fcntl.h       │    │ history, arrows │    │  135+ cmds   │   │
+│  └──────────────┘    └─────────────────┘    └──────┬───────┘   │
+│                                                     │           │
+│                    ┌────────────────────────────────┼──────┐    │
+│                    │                                │      │    │
+│           ┌────────▼───────┐              ┌────────▼────┐ │    │
+│           │  Virtual FS    │              │  24 Games   │ │    │
+│           │  map<string,   │              │  Tetris     │ │    │
+│           │    FSNode>     │              │  Snake      │ │    │
+│           │  timestamps    │              │  Pong       │ │    │
+│           │  permissions   │              │  Wordle     │ │    │
+│           │  symlinks      │              │  ...        │ │    │
+│           └────────────────┘              └─────────────┘ │    │
+│                                                           │    │
+│           ┌────────────────┐              ┌─────────────┐ │    │
+│           │  System Tools  │              │   Easter    │ │    │
+│           │  nano, calc    │              │   Eggs      │─┘    │
+│           │  cfetch, top   │              │   25+       │      │
+│           └────────────────┘              └─────────────┘      │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  TerminalGuard (RAII) — auto-restores terminal on exit   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Design Patterns
+
+| Pattern | Where | Why |
+|---------|-------|-----|
+| **RAII** | `TerminalGuard` class | Terminal state always restored, even on exceptions |
+| **STL Containers** | `map<string, FSNode>` | Virtual filesystem backed by associative containers |
+| **MT19937 RNG** | `mt19937 rng{random_device{}()}` | Modern C++ random number generation |
+| **ANSI Colors** | `namespace color` | 256-color and truecolor RGB terminal rendering |
+| **Single Dispatch** | Line 3153+ | One massive if/else chain routes all 135+ commands |
+
 ## Fun Facts
 
-- **4,819 lines** of hand-written C++ in a single file
+- **Single-file C++ project** — the entire OS in one `.cpp` file
 - **Zero external dependencies** — only standard library + POSIX
 - **Compiles in ~10 seconds** on a modern machine
 - **Runs on anything**: Linux, macOS, Termux (Android), WSL
-- **37 bugs found and fixed** across 4 automated audit passes
+- **43 bugs found and fixed** across 5 automated audit passes
 - **25+ easter eggs** hidden throughout the codebase
 - **Built with**: C++, POSIX, and questionable life choices
 
@@ -529,7 +685,7 @@ The default map `jumper.gmd` is pre-loaded in `/geometry/`.
 
 | Version | Lines | Games | Commands | Key Changes |
 |---------|-------|-------|----------|-------------|
-| **v1.0.2** | 4,774 | 24 | 135 | 16 audit bug fixes (37 total) |
+| **v1.0.2** | 4,932 | 24 | 135 | 43 audit bug fixes |
 | **v1.0.1** | 4,561 | 24 | 135 | Arrow keys, cursor movement, easter eggs |
 | **v1.0.0** | 4,500 | 24 | 135 | 11 new games, 60+ commands, visual overhaul |
 | **v0.7.0** | 2,500 | 13 | 75 | VFS, games, tools, alias system |
@@ -575,11 +731,11 @@ This project is licensed under the GNU General Public License v3. See the [LICEN
 ---
 
 <p align="center">
-  <b>Star this repo if you like NoNameOS!</b><br/>
-  <sub>It helps others discover the project.</sub><br/><br/>
+  <b>Found a bug? Open an issue. Made something cool? Submit a PR. Just here for the games? We don't blame you.</b><br/><br/>
   <img src="https://img.shields.io/badge/Made_with-❤️-red?style=for-the-badge" alt="Made with love"/>
   <img src="https://img.shields.io/badge/Powered_by-C%2B%2B-blue?style=for-the-badge" alt="C++"/>
   <img src="https://img.shields.io/badge/Termux-Ready-green?style=for-the-badge" alt="Termux"/>
+  <img src="https://img.shields.io/badge/Zero-Helpers-brightgreen?style=for-the-badge" alt="No Helpers"/>
 </p>
 
 ---

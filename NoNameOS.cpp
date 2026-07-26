@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // NoNameOS - A pure C++ hobbyist operating-system simulation
 // ══════════════════════════════════════════════════════════════════════════════
-// Single-file C++ project (~4700 lines) featuring:
+// Single-file C++ project (~4900 lines) featuring:
 //   - Interactive shell with color-coded prompt, arrow key support, history
 //   - Virtual filesystem (VFS) with files, directories, symlinks, permissions
 //   - 24+ built-in games (Snake, Tetris, Sudoku, Pong, 2048, etc.)
@@ -33,6 +33,8 @@
 #include <optional>
 #include <iomanip>
 #include <cstring>
+#include <climits>
+#include <array>
 // POSIX headers for terminal control (raw input) and non-blocking I/O detection
 #include <termios.h>
 #include <unistd.h>
@@ -43,11 +45,11 @@ using namespace std;
 // ══════════════════════════════════════════════════════════════════════════════
 // SECTION 2: Signal Handling and Terminal State Management
 // ══════════════════════════════════════════════════════════════════════════════
-// SIGINT handler restores terminal to cooked mode on Ctrl+C
+// SIGINT handler exits cleanly — the shell restores terminal state on process exit.
+// tcsetattr() is NOT async-signal-safe, so we must not call it here.
 static struct termios g_orig_term;
-static bool g_term_saved = false;
+static volatile sig_atomic_t g_term_saved = 0;
 static void sigint_handler(int) {
-    if (g_term_saved) tcsetattr(STDIN_FILENO, TCSANOW, &g_orig_term);
     _exit(1);
 }
 
@@ -61,8 +63,6 @@ const string VERSION = "v1.0.2";
 namespace clr {
     // 256-color foreground
     inline string fg256(int c) { return "\033[38;5;" + to_string(c) + "m"; }
-    // 256-color background
-    inline string bg256(int c) { return "\033[48;5;" + to_string(c) + "m"; }
     // Truecolor foreground
     inline string rgb(int r, int g, int b) { return "\033[38;2;" + to_string(r) + ";" + to_string(g) + ";" + to_string(b) + "m"; }
     // Truecolor background
@@ -132,7 +132,6 @@ static int rng_int(int lo, int hi) {
 }
 
 // --- Named constants (replaces magic numbers) ---
-constexpr int CIN_IGNORE_MAX = 10000;
 constexpr int GAME_SPEED_MS = 150;
 constexpr int SNAKE_W = 20;
 constexpr int SNAKE_H = 15;
@@ -149,7 +148,6 @@ constexpr int TRIVIA_COUNT = 5;
 constexpr int ASCIIDASH_PADDING = 10;
 constexpr int ASCIIDASH_WINDOW = 20;
 constexpr int JUMP_FRAMES = 3;
-constexpr int PAGER_LINES = 20;
 constexpr int WATCH_ITERATIONS = 5;
 constexpr int PING_COUNT = 4;
 constexpr int TRAIN_START_OFFSET = 50;
@@ -173,7 +171,7 @@ constexpr int FLAPPY_H = 15;
 struct Question {
     string q;
     vector<string> opts;
-    int correct;
+    int correct = 0;
 };
 
 struct TerminalGuard {
@@ -184,7 +182,7 @@ struct TerminalGuard {
         active = (tcgetattr(STDIN_FILENO, &oldt) == 0);
         if (active) {
             g_orig_term = oldt;
-            g_term_saved = true;
+            g_term_saved = 1;
             struct termios newt = oldt;
             newt.c_lflag &= ~(ICANON | ECHO);
             tcsetattr(STDIN_FILENO, TCSANOW, &newt);
@@ -196,7 +194,7 @@ struct TerminalGuard {
         if (active) {
             tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
             fcntl(STDIN_FILENO, F_SETFL, oldf);
-            g_term_saved = false;
+            g_term_saved = 0;
         }
     }
     TerminalGuard(const TerminalGuard&) = delete;
@@ -220,6 +218,8 @@ string get_timestamp() {
 // resolved_path follows symlink chains (max 8 deep to prevent cycles)
 // vfs_read returns file content as optional<string> (nullopt if not found)
 
+string cooked_readline();
+
 struct FSNode {
     bool is_dir;
     bool is_link;
@@ -239,25 +239,6 @@ string resolved_path(map<string,FSNode>& fs, const string& path, int depth = 0) 
     if (fs.find(path) != fs.end() && fs[path].is_link)
         return resolved_path(fs, fs[path].link_target, depth + 1);
     return path;
-}
-
-void pager(const string& content) {
-    istringstream ss(content);
-    string line;
-    vector<string> lines;
-    while (getline(ss, line)) lines.push_back(line);
-    size_t i = 0;
-    while (i < lines.size()) {
-        for (int n = 0; n < PAGER_LINES && i < lines.size(); n++, i++)
-            cout << lines[i] << "\n";
-        if (i < lines.size()) {
-            cout << "\033[2m-- More -- (Enter=next, q=quit)\033[0m";
-            cout.flush();
-            string resp;
-            getline(cin, resp);
-            if (resp == "q" || resp == "Q") break;
-        }
-    }
 }
 
 string help_text(const string& cmd) {
@@ -325,7 +306,11 @@ void boot_delay(int ms) {
 pair<string, string> parse_command(const string& input) {
     size_t first_space = input.find(' ');
     if (first_space == string::npos) return {input, ""};
-    return {input.substr(0, first_space), input.substr(first_space + 1)};
+    string args = input.substr(first_space + 1);
+    // Strip surrounding quotes from args (e.g. "Hi" → Hi)
+    if (args.size() >= 2 && args.front() == '"' && args.back() == '"')
+        args = args.substr(1, args.size() - 2);
+    return {input.substr(0, first_space), args};
 }
 
 // Resolve a user-provided path to an absolute VFS path, handling .. and absolute/relative
@@ -334,7 +319,9 @@ string resolve_user_path(const string& arg, const string& current_dir) {
     if (!arg.empty() && arg[0] == '/') {
         path = arg;
     } else {
-        path = current_dir + arg;
+        string cdir = current_dir;
+        if (!cdir.empty() && cdir.back() != '/') cdir += "/";
+        path = cdir + arg;
     }
     // Normalize: collapse /./ and handle /../
     vector<string> parts;
@@ -359,7 +346,14 @@ string resolve_user_path(const string& arg, const string& current_dir) {
 
 // Check if a path or any component contains path-traversal sequences
 bool has_traversal(const string& path) {
-    return path.find("..") != string::npos;
+    size_t start = 0;
+    while (start < path.size()) {
+        size_t pos = path.find('/', start);
+        string comp = path.substr(start, pos - start);
+        if (comp == "..") return true;
+        start = (pos == string::npos) ? path.size() : pos + 1;
+    }
+    return false;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -419,23 +413,24 @@ int getkey() {
 }
 
 // Global readline with arrow key support for history navigation
+// NOTE: Only supports ASCII input (k >= 32 && k < 127). UTF-8 in history will misposition the cursor.
 string readline_global(const vector<string>& history) {
     string line;
     size_t cursor = 0;
     int hist_idx = (int)history.size();
     string saved;
 
-    auto redraw_from = [&](size_t pos) {
-        // Move to start of input area (after prompt "❯ " = 2 chars)
-        cout << "\r" << "\033[" << (pos + 2) << "C" << flush;
-        cout << "\033[K" << flush;
-        for (size_t i = pos; i < line.size(); i++) cout << line[i];
-        // Move cursor back to correct position
-        cout << "\r" << "\033[" << (cursor + 2) << "C" << flush;
+    auto redraw_from = [&]() {
+        cout << "\033[2K\r❯ " << line << flush;
+        cout << "\r\033[" << (cursor + 2) << "C" << flush;
     };
 
     while (true) {
         int k = getkey();
+        if (k == KEY_NONE) {
+            this_thread::sleep_for(chrono::milliseconds(1));
+            continue;
+        }
         if (k == KEY_ENTER) {
             cout << "\n";
             return line;
@@ -446,7 +441,7 @@ string readline_global(const vector<string>& history) {
                 hist_idx--;
                 line = history[hist_idx];
                 cursor = line.size();
-                redraw_from(0);
+                redraw_from();
             }
         }
         else if (k == KEY_DOWN) {
@@ -454,7 +449,7 @@ string readline_global(const vector<string>& history) {
                 hist_idx++;
                 line = (hist_idx == (int)history.size()) ? saved : history[hist_idx];
                 cursor = line.size();
-                redraw_from(0);
+                redraw_from();
             }
         }
         else if (k == KEY_LEFT) {
@@ -473,21 +468,43 @@ string readline_global(const vector<string>& history) {
             if (cursor > 0) {
                 line.erase(cursor - 1, 1);
                 cursor--;
-                redraw_from(cursor);
+                redraw_from();
             }
         }
-        else if (k >= 32 && k < 127) { // Printable
-            line.insert(line.begin() + (int)cursor, (char)k);
+        else if (k == KEY_SPACE || (k >= 32 && k < 127)) { // Printable
+            line.insert(line.begin() + (int)cursor, k == KEY_SPACE ? ' ' : (char)k);
             cursor++;
-            redraw_from(cursor - 1);
+            redraw_from();
         }
     }
 }
 
 optional<string> vfs_read(const string& path, map<string,FSNode>& fs, const string& cdir) {
-    string fp = resolved_path(fs, cdir + path);
+    string fp = resolve_user_path(path, cdir);
     if (fs.find(fp) != fs.end() && !fs[fp].is_dir) return fs[fp].content;
     return nullopt;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION 6.5: Cooked Mode Helper for getline-based input
+// ══════════════════════════════════════════════════════════════════════════════
+// Temporarily restores cooked terminal mode for getline calls, then re-enables raw mode
+// This allows games using getline to echo typed characters properly
+
+string cooked_readline() {
+    struct termios raw_t;
+    tcgetattr(STDIN_FILENO, &raw_t);
+    int old_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, old_flags & ~O_NONBLOCK);
+    tcsetattr(STDIN_FILENO, TCSANOW, &g_orig_term);
+    string line;
+    getline(cin, line);
+    cin.clear();
+    fcntl(STDIN_FILENO, F_SETFL, old_flags);
+    struct termios raw2 = g_orig_term;
+    raw2.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &raw2);
+    return line;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -518,7 +535,8 @@ const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","c
     "sudo","sandwich","42","meaning","life","konami","hack","hacker",
     "rickroll","rick","beep","bell","yes-master","yes-sir",
     "glhf","gg","lenny","shrug","tableflip","unflip","dealwithit",
-    "disco","dance","loading","wait","stats","version"};
+    "disco","dance","loading","wait",
+    "version","sudo-make-sandwich","open"};
 
 size_t edit_dist(const string& a, const string& b) {
     size_t n = a.size(), m = b.size();
@@ -622,6 +640,7 @@ void cmd_basename(const string& args) {
     if (args.empty()) { cout << "Usage: basename <path>\n"; return; }
     size_t pos = args.find_last_of('/');
     if (pos == string::npos) cout << args << "\n";
+    else if (pos == 0 && args.size() == 1) cout << "/\n";
     else cout << args.substr(pos + 1) << "\n";
 }
 
@@ -696,7 +715,7 @@ void cmd_nproc() { cout << "4\n"; }
 void cmd_du(const string& args, map<string,FSNode>& fs, const string& cdir) {
     string a = args;
     while (!a.empty() && a.back() == '/') a.pop_back();
-    string dir = a.empty() ? cdir : cdir + a + "/";
+    string dir = a.empty() ? cdir : (a[0] == '/' ? a + "/" : cdir + a + "/");
     size_t total = 0;
     for (auto& [p, n] : fs) {
         if (p.rfind(dir, 0) == 0 && !n.is_dir) total += n.size();
@@ -718,7 +737,7 @@ void cmd_pom() {
     const int FOCUS = 25, BREAK = 5, LONG_BREAK = 15;
     for (int cycle = 0; cycle < 4; cycle++) {
         cout << "\033[33mFocus round " << (cycle+1) << "/4\033[0m\n";
-        for (int m = FOCUS; m >= 0; m--) {
+        for (int m = FOCUS; m > 0; m--) {
             cout << "\r  " << (m < 10 ? " " : "") << m << ":00 remaining  [";
             int pos = (int)((float)(FOCUS - m) / FOCUS * 20);
             for (int i = 0; i < 20; i++) cout << (i < pos ? "\033[32m=\033[0m" : " ");
@@ -730,7 +749,7 @@ void cmd_pom() {
         if (cycle < 3) {
             int blen = cycle == 2 ? LONG_BREAK : BREAK;
             cout << "\033[36mBreak for " << blen << " min\033[0m\n";
-            for (int m = blen; m >= 0; m--) {
+            for (int m = blen; m > 0; m--) {
                 cout << "\r  " << m << ":00  ";
                 cout.flush();
                 this_thread::sleep_for(chrono::seconds(1));
@@ -742,10 +761,16 @@ void cmd_pom() {
 }
 
 void cmd_alarm(const string& args) {
-    int sec = 0;
-    for (char c : args) { if (c >= '0' && c <= '9') sec = sec * 10 + (c - '0'); }
-    if (sec <= 0) { cout << "Usage: alarm <seconds>\n"; return; }
-    for (int i = sec; i >= 0; i--) {
+    long long sec = 0;
+    for (char c : args) {
+        if (c >= '0' && c <= '9') {
+            int digit = c - '0';
+            if (sec > (LLONG_MAX - digit) / 10) { cout << "Usage: alarm <seconds>\n"; return; }
+            sec = sec * 10 + digit;
+        }
+    }
+    if (sec <= 0 || sec > INT_MAX) { cout << "Usage: alarm <seconds>\n"; return; }
+    for (int i = (int)sec; i >= 0; i--) {
         cout << "\rAlarm in " << i << "s  ";
         cout.flush();
         if (i > 0) this_thread::sleep_for(chrono::seconds(1));
@@ -755,6 +780,23 @@ void cmd_alarm(const string& args) {
 
 void cmd_bc(const string& args, map<string,FSNode>&, const string&) {
     if (args.empty()) { cout << "Usage: bc <expression>\n"; return; }
+    auto precedence = [](char op) -> int {
+        if (op == '+' || op == '-') return 1;
+        if (op == '*' || op == '/' || op == '%') return 2;
+        if (op == '^') return 3;
+        return 0;
+    };
+    auto apply_op = [](double a, double b, char op) -> double {
+        switch(op) {
+            case '+': return a + b;
+            case '-': return a - b;
+            case '*': return a * b;
+            case '/': if (b == 0) { cout << "\033[31merror:\033[0m division by zero.\n"; return NAN; } return a / b;
+            case '%': if (b == 0) { cout << "\033[31merror:\033[0m division by zero.\n"; return NAN; } return fmod(a, b);
+            case '^': return pow(a, b);
+            default: return 0;
+        }
+    };
     vector<double> nums;
     vector<char> ops;
     istringstream ss(args);
@@ -762,28 +804,32 @@ void cmd_bc(const string& args, map<string,FSNode>&, const string&) {
     if (ss >> val) {
         nums.push_back(val);
         while (ss >> op >> val) {
-            if (op == '+' || op == '-' || op == '*' || op == '/' || op == '%' || op == '^') {
-                ops.push_back(op); nums.push_back(val);
-            } else { cout << "error: invalid operator.\n"; return; }
+            if (op != '+' && op != '-' && op != '*' && op != '/' && op != '%' && op != '^') {
+                cout << "error: invalid operator.\n"; return;
+            }
+            while (!ops.empty() && (ops.back() == '^' ? precedence(ops.back()) > precedence(op) : precedence(ops.back()) >= precedence(op))) {
+                if (nums.size() < 2) { cout << "error: invalid expression.\n"; return; }
+                double b = nums.back(); nums.pop_back();
+                double a = nums.back(); nums.pop_back();
+                double r = apply_op(a, b, ops.back());
+                if (isnan(r)) return;
+                nums.push_back(r);
+                ops.pop_back();
+            }
+            ops.push_back(op);
+            nums.push_back(val);
         }
     }
-    if (nums.size() < 2) { cout << "error: need at least 2 values.\n"; return; }
-    vector<double> pn = {nums[0]};
-    vector<char> po;
-    for (size_t i = 0; i < ops.size(); i++) {
-        if (ops[i] == '*' || ops[i] == '/' || ops[i] == '%' || ops[i] == '^') {
-            double last = pn.back(); pn.pop_back();
-            if (ops[i] == '*') pn.push_back(last * nums[i+1]);
-            else if (ops[i] == '/') { if (nums[i+1] == 0) { cout << "error: division by zero.\n"; return; } pn.push_back(last / nums[i+1]); }
-            else if (ops[i] == '%') { if (nums[i+1] == 0) { cout << "error: modulo by zero.\n"; return; } pn.push_back(fmod(last, nums[i+1])); }
-            else { double r = pow(last, nums[i+1]); if (isnan(r) || isinf(r)) { cout << "error: invalid power operation.\n"; return; } pn.push_back(r); }
-        } else { pn.push_back(nums[i+1]); po.push_back(ops[i]); }
+    while (!ops.empty()) {
+        if (nums.size() < 2) { cout << "error: invalid expression.\n"; return; }
+        double b = nums.back(); nums.pop_back();
+        double a = nums.back(); nums.pop_back();
+        double r = apply_op(a, b, ops.back());
+        if (isnan(r)) return;
+        nums.push_back(r);
+        ops.pop_back();
     }
-    double result = pn[0];
-    for (size_t i = 0; i < po.size(); i++) {
-        if (po[i] == '+') result += pn[i+1]; else result -= pn[i+1];
-    }
-    cout << "= " << result << "\n";
+    if (!nums.empty()) cout << "= " << nums.back() << "\n";
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -849,8 +895,7 @@ void play_asciidash(string map_data) {
         cout << "\n  " << clr::success << ">> LEVEL COMPLETE! GG!" << clr::reset << "\n";
     }
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 void play_snake() {
@@ -937,8 +982,7 @@ void play_snake() {
     string sc = to_string(score);
     cout << "\n\n  " << clr::error << ">> GAME OVER" << clr::reset << "  " << clr::gray << "Final Score:" << clr::reset << " " << clr::yellow << sc << clr::reset << "\n";
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 void play_minesweeper() {
@@ -1008,7 +1052,7 @@ void play_minesweeper() {
 
         cout << "\nEnter coordinates (x y) or 'f x y' to flag: ";
         string line;
-        if (!getline(cin, line)) break;
+        line = cooked_readline(); if (line.empty() && cin.eof()) break;
         if (line.empty()) continue;
         istringstream iss(line);
         string cmd; int fx, fy;
@@ -1057,8 +1101,7 @@ void play_minesweeper() {
     if (won) cout << "\n  " << clr::success << ">> YOU WIN! Congratulations!" << clr::reset << "\n";
     else cout << "\n  " << clr::error << ">> BOOM! You hit a mine!" << clr::reset << "\n";
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 // --- COLOR FUNCTION ---
@@ -1097,7 +1140,7 @@ void play_tictactoe() {
     };
 
     auto check_win = [&](char p) -> bool {
-        int wins[8][3] = {{0,1,2},{3,4,5},{6,7,8},{0,3,6},{1,4,7},{2,5,8},{0,4,8},{2,4,6}};
+        const int wins[8][3] = {{0,1,2},{3,4,5},{6,7,8},{0,3,6},{1,4,7},{2,5,8},{0,4,8},{2,4,6}};
         for (auto& w : wins)
             if (board[w[0]] == p && board[w[1]] == p && board[w[2]] == p) return true;
         return false;
@@ -1141,9 +1184,11 @@ void play_tictactoe() {
     while (true) {
         if (turn == 0) {
             cout << "Your move (1-9): ";
-            string line; getline(cin, line);
+            string line; line = cooked_readline();
             if (line.empty()) continue;
-            int pos = line[0] - '1';
+            int pos = 0;
+            for (char c : line) { if (c >= '0' && c <= '9') pos = pos * 10 + (c - '0'); }
+            pos -= 1;
             if (pos < 0 || pos > 8 || board[pos] != ' ') {
                 cout << "\033[31merror:\033[0m invalid move.\n";
                 this_thread::sleep_for(chrono::milliseconds(500));
@@ -1164,8 +1209,7 @@ void play_tictactoe() {
         turn = 1 - turn;
     }
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 void play_hangman() {
@@ -1181,10 +1225,10 @@ void play_hangman() {
         cout << "\n  " << clr::bold << clr::lred << "☠ HANGMAN" << clr::reset << " " << clr::dgray << "v1.0" << clr::reset << "\n\n";
 
         cout << "  +---+\n";
-        cout << "  |   " << (attempts < 6 ? "|" : "") << "\n";
-        cout << "  " << (attempts < 5 ? "O" : "") << "\n";
-        cout << "  " << (attempts < 3 ? "/" : "") << (attempts < 4 ? "|" : "") << (attempts < 2 ? "\\" : "") << "\n";
-        cout << "  " << (attempts < 1 ? "/" : "") << " " << (attempts < 0 ? "\\" : "") << "\n\n";
+        cout << "  |   " << (attempts <= 5 ? "|" : "") << "\n";
+        cout << "  " << (attempts <= 4 ? "O" : "") << "\n";
+        cout << "  " << (attempts <= 3 ? "/" : "") << (attempts <= 2 ? "|" : "") << (attempts <= 1 ? "\\" : "") << "\n";
+        cout << "  " << (attempts <= 1 ? "/ " : "  ") << (attempts <= 1 ? "\\" : "") << "\n\n";
 
         cout << "  Word: ";
         for (char c : guessed) cout << c << " ";
@@ -1194,7 +1238,7 @@ void play_hangman() {
 
         cout << "Guess a letter: ";
         string line;
-        if (!getline(cin, line)) break;
+        line = cooked_readline(); if (line.empty() && cin.eof()) break;
         if (line.empty()) continue;
         char g = tolower(line[0]);
 
@@ -1203,9 +1247,10 @@ void play_hangman() {
             if (word[i] == g && guessed[i] == '_') { guessed[i] = g; found = true; }
         }
         if (!found) {
-            if (find(wrong.begin(), wrong.end(), g) == wrong.end())
+            if (find(wrong.begin(), wrong.end(), g) == wrong.end()) {
                 wrong.push_back(g);
-            attempts--;
+                attempts--;
+            }
         }
     }
 
@@ -1224,8 +1269,7 @@ void play_hangman() {
         cout << "\033[31mHANGED! The word was: " << word << "\033[0m\n";
     }
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 void play_rps() {
@@ -1240,7 +1284,7 @@ void play_rps() {
         cout << "  Choice (1-3): ";
 
         string line;
-        if (!getline(cin, line)) break;
+        line = cooked_readline(); if (line.empty() && cin.eof()) break;
         if (line.empty()) continue;
         int p = line[0] - '1';
         if (p < 0 || p > 2) { cout << "\033[31merror:\033[0m invalid choice.\n"; this_thread::sleep_for(chrono::milliseconds(500)); continue; }
@@ -1255,7 +1299,7 @@ void play_rps() {
             cout << "  " << clr::error << "AI wins this round!" << clr::reset << "\n"; ai_wins++;
         }
         cout << "\nPress Enter to continue...";
-        cin.get();
+        cooked_readline();
     }
 
     cout << "\n";
@@ -1265,44 +1309,18 @@ void play_rps() {
         cout << "  " << clr::error << ">> AI WINS THE SERIES!" << clr::reset << "\n";
     }
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 vector<string> SYSTEM_USERS = {"root", "user", "guest", "admin"};
 
-void show_progress(int current, int total, const string& label) {
-    int bar_width = 30;
-    float pct = total > 0 ? (float)current / (float)total : 0.0f;
-    int pos = (int)((float)bar_width * pct);
-    cout << "\r" << label << " [";
-    for (int i = 0; i < bar_width; i++) {
-        if (i < pos) cout << "\033[32m=\033[0m";
-        else if (i == pos) cout << "\033[33m>\033[0m";
-        else cout << " ";
-    }
-    cout << "] " << int(pct * 100.0) << "%";
-    if (current == total) cout << "\n";
-    cout.flush();
-}
-
-void show_spinner(int frame) {
-    const char* spinner = "|/-\\";
-    cout << "\r" << spinner[frame % 4] << " ";
-    cout.flush();
-}
-
 void print_cfetch_logo() {
     const vector<string> art = {
-        "        ╱╲        ",
-        "       ╱  ╲       ",
-        "      ╱    ╲      ",
-        "     ╱  /\\  ╲     ",
-        "    ╱  /  \\  ╲    ",
-        "   ╱  /    \\  ╲   ",
-        "  ╱  /      \\  ╲  ",
-        " ╱  /________\\  ╲ ",
-        "╱________________╲"
+        "    _   ___   ______ ",
+        "   / | / / | / / __ \\",
+        "  /  |/ /  |/ / / / /",
+        " / /|  / /|  / /_/ / ",
+        "/_/ |_/_/ |_/\\____/  "
     };
     const string colors[] = {
         clr::rgb(255,85,85), clr::rgb(255,170,51), clr::rgb(255,255,85),
@@ -1391,7 +1409,7 @@ void play_2048() {
             if (!can) { cout << "\n  " << clr::error << ">> Game Over! No moves left." << clr::reset << "\n"; break; }
         }
         cout << "Move: ";
-        string ln; getline(cin, ln);
+        string ln; ln = cooked_readline();
         if (ln.empty()) continue;
         char d = tolower(ln[0]);
         if (d == 'q') break;
@@ -1403,8 +1421,7 @@ void play_2048() {
         if (moved) add_tile();
     }
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 void play_typing_test() {
@@ -1428,12 +1445,12 @@ void play_typing_test() {
     cout << "Type this sentence:\n\n";
     cout << "\033[33m" << sentence << "\033[0m\n\n";
     cout << "Press Enter when ready...";
-    cin.get();
+    cooked_readline();
     cout << "\033[2J\033[1;1H";
     cout << "Type now:\n\n";
     auto start = chrono::steady_clock::now();
     string input;
-    getline(cin, input);
+    input = cooked_readline();
     auto end = chrono::steady_clock::now();
     double elapsed_s = (double)chrono::duration_cast<chrono::milliseconds>(end - start).count() / 1000.0;
     int chars_typed = (int)input.length();
@@ -1447,8 +1464,7 @@ void play_typing_test() {
     cout << "WPM: " << (int)wpm << "\n";
     cout << "Accuracy: " << (int)accuracy << "%\n";
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 void play_reaction_time() {
@@ -1480,8 +1496,7 @@ void play_reaction_time() {
     double avg = (times[0] + times[1] + times[2]) / 3.0;
     cout << "\nAverage: " << avg << " ms\n";
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 void play_number_memory() {
@@ -1489,7 +1504,7 @@ void play_number_memory() {
     cout << "\n  " << clr::bold << clr::lcyan << "🧠 NUMBER MEMORY" << clr::reset << "\n\n";
     cout << "Remember the number shown, then type it back.\n";
     cout << "Press Enter to start...";
-    cin.get();
+    cooked_readline();
     int max_digits = 0;
     for (int len = 3; len <= 20; len++) {
         string num;
@@ -1501,12 +1516,12 @@ void play_number_memory() {
         cout << "\033[2J\033[1;1H";
         cout << "Type the number: ";
         string guess;
-        getline(cin, guess);
+        guess = cooked_readline();
         if (guess == num) {
             max_digits = len;
             cout << "\033[32mCorrect!\033[0m\n";
             cout << "Enter for next...";
-            cin.get();
+            cooked_readline();
         } else {
             cout << "\033[31mWrong! Number was: " << num << "\033[0m\n";
             break;
@@ -1514,8 +1529,7 @@ void play_number_memory() {
     }
     cout << "\nYou remembered " << max_digits << " digits!\n";
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 void cmd_tree(const string& root, const string& current_dir, const map<string,FSNode>& fs) {
@@ -1560,7 +1574,7 @@ void play_tetris() {
     vector<string> board(TETRIS_H, string(TETRIS_W, '.'));
     // Tetromino shapes: I, O, T, S, Z, L, J
     const vector<vector<string>> shapes = {
-        {"XXXX","X\nX\nX\nX"},  // I
+        {"XXXX","X\nX\nX\nX","XXXX","X\nX\nX\nX"},  // I
         {"XX\nXX"},                 // O
         {".X.\nXXX","X..\nXX.\nX..","XXX\n..X.",".X.\nXX.\n.X."}, // T
         {".XX\nXX.","X..\nXX.\n.X."}, // S
@@ -1679,8 +1693,7 @@ void play_tetris() {
     }
     cout << "\n  " << clr::error << ">> GAME OVER" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "\n";
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 void play_pong() {
@@ -1706,8 +1719,8 @@ void play_pong() {
         if (ball_y <= 0 || ball_y >= PONG_H - 1) dy = -dy;
 
         // Paddle collisions
-        if (ball_x == 2 && ball_y >= paddle_l && ball_y <= paddle_l + 3) { dx = 1; ball_x = 3; }
-        if (ball_x == PONG_W - 3 && ball_y >= paddle_r && ball_y <= paddle_r + 3) { dx = -1; ball_x = PONG_W - 4; }
+        if (ball_x == 1 && ball_y >= paddle_l && ball_y <= paddle_l + 3) { dx = 1; ball_x = 2; }
+        if (ball_x == PONG_W - 2 && ball_y >= paddle_r && ball_y <= paddle_r + 3) { dx = -1; ball_x = PONG_W - 3; }
 
         if (ball_x <= 0) { score_r++; ball_x = PONG_W / 2; ball_y = PONG_H / 2; dx = 1; }
         if (ball_x >= PONG_W - 1) { score_l++; ball_x = PONG_W / 2; ball_y = PONG_H / 2; dx = -1; }
@@ -1735,8 +1748,7 @@ void play_pong() {
     }
     cout << "\n  " << (score_l >= 5 ? clr::success : clr::error) << ">> " << (score_l >= 5 ? "YOU WIN!" : "AI WINS!") << clr::reset << "\n";
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 void play_sudoku() {
@@ -1814,7 +1826,7 @@ void play_sudoku() {
         }
 
         cout << "\n  " << clr::gray << "r c value: " << clr::reset;
-        string line; getline(cin, line);
+        string line; line = cooked_readline();
         if (line == "q" || line == "Q") break;
         istringstream iss(line);
         int r, c, v;
@@ -1825,8 +1837,7 @@ void play_sudoku() {
         board[r][c] = v;
     }
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 void play_flappy() {
@@ -1858,8 +1869,10 @@ void play_flappy() {
         // Move pipes and check collisions
         for (auto& p : pipes) {
             p.first--;
-            if (p.first == 5 && (bird_y < p.second || bird_y > p.second + 3)) game_over = true;
-            if (p.first == 5) score++;
+            if (p.first == 5) {
+                if (bird_y < p.second || bird_y > p.second + 3) game_over = true;
+                else score++;
+            }
         }
         pipes.erase(remove_if(pipes.begin(), pipes.end(), [](auto& p) { return p.first < -2; }), pipes.end());
 
@@ -1887,8 +1900,7 @@ void play_flappy() {
     }
     cout << "\n  " << clr::error << ">> GAME OVER" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "\n";
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1911,7 +1923,7 @@ void cmd_colors() {
 }
 
 void cmd_weather() {
-    string conditions[] = {"Sunny", "Partly Cloudy", "Cloudy", "Light Rain", "Clear"};
+    const string conditions[] = {"Sunny", "Partly Cloudy", "Cloudy", "Light Rain", "Clear"};
     int temp = rng_int(15, 35);
     int hum = rng_int(30, 90);
     int wind = rng_int(0, 40);
@@ -1934,12 +1946,12 @@ void cmd_epoch() {
 }
 
 void cmd_uuid() {
-    auto r = []() -> string {
+    auto r = [](int len) -> string {
         string s;
-        for (int i = 0; i < 8; i++) s += "0123456789abcdef"[rng_int(0, 15)];
+        for (int i = 0; i < len; i++) s += "0123456789abcdef"[rng_int(0, 15)];
         return s;
     };
-    cout << clr::cyan << r() << "-" << r() << "-" << r() << "-" << r() << "-" << r() << r() << r() << clr::reset << "\n";
+    cout << clr::cyan << r(8) << "-" << r(4) << "-" << r(4) << "-" << r(4) << "-" << r(12) << clr::reset << "\n";
 }
 
 void cmd_base64(const string& args, map<string,FSNode>& fs, const string& cdir) {
@@ -1990,7 +2002,7 @@ void cmd_wordcount(const string& args, map<string,FSNode>& fs, const string& cdi
     bool in_word = false;
     for (char ch : *c) {
         if (ch == '\n') lines++;
-        if (isspace(ch)) { in_word = false; }
+        if (isspace((unsigned char)ch)) { in_word = false; }
         else if (!in_word) { in_word = true; words++; }
     }
     // Word frequency
@@ -1999,7 +2011,7 @@ void cmd_wordcount(const string& args, map<string,FSNode>& fs, const string& cdi
     while (ss2 >> w) {
         // Strip punctuation
         string clean;
-        for (char ch : w) if (isalnum(ch)) clean += tolower(ch);
+        for (char ch : w) if (isalnum((unsigned char)ch)) clean += tolower(ch);
         if (!clean.empty()) freq[clean]++;
     }
     cout << "\n  " << clr::bold << "Word Count:" << clr::reset << " " << clr::cyan << words << clr::reset << "  "
@@ -2007,7 +2019,7 @@ void cmd_wordcount(const string& args, map<string,FSNode>& fs, const string& cdi
          << clr::bold << "Chars:" << clr::reset << " " << clr::cyan << chars << clr::reset << "\n\n";
     // Top 10 words
     vector<pair<string,int>> sorted_words(freq.begin(), freq.end());
-    sort(sorted_words.begin(), sorted_words.end(), [](auto& a, auto& b) { return a.second > b.second; });
+    sort(sorted_words.begin(), sorted_words.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
     cout << "  " << clr::bold << "Top Words:" << clr::reset << "\n";
     for (int i = 0; i < min(10, (int)sorted_words.size()); i++) {
         int bar = min(20, sorted_words[i].second);
@@ -2022,10 +2034,21 @@ void cmd_matrix(int rows) {
     if (rows <= 0) rows = 20;
     cout << "\033[2J\033[1;1H";
     string chars = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789";
+    vector<size_t> offsets;
+    for (size_t i = 0; i < chars.size();) {
+        offsets.push_back(i);
+        unsigned char lead = chars[i];
+        size_t len = (lead < 0x80) ? 1 : (lead < 0xE0) ? 2 : (lead < 0xF0) ? 3 : 4;
+        if (i + len > chars.size()) break;
+        i += len;
+    }
     for (int r = 0; r < rows; r++) {
         for (int c = 0; c < 60; c++) {
-            if (rng_int(0, 3) == 0) cout << clr::green << chars[rng_int(0, (int)chars.size() - 1)] << clr::reset;
-            else cout << clr::dgray << chars[rng_int(0, (int)chars.size() - 1)] << clr::reset;
+            size_t idx = offsets[rng_int(0, (int)offsets.size() - 1)];
+            unsigned char lead = chars[idx];
+            size_t len = (lead < 0x80) ? 1 : (lead < 0xE0) ? 2 : (lead < 0xF0) ? 3 : 4;
+            if (rng_int(0, 3) == 0) cout << clr::green << chars.substr(idx, len) << clr::reset;
+            else cout << clr::dgray << chars.substr(idx, len) << clr::reset;
         }
         cout << "\n";
     }
@@ -2065,7 +2088,7 @@ void cmd_hexdump(const string& args, map<string,FSNode>& fs, const string& cdir)
             cout << clr::gray << setw(2) << setfill('0') << hex << (int)(unsigned char)text[j] << " " << clr::reset;
         cout << "  " << clr::dgray << "|";
         for (size_t j = i; j < i + 16 && j < text.size(); j++)
-            cout << (isprint(text[j]) ? string(1, text[j]) : ".");
+            cout << (isprint((unsigned char)text[j]) ? string(1, text[j]) : ".");
         cout << "|\n";
     }
     cout << dec << setfill(' ');
@@ -2178,10 +2201,9 @@ void cmd_calc2(const string& args) {
             case '+': return a + b;
             case '-': return a - b;
             case '*': return a * b;
-            case '/': return b != 0 ? a / b : 0;
+            case '/': { if (b == 0) { cout << "  error: division by zero\n\n"; return NAN; } return a / b; }
             default: return 0;
         }
-        return 0;
     };
 
     vector<double> nums;
@@ -2193,9 +2215,12 @@ void cmd_calc2(const string& args) {
         nums.push_back(val);
         while (ss >> op >> val) {
             while (!ops.empty() && precedence(ops.back()) >= precedence(op)) {
+                if (nums.size() < 2) { cout << "  error: invalid expression\n\n"; return; }
                 double b = nums.back(); nums.pop_back();
                 double a = nums.back(); nums.pop_back();
-                nums.push_back(apply_op(a, b, ops.back()));
+                double r = apply_op(a, b, ops.back());
+                if (isnan(r)) return;
+                nums.push_back(r);
                 ops.pop_back();
             }
             ops.push_back(op);
@@ -2203,9 +2228,12 @@ void cmd_calc2(const string& args) {
         }
     }
     while (!ops.empty()) {
+        if (nums.size() < 2) { cout << "  error: invalid expression\n\n"; return; }
         double b = nums.back(); nums.pop_back();
         double a = nums.back(); nums.pop_back();
-        nums.push_back(apply_op(a, b, ops.back()));
+        double r = apply_op(a, b, ops.back());
+        if (isnan(r)) return;
+        nums.push_back(r);
         ops.pop_back();
     }
     if (!nums.empty()) cout << "  " << clr::cyan << "= " << nums.back() << clr::reset << "\n\n";
@@ -2247,7 +2275,7 @@ void play_memory() {
             cout << "\n  " << clr::gray << "Selected: (" << sel_r+1 << "," << sel_c+1 << ")" << clr::reset;
         }
         cout << "\n  " << clr::dgray << "Enter r c (e.g. 1 2): " << clr::reset;
-        string line; getline(cin, line);
+        string line; line = cooked_readline();
         if (line == "q" || line == "Q") break;
         istringstream iss(line);
         int r, c;
@@ -2274,8 +2302,7 @@ void play_memory() {
     }
     cout << "\n  " << clr::success << ">> COMPLETE in " << moves << " moves!" << clr::reset << "\n";
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 // --- CONNECT FOUR ---
@@ -2328,21 +2355,21 @@ void play_connect4() {
 
         if (turn == 0) {
             cout << "  " << clr::gray << "Your move (1-7): " << clr::reset;
-            string line; getline(cin, line);
+            string line; line = cooked_readline();
             if (line == "q" || line == "Q") break;
             int col = 0;
             for (char ch : line) if (ch >= '1' && ch <= '7') col = ch - '0';
             if (col < 1 || col > 7) continue;
             if (!drop(col-1, 1)) { cout << "  Column full!\n"; this_thread::sleep_for(chrono::milliseconds(500)); continue; }
         } else {
-            // AI: try center, then neighbors
+            // AI: try center, then neighbors; also block player wins
             int best = 3;
             for (int c = 0; c < C; c++) if (grid[0][c] == 0) { best = c; break; }
             // Check if AI can win
             bool found_win = false;
             for (int c = 0; c < C && !found_win; c++) {
                 if (grid[0][c] != 0) continue;
-                for (int r = 0; r < R; r++) {
+                for (int r = R - 1; r >= 0; r--) {
                     if (grid[r][c] == 0) {
                         grid[r][c] = 2;
                         if (check_win(2)) { best = c; grid[r][c] = 0; found_win = true; break; }
@@ -2351,13 +2378,26 @@ void play_connect4() {
                     }
                 }
             }
+            // Block player's winning move if no win found
+            if (!found_win) {
+                for (int c = 0; c < C; c++) {
+                    if (grid[0][c] != 0) continue;
+                    for (int r = R - 1; r >= 0; r--) {
+                        if (grid[r][c] == 0) {
+                            grid[r][c] = 1;
+                            if (check_win(1)) { best = c; grid[r][c] = 0; found_win = true; }
+                            grid[r][c] = 0;
+                            break;
+                        }
+                    }
+                }
+            }
             drop(best, 2);
         }
         turn = 1 - turn;
     }
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 // --- LIGHTS OUT ---
@@ -2394,7 +2434,7 @@ void play_lightsout() {
         for (int r = 0; r < N; r++) for (int c = 0; c < N; c++) if (grid[r][c]) won = false;
         if (won) { cout << "\n  " << clr::success << ">> ALL LIGHTS OFF in " << moves << " moves!" << clr::reset << "\n"; break; }
         cout << "\n  " << clr::dgray << "r c: " << clr::reset;
-        string line; getline(cin, line);
+        string line; line = cooked_readline();
         if (line == "q" || line == "Q") break;
         istringstream iss(line);
         int r, c; if (!(iss >> r >> c)) continue;
@@ -2408,8 +2448,7 @@ void play_lightsout() {
         moves++;
     }
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 // --- SLIDING PUZZLE (15-puzzle) ---
@@ -2467,8 +2506,7 @@ void play_puzzle() {
         }
     }
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 // --- BREAKOUT ---
@@ -2478,6 +2516,7 @@ void play_breakout() {
     int ball_x = W/2, ball_y = H-3;
     int dx = 1, dy = -1;
     int score = 0;
+    bool won = false;
     vector<vector<bool>> bricks(H, vector<bool>(W, false));
     for (int r = 2; r < 7; r++) for (int c = 1; c < W-1; c++) bricks[r][c] = true;
     bool game_over = false;
@@ -2507,7 +2546,7 @@ void play_breakout() {
         // Check win
         bool all_clear = true;
         for (int r = 0; r < H; r++) for (int c = 0; c < W; c++) if (bricks[r][c]) all_clear = false;
-        if (all_clear) { cout << "\n  " << clr::success << ">> LEVEL COMPLETE!" << clr::reset << "\n"; break; }
+        if (all_clear) { won = true; break; }
 
         // Render
         cout << "\033[2J\033[1;1H";
@@ -2527,10 +2566,10 @@ void play_breakout() {
         }
         this_thread::sleep_for(chrono::milliseconds(50));
     }
-    cout << "\n  " << clr::error << ">> GAME OVER" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "\n";
+    if (won) cout << "\n  " << clr::success << ">> LEVEL COMPLETE!" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "\n";
+    else cout << "\n  " << clr::error << ">> GAME OVER" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "\n";
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 // --- WHACK-A-MOLE ---
@@ -2538,7 +2577,7 @@ void play_whack() {
     int score = 0, misses = 0, round = 0;
     cout << "\033[2J\033[1;1H";
     cout << "\n  " << clr::bold << clr::green << "🔨 WHACK-A-MOLE" << clr::reset << "  " << clr::dgray << "(1-9 to whack, 0=miss, q=quit)" << clr::reset << "\n\n";
-    cout << "  Press Enter to start..."; cin.get();
+        cout << "Press Enter to start..."; cooked_readline();
 
     while (misses < 3 && round < 15) {
         int hole = rng_int(1, 9);
@@ -2566,7 +2605,7 @@ void play_whack() {
                 int n = k - '0';
                 if (n == hole) { score += 10; whacked = true; break; }
                 else if (n >= 0 && n <= 9) { misses++; whacked = true; break; }
-                else if (k == KEY_Q) { cout << "Press Enter to return to NoNameOS..."; cin.get(); return; };
+                else if (k == KEY_Q) { cout << "Press Enter to return to NoNameOS..."; cooked_readline(); return; };
             }
             this_thread::sleep_for(chrono::milliseconds(10));
         }
@@ -2575,8 +2614,7 @@ void play_whack() {
     }
     cout << "\n  " << (misses >= 3 ? clr::error : clr::success) << ">> GAME OVER" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "\n";
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+cooked_readline();
 }
 
 // --- MASSIVE COMMAND BATCH ---
@@ -2609,7 +2647,9 @@ void cmd_units(const string& args) {
     istringstream ss(args);
     string val, from, to;
     ss >> val >> from >> to;
-    double v = stod(val);
+    double v;
+    try { v = stod(val); }
+    catch (...) { cout << "error: invalid number '" << val << "'\n"; return; }
     double result = 0;
     // Length conversions
     if (from == "km" && to == "mi") result = v * 0.621371;
@@ -2706,8 +2746,8 @@ void cmd_palette() {
         double r, g, b;
         // HSL to RGB simplified
         double s = 0.7, l = 0.5;
-        double c = (1 - abs(2*l-1)) * s;
-        double x = c * (1 - abs(fmod(h/60.0, 2) - 1));
+        double c = (1 - std::abs(2*l-1)) * s;
+        double x = c * (1 - std::abs(fmod(h/60.0, 2) - 1));
         double m = l - c/2;
         if (h < 60) { r=c; g=x; b=0; }
         else if (h < 120) { r=x; g=c; b=0; }
@@ -2817,14 +2857,14 @@ void cmd_encode(const string& args) {
 void cmd_hash(const string& args) {
     // Simple hash (djb2)
     unsigned long hash = 5381;
-    for (char c : args) hash = ((hash << 5) + hash) + c;
+    for (unsigned char c : args) hash = ((hash << 5) + hash) + c;
     cout << "  " << clr::cyan << "0x" << hex << hash << dec << clr::reset << "\n";
 }
 
 void cmd_urlencode(const string& args) {
     cout << "  ";
     for (char c : args) {
-        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') cout << c;
+        if (isalnum((unsigned char)c) || c == '-' || c == '_' || c == '.' || c == '~') cout << c;
         else { char buf[4]; snprintf(buf, sizeof(buf), "%%%02X", (unsigned char)c); cout << clr::cyan << buf << clr::reset; }
     }
     cout << "\n";
@@ -2859,7 +2899,7 @@ void cmd_reverse_str(const string& args) {
 void cmd_capitalize(const string& args) {
     bool cap = true;
     for (char c : args) {
-        if (isspace(c)) { cap = true; cout << c; }
+        if (isspace((unsigned char)c)) { cap = true; cout << c; }
         else if (cap) { cout << (char)toupper(c); cap = false; }
         else cout << c;
     }
@@ -2970,7 +3010,7 @@ void cmd_worldclock() {
     for (auto& [offset, name] : zones) {
         time_t tz_time = now + static_cast<time_t>(offset) * 3600;
         tm t_buf;
-        localtime_r(&tz_time, &t_buf);
+        gmtime_r(&tz_time, &t_buf);
         char buf[20];
         strftime(buf, sizeof(buf), "%H:%M:%S", &t_buf);
         cout << "  " << clr::gray << setw(14) << name << clr::reset << "  " << clr::cyan << buf << clr::reset << "\n";
@@ -2985,16 +3025,28 @@ void cmd_wordle() {
 
     for (int a = 0; a < attempts; a++) {
         cout << "\033[2J\033[1;1H";
-        cout << "\n  " << clr::bold << clr::green << "🔤 WORDLE" << clr::reset << "  " << clr::gray << "Attempt " << a+1 << "/" << attempts << clr::reset << "\n\n";
+        cout << "\n  " << clr::bold << clr::green << "🔤 WORDLE" << clr::reset << "  " << clr::dgray << "Attempt " << a+1 << "/" << attempts << clr::reset << "\n\n";
         cout << "  " << clr::dgray << "Type a 5-letter word:" << clr::reset << "\n  ";
         string guess;
-        getline(cin, guess);
-        if (guess.size() != 5) { a--; continue; }
+        do {
+            guess = cooked_readline();
+            if (guess == "q" || guess == "Q") { a = attempts; break; }
+        } while (guess.size() != 5 || !all_of(guess.begin(), guess.end(), ::isalpha));
 
-        // Color feedback
+        if (guess.size() != 5) break;
+        transform(guess.begin(), guess.end(), guess.begin(), ::tolower);
+
+        array<int, 26> remaining = {};
+        for (int i = 0; i < 5; i++) {
+            if (guess[i] != target[i]) remaining[target[i] - 'a']++;
+        }
+
         for (int i = 0; i < 5; i++) {
             if (guess[i] == target[i]) cout << clr::green << (char)toupper(guess[i]) << clr::reset;
-            else if (target.find(guess[i]) != string::npos) cout << clr::yellow << (char)toupper(guess[i]) << clr::reset;
+            else if (remaining[guess[i] - 'a'] > 0) {
+                cout << clr::yellow << (char)toupper(guess[i]) << clr::reset;
+                remaining[guess[i] - 'a']--;
+            }
             else cout << clr::dgray << (char)toupper(guess[i]) << clr::reset;
         }
         cout << "\n";
@@ -3003,11 +3055,10 @@ void cmd_wordle() {
         }
         if (a == attempts - 1) cout << "\n  " << clr::error << ">> The word was: " << target << clr::reset << "\n";
         cout << "Press Enter to continue...";
-        cin.get();
+        cooked_readline();
     }
     cout << "Press Enter to return to NoNameOS...";
-    cin.ignore(static_cast<std::streamsize>(CIN_IGNORE_MAX), '\n');
-    cin.get();
+    cooked_readline();
 }
 
 void cmd_quiz() {
@@ -3035,7 +3086,7 @@ void cmd_quiz() {
         for (int j = 0; j < 4; j++)
             cout << "    " << clr::gray << j+1 << ". " << q.opts[j] << clr::reset << "\n";
         cout << "  Answer (1-4): ";
-        string line; getline(cin, line);
+        string line; line = cooked_readline();
         int ans = 0;
         for (char c : line) if (c >= '1' && c <= '4') ans = c - '0';
         if (ans - 1 == q.correct) { cout << "  " << clr::green << "Correct!" << clr::reset << "\n"; score++; }
@@ -3074,15 +3125,6 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
     cout << "\n";
 }
 
-void cmd_emoji2() {
-    const vector<string> faces = {"😀","😂","😍","🥳","😎","🤩","😊","🤗","😌","😴"};
-    for (int i = 0; i < 5; i++) {
-        cout << "  ";
-        for (int j = 0; j < 6; j++) cout << faces[rng_int(0, 9)] << " ";
-        cout << "\n";
-    }
-    cout << "\n";
-}
 
 // ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
@@ -3093,24 +3135,17 @@ void cmd_emoji2() {
 
     int main() {
     signal(SIGINT, sigint_handler);
-    // Set terminal to raw/non-blocking once for kbhit performance
-    struct termios raw_t;
-    tcgetattr(STDIN_FILENO, &g_orig_term);
-    raw_t = g_orig_term;
-    raw_t.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &raw_t);
-    g_term_saved = true;
-    int orig_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-    fcntl(STDIN_FILENO, F_SETFL, orig_flags | O_NONBLOCK);
+    // Use RAII to manage terminal state — auto-restores on any exit path
+    TerminalGuard tg;
     cout << "\033[2J\033[1;1H";
 
     // --- Boot Logo ---
     const vector<string> logo = {
         "    _   __      _   __                     ____  _____",
         "   / | / /___  / | / /___ _____ ___  ___  / __ \\/ ___/",
-        "  /  |/ / __ \\/  |/ / __ `/ __ `__ \\/ _ \\ / / / /\\__ \\ ",
-        " / /|  / /_/ / /|  / /_/ / / / / / /  __/ /_/ /___/ / ",
-        "/_/ |_|\\____/_/ |_|\\__,_/_/ /_/ /_/\\___/\\____//____/  "
+        "  /  |/ / __ \\/  |/ / __ `/ __ `__ \\/ _ \\/ / / /\\__ \\",
+        " / /|  / /_/ / /|  / /_/ / / / / / /  __/ /_/ /___/ /",
+        "/_/ |_/\\____/_/ |_|\\__,_/_/ /_/ /_/\\___/\\____//____/"
     };
 
     // Animated logo with color gradient
@@ -3142,9 +3177,9 @@ void cmd_emoji2() {
 
     for (size_t i = 0; i < boot_steps.size(); i++) {
         float pct = (float)(i + 1) / (float)boot_steps.size();
-        int bar_w = 35;
+        int bar_w = 25;
         int pos = (int)((float)bar_w * pct);
-        cout << "\r  " << clr::dgray << "[" << clr::reset;
+        cout << "\033[2K\r  " << clr::dgray << "[" << clr::reset;
         for (int j = 0; j < bar_w; j++) {
             if (j < pos) cout << clr::green << "━" << clr::reset;
             else if (j == pos) cout << clr::amber << "╸" << clr::reset;
@@ -3167,7 +3202,7 @@ void cmd_emoji2() {
 
     // Default custom level mapping -- pre-load AsciiDash obstacle map into VFS
     file_system["/geometry/"] = FSNode(true, "");
-    file_system["/geometry/jumper.gmd"] = FSNode(false, "_______^_______^^_______^___^^^___");
+    file_system["/geometry/jumper.gmd/"] = FSNode(false, "_______^_______^^_______^___^^^___");
 
     string current_user = "root";
     string current_dir = "/";
@@ -3189,10 +3224,8 @@ void cmd_emoji2() {
              << clr::prompt_host << "nonameos" << clr::prompt_sep << ":"
              << clr::prompt_dir << current_dir << clr::reset << "\n"
              << clr::prompt_sep << "❯ " << clr::reset;
-        if (true) {
-            string ri = readline_global(cmd_history);
-            input = ri;
-        }
+        string ri = readline_global(cmd_history);
+        input = ri;
 
         if (input.empty()) continue;
         cmd_history.push_back(input);
@@ -3339,7 +3372,7 @@ void cmd_emoji2() {
         }
         else if (cmd == "rm") {
             if (args.empty()) { cout << "Usage: rm [-r] <name>\n"; }
-            else if (args == "-rf /" || args == "-rf /*") {
+            else if (args == "-rf /" || args == "-rf /*" || args == "-r /" || args == "-r /*") {
                 cout << "\n  " << clr::error << "☢ NUCLEAR LAUNCH DENIED ☢" << clr::reset << "\n";
                 cout << "  " << clr::dgray << "(This terminal doesn't have that kind of power)" << clr::reset << "\n\n";
             }
@@ -3352,20 +3385,23 @@ void cmd_emoji2() {
                 if (args.rfind("-r ", 0) == 0) {
                     string dirname = args.substr(3);
                     string dpath = resolve_user_path(dirname, current_dir);
-                    if (dpath.back() != '/') dpath += "/";
+                    if (!dpath.empty() && dpath.back() != '/') dpath += "/";
                     vector<string> to_erase;
                     for (auto& [path, _] : file_system)
                         if (path.rfind(dpath, 0) == 0 || path == dpath.substr(0, dpath.length()-1))
                             to_erase.push_back(path);
                     for (const string& p : to_erase) {
-                        file_system[trash_dir + ts + "_" + p.substr(p.find_last_of('/') + 1)] = file_system[p];
+                        string pname = p;
+                        if (!pname.empty() && pname.back() == '/') pname.pop_back();
+                        file_system[trash_dir + ts + "_" + pname.substr(pname.find_last_of('/') + 1)] = file_system[p];
                         file_system.erase(p);
                     }
                     cout << "\033[32mTrashed " << dirname << " recursively.\033[0m\n";
                 } else {
                     string src = resolve_user_path(args, current_dir);
                     if (file_system.find(src) != file_system.end() && !file_system[src].is_dir) {
-                        string name = src.substr(src.find_last_of('/') + 1);
+                        string name = args.substr(args.find_last_of('/') + 1);
+                        if (name.empty()) name = src;
                         file_system[trash_dir + ts + "_" + name] = file_system[src];
                         file_system.erase(src);
                         cout << "\033[32mTrashed " << args << ".\033[0m\n";
@@ -3383,12 +3419,15 @@ void cmd_emoji2() {
                 cout << "Loading Default Map: Stereo Madness...\n";
                 play_asciidash("_______^_______^_____^^_______^___");
             } else {
-                string target_file = current_dir + args;
-                if (file_system.find(target_file) != file_system.end() && !file_system[target_file].is_dir) {
-                    cout << "Loading Custom Map: " << args << "...\n";
-                    play_asciidash(file_system[target_file].content);
-                } else {
-                    cout << "\033[31merror:\033[0m Map file not found in VFS.\n";
+                if (has_traversal(args)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
+                else {
+                    string target_file = resolve_user_path(args, current_dir);
+                    if (file_system.find(target_file) != file_system.end() && !file_system[target_file].is_dir) {
+                        cout << "Loading Custom Map: " << args << "...\n";
+                        play_asciidash(file_system[target_file].content);
+                    } else {
+                        cout << "\033[31merror:\033[0m Map file not found in VFS.\n";
+                    }
                 }
             }
         }
@@ -3550,7 +3589,7 @@ void cmd_emoji2() {
             int start_day = first_buf.tm_wday;
 
             // Days in month
-            int days_in_month[] = {31,28+(year%4==0&&(year%100!=0||year%400==0)),31,30,31,30,31,31,30,31,30,31};
+            const int days_in_month[] = {31,28+(year%4==0&&(year%100!=0||year%400==0)),31,30,31,30,31,31,30,31,30,31};
             int total = days_in_month[month - 1];
 
             const char* months[] = {"January","February","March","April","May","June","July","August","September","October","November","December"};
@@ -3601,7 +3640,7 @@ void cmd_emoji2() {
                     string val = args.substr(eq + 1);
                     if (name.empty()) { cout << "\033[31merror:\033[0m empty alias name.\n"; }
                     else {
-                        if (val.front() == '\'' && val.back() == '\'')
+                        if (val.length() >= 2 && val.front() == '\'' && val.back() == '\'')
                             val = val.substr(1, val.length() - 2);
                         aliases[name] = val;
                         cout << "Alias created: " << name << "='" << val << "'\n";
@@ -3610,8 +3649,7 @@ void cmd_emoji2() {
             }
         }
         else if (cmd == "unalias") {
-            if (aliases.find(args) != aliases.end()) {
-                aliases.erase(args);
+            if (aliases.erase(args)) {
                 cout << "Alias '" << args << "' removed.\n";
             } else {
                 cout << "Alias '" << args << "' not found.\n";
@@ -3686,16 +3724,27 @@ void cmd_emoji2() {
                         } else {
                             string sfull = resolve_user_path(src, current_dir);
                             string dfull = resolve_user_path(dst, current_dir);
-                            if (sfull.back() != '/') sfull += "/";
-                            if (dfull.back() != '/') dfull += "/";
-                            file_system[dfull] = FSNode(true, "");
-                            for (auto& [path, node] : file_system) {
-                                if (path.rfind(sfull, 0) == 0) {
-                                    string rel = path.substr(sfull.length());
-                                    file_system[dfull + rel] = node;
+                            if (!sfull.empty() && sfull.back() != '/') sfull += "/";
+                            if (!dfull.empty() && dfull.back() != '/') dfull += "/";
+                            bool src_exists = false;
+                            for (auto& [path, node] : file_system)
+                                if (path.rfind(sfull, 0) == 0) { src_exists = true; break; }
+                            if (!src_exists) {
+                                cout << "\033[31merror:\033[0m source directory not found.\033[0m\n";
+                            } else {
+                                file_system[dfull] = FSNode(true, "");
+                                vector<pair<string,FSNode>> to_copy;
+                                for (auto& [path, node] : file_system) {
+                                    if (path.rfind(sfull, 0) == 0) {
+                                        string rel = path.substr(sfull.length());
+                                        to_copy.push_back({dfull + rel, node});
+                                    }
                                 }
+                                for (auto& [path, node] : to_copy) {
+                                    file_system[path] = node;
+                                }
+                                cout << "\033[32mCopied " << src << " -> " << dst << " recursively.\033[0m\n";
                             }
-                            cout << "\033[32mCopied " << src << " -> " << dst << " recursively.\033[0m\n";
                         }
                     }
                 } else {
@@ -3729,11 +3778,11 @@ void cmd_emoji2() {
                         file_system.erase(full_src);
                         cout << "\033[32mMoved " << src << " -> " << dst << "\033[0m\n";
                     } else {
-                        string full_src_dir = full_src;
-                        if (full_src_dir.back() != '/') full_src_dir += "/";
+                            string full_src_dir = full_src;
+                            if (!full_src_dir.empty() && full_src_dir.back() != '/') full_src_dir += "/";
                         if (file_system.find(full_src_dir) != file_system.end()) {
                             string full_dst_dir = full_dst;
-                            if (full_dst_dir.back() != '/') full_dst_dir += "/";
+                            if (!full_dst_dir.empty() && full_dst_dir.back() != '/') full_dst_dir += "/";
                             // C1 FIX: collect paths first, then modify (avoids iterator invalidation)
                             vector<string> to_move;
                             for (auto& [p, _] : file_system)
@@ -3764,7 +3813,7 @@ void cmd_emoji2() {
                     } else cout << "\033[31merror:\033[0m invalid mode (use format rwxr-xr-x).\n";
                 } else {
                     string dpath = fullpath;
-                    if (dpath.back() != '/') dpath += "/";
+                    if (!dpath.empty() && dpath.back() != '/') dpath += "/";
                     if (file_system.find(dpath) != file_system.end()) {
                         if (mode.length() == 9) {
                             file_system[dpath].mode = mode;
@@ -3824,6 +3873,7 @@ void cmd_emoji2() {
         else if (cmd == "head") {
             string fn = args;
             if (fn.empty()) { cout << "Usage: head <file>\n"; }
+            else if (has_traversal(fn)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(fn, current_dir);
                 if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir) {
@@ -3836,6 +3886,7 @@ void cmd_emoji2() {
         else if (cmd == "tail") {
             string fn = args;
             if (fn.empty()) { cout << "Usage: tail <file>\n"; }
+            else if (has_traversal(fn)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(fn, current_dir);
                 if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir) {
@@ -3851,6 +3902,7 @@ void cmd_emoji2() {
         else if (cmd == "sort") {
             string fn = args;
             if (fn.empty()) { cout << "Usage: sort <file>\n"; }
+            else if (has_traversal(fn)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(fn, current_dir);
                 if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir) {
@@ -3866,6 +3918,7 @@ void cmd_emoji2() {
         else if (cmd == "wc") {
             string fn = args;
             if (fn.empty()) { cout << "Usage: wc <file>\n"; }
+            else if (has_traversal(fn)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(fn, current_dir);
                 if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir) {
@@ -3989,12 +4042,15 @@ void cmd_emoji2() {
             while (true) {
                 cout << "Your guess (or q to quit): ";
                 string line;
-                getline(cin, line);
+                line = cooked_readline();
                 if (line == "q" || line == "Q") break;
-                int guess = 0;
+                long long guess = 0;
                 bool valid = true;
                 for (char c : line) {
-                    if (c >= '0' && c <= '9') guess = guess * 10 + (c - '0');
+                    if (c >= '0' && c <= '9') {
+                        if (guess > LLONG_MAX / 10 - (c - '0')) { valid = false; break; }
+                        guess = guess * 10 + (c - '0');
+                    }
                     else { valid = false; break; }
                 }
                 if (!valid || guess < 1 || guess > 100) {
@@ -4030,7 +4086,7 @@ void cmd_emoji2() {
                 }
                 cout << "Answer (1-4): ";
                 string line;
-                if (!getline(cin, line)) break;
+                line = cooked_readline(); if (line.empty() && cin.eof()) break;
                 int ans = 0;
                 for (char c : line) {
                     if (c >= '0' && c <= '9') ans = ans * 10 + (c - '0');
@@ -4056,7 +4112,7 @@ void cmd_emoji2() {
                 cout << "  " << clr::bold << clr::red << "❤ HP: " << hp << clr::reset << "   " << clr::bold << clr::yellow << "💰 Gold: " << gold << clr::reset << "\n";
                 cout << "What do you do? [left / right / rest / quit]\n> ";
                 string choice;
-                getline(cin, choice);
+                choice = cooked_readline();
                 if (choice == "left") {
                     int event = rng_int(0, 2);
                     if (event == 0) {
@@ -4192,7 +4248,7 @@ void cmd_emoji2() {
                 while (true) {
                     cout << "> ";
                     string line;
-                    getline(cin, line);
+                    line = cooked_readline();
                     if (line.empty()) break;
                     if (!content.empty()) content += "\n";
                     content += line;
@@ -4261,30 +4317,39 @@ void cmd_emoji2() {
                         }
                     }
                     if (nums.size() < 2 || nums.size() != ops.size() + 1) {
-                        cout << "\033[31merror:\033[0m invalid expression.\n";
-                    } else {
-                        vector<double> pn = {nums[0]};
-                        vector<char> po;
-                        for (size_t i = 0; i < ops.size(); i++) {
-                            if (ops[i] == '*' || ops[i] == '/') {
-                                double last = pn.back(); pn.pop_back();
-                                if (ops[i] == '*') pn.push_back(last * nums[i+1]);
-                                else {
-                                    if (nums[i+1] == 0) { cout << "\033[31merror:\033[0m division by zero.\n"; break; }
-                                    pn.push_back(last / nums[i+1]);
-                                }
-                            } else {
-                                pn.push_back(nums[i+1]);
-                                po.push_back(ops[i]);
-                            }
+                        if (nums.size() == 1 && ops.empty()) {
+                            cout << "= " << nums[0] << "\n";
+                        } else {
+                            cout << "\033[31merror:\033[0m invalid expression.\n";
                         }
-                        double result = pn[0];
-                        for (size_t i = 0; i < po.size(); i++) {
-                            if (po[i] == '+') result += pn[i+1];
-                            else result -= pn[i+1];
-                        }
-                        cout << "= " << result << "\n";
-                    }
+                     } else {
+                         vector<double> pn = {nums[0]};
+                         vector<char> po;
+                         bool calc_error = false;
+                         for (size_t i = 0; i < ops.size(); i++) {
+                             if (ops[i] == '*' || ops[i] == '/') {
+                                 double last = pn.back(); pn.pop_back();
+                                 if (ops[i] == '*') pn.push_back(last * nums[i+1]);
+                                 else {
+                                     if (nums[i+1] == 0) { cout << "\033[31merror:\033[0m division by zero.\n"; calc_error = true; break; }
+                                     pn.push_back(last / nums[i+1]);
+                                 }
+                             } else {
+                                 pn.push_back(nums[i+1]);
+                                 po.push_back(ops[i]);
+                             }
+                         }
+                         if (calc_error) {}
+                         else if (pn.empty()) { cout << "\033[31merror:\033[0m invalid expression.\n"; }
+                         else {
+                             double result = pn[0];
+                             for (size_t i = 0; i < po.size(); i++) {
+                                 if (po[i] == '+') result += pn[i+1];
+                                 else result -= pn[i+1];
+                             }
+                             cout << "= " << result << "\n";
+                         }
+                     }
                 }
             }
         }
@@ -4443,7 +4508,7 @@ void cmd_emoji2() {
                         string line;
                         while (getline(ss, line)) lines.push_back(line);
                         if (n > 0 && n <= (int)lines.size()) {
-                            if (lines[n-1][0] != 'x') lines[n-1] = "x" + lines[n-1].substr(1);
+                            if (!lines[n-1].empty() && lines[n-1][0] != 'x') lines[n-1] = "x" + lines[n-1];
                             string newc;
                             for (size_t i = 0; i < lines.size(); i++) {
                                 if (i > 0) newc += "\n";
@@ -4476,16 +4541,13 @@ void cmd_emoji2() {
             } else if (subcmd == "rm") {
                 if (rest.empty()) cout << "Usage: notes rm <name>\n";
                 else {
-                    bool found = false;
-                    for (auto& [path, node] : file_system) {
-                        if (path == notesdir + rest) {
-                            file_system.erase(path);
-                            cout << "\033[32mNote '" << rest << "' removed.\033[0m\n";
-                            found = true;
-                            break;
-                        }
+                    auto it = file_system.find(notesdir + rest);
+                    if (it != file_system.end()) {
+                        file_system.erase(it);
+                        cout << "\033[32mNote '" << rest << "' removed.\033[0m\n";
+                    } else {
+                        cout << "\033[31merror:\033[0m note not found.\n";
                     }
-                    if (!found) cout << "\033[31merror:\033[0m note not found.\n";
                 }
             } else {
                 string name = args;
@@ -4499,7 +4561,7 @@ void cmd_emoji2() {
                 while (true) {
                     cout << "> ";
                     string line;
-                    getline(cin, line);
+                    line = cooked_readline();
                     if (line.empty()) break;
                     if (!content.empty()) content += "\n";
                     content += line;
@@ -4511,10 +4573,10 @@ void cmd_emoji2() {
         else if (cmd == "stopwatch") {
             cout << "--- Stopwatch ---\n";
             cout << "Press Enter to start...";
-            cin.get();
+            cooked_readline();
             auto start = chrono::steady_clock::now();
             cout << "Press Enter to stop...";
-            cin.get();
+            cooked_readline();
             auto end = chrono::steady_clock::now();
             auto elapsed_ms = chrono::duration_cast<chrono::milliseconds>(end - start).count();
             cout << "Elapsed: " << (elapsed_ms / 1000) << "." << (elapsed_ms % 1000) << "s\n";
@@ -4636,7 +4698,16 @@ void cmd_emoji2() {
         else if (cmd == "palette") { cmd_palette(); }
         else if (cmd == "diff") { cmd_diff(args, file_system, current_dir); }
         else if (cmd == "csv") { cmd_csv(args, file_system, current_dir); }
-        else if (cmd == "stats") { cmd_stats(args); }
+        else if (cmd == "stats") {
+            if (args == "hidden") {
+                cout << "\n  " << clr::bold << "Hidden Stats:" << clr::reset << "\n";
+                cout << "  " << clr::gray << "Commands typed this session: " << clr::cyan << cmd_history.size() << clr::reset << "\n";
+                cout << "  " << clr::gray << "Easter eggs discovered: " << clr::cyan << "???" << clr::reset << "\n";
+                cout << "  " << clr::gray << "Developer sanity: " << clr::red << "low" << clr::reset << "\n\n";
+            } else {
+                cmd_stats(args);
+            }
+        }
         else if (cmd == "age") { cmd_age(args); }
         else if (cmd == "datecalc") { cmd_datecalc(args); }
         else if (cmd == "encode") { cmd_encode(args); }
@@ -4658,8 +4729,8 @@ void cmd_emoji2() {
         else if (cmd == "worldclock") { cmd_worldclock(); }
         else if (cmd == "wordle") { cmd_wordle(); }
         else if (cmd == "quiz") { cmd_quiz(); }
-        else if (cmd == "uppercase") { for (char c : args) cout << (char)toupper(c); cout << "\n"; }
-        else if (cmd == "lowercase") { for (char c : args) cout << (char)tolower(c); cout << "\n"; }
+        else if (cmd == "uppercase") { for (char c : args) cout << (char)toupper((unsigned char)c); cout << "\n"; }
+        else if (cmd == "lowercase") { for (char c : args) cout << (char)tolower((unsigned char)c); cout << "\n"; }
         // ═══════════════════════════════════════════════════════════
         //  EASTER EGGS 🥚
         // ═══════════════════════════════════════════════════════════
@@ -4788,20 +4859,17 @@ void cmd_emoji2() {
             }
             cout << "\r  " << clr::success << "Done! (Just kidding, nothing was loaded)" << clr::reset << "\n\n";
         }
-        else if (cmd == "version" && args == "-a") {
+        else if (cmd == "version") {
             cout << "\n  " << clr::bold << "NoNameOS " << VERSION << clr::reset << "\n";
-            cout << "  " << clr::gray << "Built with: love, C++, and questionable life choices" << clr::reset << "\n";
-            cout << "  " << clr::gray << "Lines of code: ~4500" << clr::reset << "\n";
-            cout << "  " << clr::gray << "Bugs fixed: 19" << clr::reset << "\n";
-            cout << "  " << clr::gray << "Bugs remaining: probably some" << clr::reset << "\n";
-            cout << "  " << clr::gray << "Author: Mark44928" << clr::reset << "\n";
-            cout << "  " << clr::gray << "License: GPLv3" << clr::reset << "\n\n";
-        }
-        else if (cmd == "stats" && args == "hidden") {
-            cout << "\n  " << clr::bold << "Hidden Stats:" << clr::reset << "\n";
-            cout << "  " << clr::gray << "Commands typed this session: " << clr::cyan << cmd_history.size() << clr::reset << "\n";
-            cout << "  " << clr::gray << "Easter eggs discovered: " << clr::cyan << "???" << clr::reset << "\n";
-            cout << "  " << clr::gray << "Developer sanity: " << clr::red << "low" << clr::reset << "\n\n";
+            if (args == "-a") {
+                cout << "  " << clr::gray << "Built with: love, C++, and questionable life choices" << clr::reset << "\n";
+                cout << "  " << clr::gray << "Lines of code: ~4900" << clr::reset << "\n";
+                cout << "  " << clr::gray << "Bugs fixed: 49" << clr::reset << "\n";
+                cout << "  " << clr::gray << "Bugs remaining: probably some" << clr::reset << "\n";
+                cout << "  " << clr::gray << "Author: Mark44928" << clr::reset << "\n";
+                cout << "  " << clr::gray << "License: GPLv3" << clr::reset << "\n";
+            }
+            cout << "\n";
         }
         else {
             cout << "\n  " << clr::error << "✗ " << clr::bold << "command not found: " << clr::reset << clr::error << cmd << clr::reset << "\n";
@@ -4811,8 +4879,6 @@ void cmd_emoji2() {
         }
         last_cmd_end = chrono::steady_clock::now();
     }
-    // Restore terminal state
-    tcsetattr(STDIN_FILENO, TCSANOW, &g_orig_term);
-    fcntl(STDIN_FILENO, F_SETFL, orig_flags);
+    // TerminalGuard tg destructor auto-restores terminal state
     return 0;
 }

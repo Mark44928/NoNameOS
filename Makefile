@@ -11,7 +11,7 @@ $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) -o $@ $< -lpthread
 
 debug: $(SRC)
-	$(CXX) -std=c++17 -Wall -Wextra -g -O0 -o $(TARGET) $< -lpthread
+	$(CXX) $(CXXFLAGS) -g -O0 -o $(TARGET)-debug $< -lpthread
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(TARGET)-debug

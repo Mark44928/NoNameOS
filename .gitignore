@@ -1,5 +1,6 @@
 # Compiled binary
 nonameos
+nonameos-debug
 *.o
 *.out
 
@@ -9,8 +10,18 @@ nonameos
 *~
 .vscode/
 .idea/
-.mimocode/
-.kilo/
+.clang-format
+.clang-tidy
+
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Build artifacts
+compile_commands.json
+.cache/
+core
+valgrind*
+
+# Tool configs (should not be committed)
+.mimocode/

@@ -15,7 +15,7 @@ Thanks for your interest in contributing! Here's how to get started.
 ```bash
 git clone https://github.com/YOUR_USERNAME/NoNameOS.git
 cd NoNameOS
-g++ -O3 NoNameOS.cpp -o nonameos
+g++ -O3 NoNameOS.cpp -o nonameos -lpthread
 ./nonameos
 ```
 
