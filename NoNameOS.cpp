@@ -4887,3 +4887,14 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
     // TerminalGuard tg destructor auto-restores terminal state
     return 0;
 }
+// Oh this is a last comment! you gonna be see my easter egg hidden in it but not reachable in NoNameOS... blah blah here's a big ASCII/Unicode art of an ">_" thingie.
+//
+// ██
+//░░░███
+//  ░░░███
+//    ░░░███
+//     ███░
+//   ███░
+//  ███░      █████████
+// ░░░       ░░░░░░░░░
+// You happy now? looks like Termux logo with shadows.
