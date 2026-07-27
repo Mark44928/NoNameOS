@@ -7,12 +7,12 @@
 <h1 align="center">NoNameOS</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.2-green?style=for-the-badge" alt="Version"/>
+  <img src="https://img.shields.io/badge/version-v1.0.2-green?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/language-C%2B%2B17-blue?style=for-the-badge" alt="C++17"/>
   <img src="https://img.shields.io/badge/license-GPLv3-purple?style=for-the-badge" alt="License"/>
-  <img src="https://img.shields.io/badge/4%2C932-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
+  <img src="https://img.shields.io/badge/4928-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
   <img src="https://img.shields.io/badge/24%2B_games-red?style=for-the-badge" alt="Games"/>
-  <img src="https://img.shields.io/badge/135%2B_commands-cyan?style=for-the-badge" alt="Commands"/>
+  <img src="https://img.shields.io/badge/149%2B_commands-cyan?style=for-the-badge" alt="Commands"/>
   <img src="https://img.shields.io/badge/49_bugs_fixed-2ea44f?style=for-the-badge" alt="Bugs Fixed"/>
   <img src="https://img.shields.io/badge/dependencies-zero-brightgreen?style=for-the-badge" alt="Zero Dependencies"/>
   <img src="https://img.shields.io/badge/platform-linux-lightgrey?style=for-the-badge" alt="Linux"/>
@@ -21,11 +21,11 @@
 </p>
 
 <blockquote align="center">
-  <b>One file. Zero dependencies. 24 games. 135 commands. One terminal.</b>
+  <b>One file. Zero dependencies. 24 games. 149 commands. One terminal.</b>
 </blockquote>
 
 <p align="center">
-  <b>A pure C++ terminal operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 24+ built-in games, and 135+ developer tools — all contained in a single source file.</b><br/>
+  <b>A pure C++ terminal operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 24+ built-in games, and 149+ developer tools — all contained in a single source file.</b><br/>
   <sub>No external dependencies. No framework. No build system headaches. Just compile and run.</sub>
 </p>
 

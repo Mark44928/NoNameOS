@@ -486,6 +486,7 @@ string readline_global(const vector<string>& history) {
 
 optional<string> vfs_read(const string& path, map<string,FSNode>& fs, const string& cdir) {
     string fp = resolve_user_path(path, cdir);
+    fp = resolved_path(fs, fp);
     if (fs.find(fp) != fs.end() && !fs[fp].is_dir) return fs[fp].content;
     return nullopt;
 }
@@ -676,7 +677,7 @@ void cmd_dmesg() {
         {"3.050000", "ok", "System ready. User: root"}
     };
     cout << "\n";
-    for (auto& m : msgs) {
+    for (const auto& m : msgs) {
         string color = (m.level == "ok") ? clr::success : clr::info;
         cout << "  " << clr::dgray << "[" << m.ts << "]" << clr::reset << " " << color << m.text << clr::reset << "\n";
     }
@@ -722,7 +723,7 @@ void cmd_du(const string& args, map<string,FSNode>& fs, const string& cdir) {
     while (!a.empty() && a.back() == '/') a.pop_back();
     string dir = a.empty() ? cdir : (a[0] == '/' ? a + "/" : cdir + a + "/");
     size_t total = 0;
-    for (auto& [p, n] : fs) {
+    for (const auto& [p, n] : fs) {
         if (p.rfind(dir, 0) == 0 && !n.is_dir) total += n.size();
     }
     cout << total << "\t" << (args.empty() ? "." : args) << "\n";
@@ -731,7 +732,7 @@ void cmd_du(const string& args, map<string,FSNode>& fs, const string& cdir) {
 void cmd_locate(const string& args, const map<string,FSNode>& fs) {
     if (args.empty()) { cout << "Usage: locate <pattern>\n"; return; }
     bool found = false;
-    for (auto& [p, n] : fs) {
+    for (const auto& [p, n] : fs) {
         if (p.find(args) != string::npos) { cout << p << "\n"; found = true; }
     }
     if (!found) cout << "error: no matches found.\n";
@@ -945,7 +946,7 @@ void play_snake() {
             for (int fy = 0; fy < SNAKE_H; fy++)
                 for (int fx = 0; fx < SNAKE_W; fx++) {
                     bool on_snake = false;
-                    for (auto& seg : snake) if (seg.first == fx && seg.second == fy) { on_snake = true; break; }
+                    for (const auto& seg : snake) if (seg.first == fx && seg.second == fy) { on_snake = true; break; }
                     if (!on_snake) empty_cells.push_back({fx, fy});
                 }
             if (!empty_cells.empty()) {
@@ -1146,7 +1147,7 @@ void play_tictactoe() {
 
     auto check_win = [&](char p) -> bool {
         const int wins[8][3] = {{0,1,2},{3,4,5},{6,7,8},{0,3,6},{1,4,7},{2,5,8},{0,4,8},{2,4,6}};
-        for (auto& w : wins)
+        for (const auto& w : wins)
             if (board[w[0]] == p && board[w[1]] == p && board[w[2]] == p) return true;
         return false;
     };
@@ -1192,7 +1193,7 @@ void play_tictactoe() {
             string line; line = cooked_readline();
             if (line.empty()) continue;
             int pos = 0;
-            for (char c : line) { if (c >= '0' && c <= '9') pos = pos * 10 + (c - '0'); }
+            for (char c : line) { if (c >= '0' && c <= '9') { int digit = c - '0'; if (pos > (INT_MAX - digit) / 10) { pos = INT_MAX; break; } pos = pos * 10 + digit; } }
             pos -= 1;
             if (pos < 0 || pos > 8 || board[pos] != ' ') {
                 cout << "\033[31merror:\033[0m invalid move.\n";
@@ -1542,7 +1543,7 @@ void cmd_tree(const string& root, const string& current_dir, const map<string,FS
     if (fs.find(dir) == fs.end() && fs.find(dir + "/") != fs.end()) dir += "/";
     function<void(const string&, int)> rec = [&](const string& d, int depth) {
         vector<string> entries;
-        for (auto& [path, node] : fs) {
+        for (const auto& [path, node] : fs) {
             if (path == d) continue;
             if (path.rfind(d, 0) == 0) {
                 string rel = path.substr(d.length());
@@ -1879,7 +1880,7 @@ void play_flappy() {
                 else score++;
             }
         }
-        pipes.erase(remove_if(pipes.begin(), pipes.end(), [](auto& p) { return p.first < -2; }), pipes.end());
+        pipes.erase(remove_if(pipes.begin(), pipes.end(), [](const auto& p) { return p.first < -2; }), pipes.end());
 
         // Render
         cout << "\033[2J\033[1;1H";
@@ -1889,7 +1890,7 @@ void play_flappy() {
             for (int x = 0; x < FLAPPY_W; x++) {
                 bool is_bird = (x == 5 && y == bird_y);
                 bool is_pipe = false;
-                for (auto& p : pipes) {
+                for (const auto& p : pipes) {
                     if (x == p.first && (y < p.second || y > p.second + 3)) { is_pipe = true; break; }
                 }
                 if (is_bird) cout << clr::bold << clr::yellow << "▶" << clr::reset;
@@ -1922,7 +1923,7 @@ void cmd_colors() {
         {"Orange", clr::orange}, {"White", clr::white}, {"Gray", clr::gray},
         {"Dark Gray", clr::dgray}
     };
-    for (auto& [name, code] : palette)
+    for (const auto& [name, code] : palette)
         cout << "  " << code << "████████" << clr::reset << "  " << clr::gray << name << clr::reset << "\n";
     cout << "\n  " << clr::dim << "Use in scripts: echo \"\\033[38;5;XXXm\" for any 256 color" << clr::reset << "\n\n";
 }
@@ -2079,7 +2080,7 @@ void cmd_ascii() {
         {"  ____     ", " / __ \\___ ", "/ /_/ / _ \\", "\\____/_//_/"},
     };
     int pick = rng_int(0, 4);
-    for (auto& line : arts[pick]) cout << "  " << clr::cyan << line << clr::reset << "\n";
+    for (const auto& line : arts[pick]) cout << "  " << clr::cyan << line << clr::reset << "\n";
     cout << "\n";
 }
 
@@ -2168,7 +2169,7 @@ void cmd_disk() {
         {"/home", 256000, rng_int(50000, 200000)},
         {"/tmp", 16384, rng_int(1000, 8000)}
     };
-    for (auto& d : disks) {
+    for (const auto& d : disks) {
         int pct = d.used * 100 / d.total;
         cout << "  " << clr::gray << d.mount << clr::reset << string(max(0, 10 - (int)d.mount.size()), ' ')
              << clr::dgray << "[";
@@ -2542,7 +2543,7 @@ void play_breakout() {
         if (ball_y == H-2 && ball_x >= paddle && ball_x < paddle + paddle_w) { dy = -1; }
 
         // Brick collision
-        if (ball_y >= 0 && ball_y < H && ball_x >= 0 && ball_x < W && bricks[ball_y][ball_x]) {
+        if (ball_y >= 0 && ball_x >= 0 && ball_x < W && bricks[ball_y][ball_x]) {
             bricks[ball_y][ball_x] = false;
             dy = -dy;
             score += 10;
@@ -2675,19 +2676,31 @@ void cmd_units(const string& args) {
 
 void cmd_roman(const string& args) {
     int n = 0;
-    for (char c : args) if (c >= '0' && c <= '9') n = n * 10 + (c - '0');
+    for (char c : args) {
+        if (c >= '0' && c <= '9') {
+            int digit = c - '0';
+            if (n > (INT_MAX - digit) / 10) { cout << "Enter 1-3999\n"; return; }
+            n = n * 10 + digit;
+        }
+    }
     if (n < 1 || n > 3999) { cout << "Enter 1-3999\n"; return; }
     struct { int val; const char* sym; } vals[] = {
         {1000,"M"},{900,"CM"},{500,"D"},{400,"CD"},{100,"C"},{90,"XC"},{50,"L"},{40,"XL"},{10,"X"},{9,"IX"},{5,"V"},{4,"IV"},{1,"I"}
     };
     string result;
-    for (auto& [v, s] : vals) while (n >= v) { result += s; n -= v; }
+    for (const auto& [v, s] : vals) while (n >= v) { result += s; n -= v; }
     cout << "  " << clr::cyan << result << clr::reset << "\n";
 }
 
 void cmd_binary(const string& args) {
     int n = 0;
-    for (char c : args) if (c >= '0' && c <= '9') n = n * 10 + (c - '0');
+    for (char c : args) {
+        if (c >= '0' && c <= '9') {
+            int digit = c - '0';
+            if (n > (INT_MAX - digit) / 10) { cout << "error: number too large\n"; return; }
+            n = n * 10 + digit;
+        }
+    }
     if (n == 0) { cout << "  0\n"; return; }
     string bin;
     while (n > 0) { bin = (n % 2 ? "1" : "0") + bin; n /= 2; }
@@ -2833,6 +2846,7 @@ void cmd_datecalc(const string& args) {
         t.tm_year = y - 1900; t.tm_mon = m - 1; t.tm_mday = d;
         t.tm_hour = 12;
         time_t tt = mktime(&t);
+        if (tt == static_cast<time_t>(-1)) { cout << "error: invalid date\n"; return; }
         if (op == "+") tt += static_cast<time_t>(days) * 86400;
         else tt -= static_cast<time_t>(days) * 86400;
         tm result;
@@ -2936,7 +2950,7 @@ void cmd_emoji(const string& args) {
     };
     if (args.empty()) {
         cout << "\n  Available emojis:\n";
-        for (auto& [k,v] : emojis) cout << "    " << v << " " << k << "\n";
+        for (const auto& [k,v] : emojis) cout << "    " << v << " " << k << "\n";
         cout << "\n";
     } else {
         auto it = emojis.find(args);
@@ -3012,7 +3026,7 @@ void cmd_worldclock() {
         {8, "Shanghai"}, {11, "Sydney"}, {-8, "Los Angeles"}
     };
     cout << "\n  " << clr::bold << "World Clock:" << clr::reset << "\n\n";
-    for (auto& [offset, name] : zones) {
+    for (const auto& [offset, name] : zones) {
         time_t tz_time = now + static_cast<time_t>(offset) * 3600;
         tm t_buf;
         gmtime_r(&tz_time, &t_buf);
@@ -3371,6 +3385,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
             else if (has_traversal(args)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(args, current_dir);
+                fullpath = resolved_path(file_system, fullpath);
                 if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir) cout << file_system[fullpath].content << "\n";
                 else cout << "\033[31merror:\033[0m file not found.\n";
             }
@@ -3392,7 +3407,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
                     string dpath = resolve_user_path(dirname, current_dir);
                     if (!dpath.empty() && dpath.back() != '/') dpath += "/";
                     vector<string> to_erase;
-                    for (auto& [path, _] : file_system)
+                    for (const auto& [path, _] : file_system)
                         if (path.rfind(dpath, 0) == 0 || path == dpath.substr(0, dpath.length()-1))
                             to_erase.push_back(path);
                     for (const string& p : to_erase) {
@@ -3427,6 +3442,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
                 if (has_traversal(args)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
                 else {
                     string target_file = resolve_user_path(args, current_dir);
+                    target_file = resolved_path(file_system, target_file);
                     if (file_system.find(target_file) != file_system.end() && !file_system[target_file].is_dir) {
                         cout << "Loading Custom Map: " << args << "...\n";
                         play_asciidash(file_system[target_file].content);
@@ -3490,6 +3506,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
                     cout << "\033[31merror:\033[0m path traversal not allowed.\n";
                 } else {
                     string fullpath = resolve_user_path(filename, current_dir);
+                    fullpath = resolved_path(file_system, fullpath);
                     if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir) {
                         istringstream ss(file_system[fullpath].content);
                         string line;
@@ -3636,7 +3653,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
         }
         else if (cmd == "alias") {
             if (args.empty()) {
-                for (auto& [name, cmd_str] : aliases)
+                for (const auto& [name, cmd_str] : aliases)
                     cout << "alias " << name << "='" << cmd_str << "'\n";
             } else {
                 size_t eq = args.find('=');
@@ -3732,20 +3749,20 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
                             if (!sfull.empty() && sfull.back() != '/') sfull += "/";
                             if (!dfull.empty() && dfull.back() != '/') dfull += "/";
                             bool src_exists = false;
-                            for (auto& [path, node] : file_system)
+                            for (const auto& [path, node] : file_system)
                                 if (path.rfind(sfull, 0) == 0) { src_exists = true; break; }
                             if (!src_exists) {
                                 cout << "\033[31merror:\033[0m source directory not found.\033[0m\n";
                             } else {
                                 file_system[dfull] = FSNode(true, "");
                                 vector<pair<string,FSNode>> to_copy;
-                                for (auto& [path, node] : file_system) {
+                                for (const auto& [path, node] : file_system) {
                                     if (path.rfind(sfull, 0) == 0) {
                                         string rel = path.substr(sfull.length());
                                         to_copy.push_back({dfull + rel, node});
                                     }
                                 }
-                                for (auto& [path, node] : to_copy) {
+                                for (const auto& [path, node] : to_copy) {
                                     file_system[path] = node;
                                 }
                                 cout << "\033[32mCopied " << src << " -> " << dst << " recursively.\033[0m\n";
@@ -3790,9 +3807,9 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
                             if (!full_dst_dir.empty() && full_dst_dir.back() != '/') full_dst_dir += "/";
                             // C1 FIX: collect paths first, then modify (avoids iterator invalidation)
                             vector<string> to_move;
-                            for (auto& [p, _] : file_system)
+                            for (const auto& [p, _] : file_system)
                                 if (p.rfind(full_src_dir, 0) == 0) to_move.push_back(p);
-                            for (auto& p : to_move) {
+                            for (const auto& p : to_move) {
                                 string rel = p.substr(full_src_dir.length());
                                 file_system[full_dst_dir + rel] = file_system[p];
                                 file_system.erase(p);
@@ -3881,6 +3898,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
             else if (has_traversal(fn)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(fn, current_dir);
+                fullpath = resolved_path(file_system, fullpath);
                 if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir) {
                     istringstream ss(file_system[fullpath].content);
                     string line;
@@ -3894,6 +3912,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
             else if (has_traversal(fn)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(fn, current_dir);
+                fullpath = resolved_path(file_system, fullpath);
                 if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir) {
                     vector<string> lines;
                     istringstream ss(file_system[fullpath].content);
@@ -3910,13 +3929,14 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
             else if (has_traversal(fn)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(fn, current_dir);
+                fullpath = resolved_path(file_system, fullpath);
                 if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir) {
                     vector<string> lines;
                     istringstream ss(file_system[fullpath].content);
                     string line;
                     while (getline(ss, line)) lines.push_back(line);
                     sort(lines.begin(), lines.end());
-                    for (auto& l : lines) cout << l << "\n";
+                    for (const auto& l : lines) cout << l << "\n";
                 } else cout << "\033[31merror:\033[0m file not found.\n";
             }
         }
@@ -3926,6 +3946,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
             else if (has_traversal(fn)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(fn, current_dir);
+                fullpath = resolved_path(file_system, fullpath);
                 if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir) {
                     string content = file_system[fullpath].content;
                     int lines = 0, words = 0;
@@ -4215,7 +4236,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
                 file_system[trash_dir] = FSNode(true, "");
             if (args == "list") {
                 bool empty = true;
-                for (auto& [p, n] : file_system) {
+                for (const auto& [p, n] : file_system) {
                     if (p.rfind(trash_dir, 0) == 0 && !n.is_dir) {
                         string tn = p.substr(trash_dir.length());
                         size_t us = tn.find('_');
@@ -4227,9 +4248,9 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
                 if (empty) cout << "Trash is empty.\n";
             } else if (args == "empty") {
                 vector<string> to_del;
-                for (auto& [p, _] : file_system)
+                for (const auto& [p, _] : file_system)
                     if (p.rfind(trash_dir, 0) == 0) to_del.push_back(p);
-                for (auto& p : to_del) file_system.erase(p);
+                for (const auto& p : to_del) file_system.erase(p);
                 cout << "\033[32mTrash emptied.\033[0m\n";
             } else {
                 cout << "Usage: trash list | empty\n";
@@ -4435,7 +4456,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
         else if (cmd == "df") {
             size_t total_bytes = 0;
             size_t total_nodes = file_system.size();
-            for (auto& [_, node] : file_system) total_bytes += node.size();
+            for (const auto& [_, node] : file_system) total_bytes += node.size();
             size_t total_kb = total_bytes / 1024;
             size_t avail_kb = 1024; // simulated 1MB total
             int pct = total_bytes > 0 ? (int)(total_bytes * 100ULL / (total_bytes + avail_kb * 1024)) : 0;
@@ -4467,7 +4488,8 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
             cout << "PWD=" << current_dir << "\n";
             cout << "HOME=/\n";
             cout << "OS=NoNameOS\n";
-            cout << "TERM=" << (getenv("TERM") ? getenv("TERM") : "xterm-256color") << "\n";
+            const char* term_val = getenv("TERM");
+            cout << "TERM=" << (term_val ? term_val : "xterm-256color") << "\n";
         }
         // --- PRODUCTIVITY ---
         else if (cmd == "todo") {
@@ -4535,7 +4557,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
             string rest = sp == string::npos ? "" : args.substr(sp + 1);
             if (subcmd == "list" || (subcmd.empty() && rest.empty())) {
                 bool any = false;
-                for (auto& [path, node] : file_system) {
+                for (const auto& [path, node] : file_system) {
                     if (path.rfind(notesdir, 0) == 0 && path != notesdir && !node.is_dir) {
                         string name = path.substr(notesdir.length());
                         cout << "  " << name << " (" << node.size() << " bytes)\n";
@@ -4657,7 +4679,13 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
                 cout << "\n  " << clr::dgray << "Wake up, Neo..." << clr::reset << "\n\n";
             } else {
                 int n = 0;
-                for (char c : args) if (c >= '0' && c <= '9') n = n * 10 + (c - '0');
+                for (char c : args) {
+                    if (c >= '0' && c <= '9') {
+                        int digit = c - '0';
+                        if (n > (INT_MAX - digit) / 10) { n = INT_MAX; break; }
+                        n = n * 10 + digit;
+                    }
+                }
                 if (n <= 0) n = 20;
                 cmd_matrix(n);
             }
@@ -4789,7 +4817,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
                 "Almost there...",
                 "ACCESS DENIED. Just kidding, this is NoNameOS."
             };
-            for (auto& line : hack_lines) {
+            for (const auto& line : hack_lines) {
                 cout << "  " << clr::green << line << clr::reset << "\n";
                 this_thread::sleep_for(chrono::milliseconds(500));
             }

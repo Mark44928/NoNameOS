@@ -4,7 +4,8 @@ nonameos-debug
 *.o
 *.out
 
-# Editor/IDE
+# Editor/IDE/Script
+update-readme.sh
 *.swp
 *.swo
 *~

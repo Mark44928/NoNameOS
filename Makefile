@@ -3,9 +3,12 @@ CXXFLAGS = -std=c++17 -Wall -Wextra -O2
 TARGET = nonameos
 SRC = NoNameOS.cpp
 
-.PHONY: all clean debug
+.PHONY: all clean debug readme
 
 all: $(TARGET)
+
+readme:
+	bash update-readme.sh
 
 $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) -o $@ $< -lpthread
