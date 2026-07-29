@@ -2,7 +2,7 @@
   <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
 </p>
 
-<p align="center"><sub><i>Screenshot from v0.3.1 — current version (v1.0.2) has 24+ games, 135+ commands, and full color support not shown here.</i></sub></p>
+<p align="center"><sub><i>Screenshot from v0.3.1 — current version (v1.0.2) has 24+ games, 149+ commands, and full color support not shown here.</i></sub></p>
 
 <h1 align="center">NoNameOS</h1>
 
@@ -22,6 +22,7 @@
 
 <blockquote align="center">
   <b>One file. Zero dependencies. 24 games. 149 commands. One terminal.</b>
+  <br/><sub><i>Simulated OS meets sandbox playground — all in a single .cpp</i></sub>
 </blockquote>
 
 <p align="center">
@@ -47,18 +48,18 @@
 
 | | |
 |---|---|
-| **Single File** | Entire project is one `.cpp` file — no build system, no dependencies, no headaches |
-| **Fun to Use** | 24+ games, easter eggs, colored output, animated boot — it's actually enjoyable |
-| **Learn C++** | See real-world use of STL containers, OOP, RAII, ANSI escape codes, POSIX I/O |
-| **Hackable** | Every feature is in one file — easy to read, modify, and extend |
-| **Portable** | Compiles on any Linux system with g++ or clang++ (including Termux on Android) |
+| **Single File** | Entire project is one `.cpp` — no build system, no `#include` hell, no headaches |
+| **Fun to Use** | 24+ games, easter eggs, colored output, animated boot — it's genuinely enjoyable |
+| **Learn C++** | See real-world STL, OOP, RAII, ANSI escape codes, and POSIX I/O in action |
+| **Hackable** | Every feature in one file — read it, mod it, break it, fix it |
+| **Portable** | Compiles everywhere — Linux, Termux, WSL, even your toaster if it runs g++ |
 
 ## Perfect For
 
-- **C++ learners** exploring OS concepts without kernel-level complexity
-- **Students** studying filesystems, shells, and process simulation
-- **Hackers** wanting a terminal sandbox with games and tools
-- **Termux users** looking for a fun single-file project to compile and run
+- **C++ learners** wanting to see real OS concepts without kernel-level complexity
+- **Students** exploring filesystems, shells, and process simulation hands-on
+- **Hackers** looking for a terminal sandbox packed with games and tools
+- **Termux users** craving a fun single-file project to compile in under 10 seconds
 
 ## Table of Contents
 
@@ -89,7 +90,7 @@
 
 | Category | What You Get | Highlights |
 |----------|-------------|------------|
-| **Interactive Shell** | Color-coded prompt, command duration, 135+ commands | Arrow keys, history, fuzzy suggestions |
+| **Interactive Shell** | Color-coded prompt, command duration, 149+ commands | Arrow keys, history, fuzzy suggestions |
 | **Virtual Filesystem** | Files, directories, symlinks, permissions, trash | Timestamps, sizes, `ls -l`, `chmod` |
 | **24+ Games** | Arcade, puzzle, strategy, word, reflex games | Tetris, Pong, Sudoku, Wordle, Flappy Bird |
 | **System Tools** | Text editor, calculators, system info | `nano`, `calc`, `cfetch`, `free`, `top` |
@@ -137,11 +138,16 @@
 git clone https://github.com/Mark44928/NoNameOS.git && cd NoNameOS && g++ -O3 NoNameOS.cpp -o nonameos -lpthread && ./nonameos
 ```
 
-> One command. One file. One terminal. Pure C++ fun.
+> **One command. One file. One terminal. Pure C++ fun.**
 
 Or use `make`:
+```bash
+git clone https://github.com/Mark44928/NoNameOS.git && cd NoNameOS && make && ./nonameos
+```
 
 ---
+
+
 
 ## Keyboard Shortcuts
 
@@ -630,28 +636,28 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 │                        NoNameOS Architecture                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐   │
-│  │ Terminal I/O  │───▶│  Shell (REPL)   │───▶│  Dispatcher  │   │
-│  │ termios.h     │    │ cooked_readline │    │  if/else map │   │
-│  │ fcntl.h       │    │ history, arrows │    │  135+ cmds   │   │
-│  └──────────────┘    └─────────────────┘    └──────┬───────┘   │
+│  ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐    │
+│  │ Terminal I/O │───▶│  Shell (REPL)   │───▶│  Dispatcher  │    │
+│  │ termios.h    │    │ cooked_readline │    │  if/else map │    │
+│  │ fcntl.h      │    │ history, arrows │    │  149+ cmds   │    │
+│  └──────────────┘    └─────────────────┘    └───────┬──────┘    │
 │                                                     │           │
-│                    ┌────────────────────────────────┼──────┐    │
-│                    │                                │      │    │
-│           ┌────────▼───────┐              ┌────────▼────┐ │    │
-│           │  Virtual FS    │              │  24 Games   │ │    │
-│           │  map<string,   │              │  Tetris     │ │    │
-│           │    FSNode>     │              │  Snake      │ │    │
-│           │  timestamps    │              │  Pong       │ │    │
-│           │  permissions   │              │  Wordle     │ │    │
-│           │  symlinks      │              │  ...        │ │    │
-│           └────────────────┘              └─────────────┘ │    │
-│                                                           │    │
-│           ┌────────────────┐              ┌─────────────┐ │    │
-│           │  System Tools  │              │   Easter    │ │    │
-│           │  nano, calc    │              │   Eggs      │─┘    │
-│           │  cfetch, top   │              │   25+       │      │
-│           └────────────────┘              └─────────────┘      │
+│                    ┌────────────────────────────────┼─────┐     │
+│                    │                                │     │     │
+│           ┌────────▼───────┐              ┌─────────▼───┐ │     │
+│           │  Virtual FS    │              │  24 Games   │ │     │
+│           │  map<string,   │              │  Tetris     │ │     │
+│           │    FSNode>     │              │  Snake      │ │     │
+│           │  timestamps    │              │  Pong       │ │     │
+│           │  permissions   │              │  Wordle     │ │     │
+│           │  symlinks      │              │  ...        │ │     │
+│           └────────────────┘              └─────────────┘ │     │
+│                                                           │     │
+│           ┌────────────────┐              ┌─────────────┐ │     │
+│           │  System Tools  │              │   Easter    │ │     │
+│           │  nano, calc    │              │   Eggs      │─┘     │
+│           │  cfetch, top   │              │   25+       │       │
+│           └────────────────┘              └─────────────┘       │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │  TerminalGuard (RAII) — auto-restores terminal on exit   │   │
@@ -667,7 +673,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 | **STL Containers** | `map<string, FSNode>` | Virtual filesystem backed by associative containers |
 | **MT19937 RNG** | `mt19937 rng{random_device{}()}` | Modern C++ random number generation |
 | **ANSI Colors** | `namespace color` | 256-color and truecolor RGB terminal rendering |
-| **Single Dispatch** | Line 3153+ | One massive if/else chain routes all 135+ commands |
+| **Single Dispatch** | Line 3153+ | One massive if/else chain routes all 149+ commands |
 
 ## Fun Facts
 
@@ -685,7 +691,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 
 | Version | Lines | Games | Commands | Key Changes |
 |---------|-------|-------|----------|-------------|
-| **v1.0.2** | 4,932 | 24 | 135 | 43 audit bug fixes |
+| **v1.0.2** | 4,928 | 24 | 149 | 43 audit bug fixes |
 | **v1.0.1** | 4,561 | 24 | 135 | Arrow keys, cursor movement, easter eggs |
 | **v1.0.0** | 4,500 | 24 | 135 | 11 new games, 60+ commands, visual overhaul |
 | **v0.7.0** | 2,500 | 13 | 75 | VFS, games, tools, alias system |
@@ -735,11 +741,11 @@ This project is licensed under the GNU General Public License v3. See the [LICEN
   <img src="https://img.shields.io/badge/Made_with-❤️-red?style=for-the-badge" alt="Made with love"/>
   <img src="https://img.shields.io/badge/Powered_by-C%2B%2B-blue?style=for-the-badge" alt="C++"/>
   <img src="https://img.shields.io/badge/Termux-Ready-green?style=for-the-badge" alt="Termux"/>
-  <img src="https://img.shields.io/badge/Zero-Helpers-brightgreen?style=for-the-badge" alt="No Helpers"/>
+  <img src="https://img.shields.io/badge/Zero-Dependencies-brightgreen?style=for-the-badge" alt="Zero Dependencies"/>
 </p>
 
 ---
 
 <p align="center">
-  <sub><i>NoNameOS — because who needs a real OS when you can have 24+ games and a terminal that judges your typing speed?</i></sub>
+  <sub><i>NoNameOS — because who needs a real OS when you can have 24 games and a terminal that judges your typing speed?</i></sub>
 </p>
