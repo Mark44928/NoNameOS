@@ -422,25 +422,56 @@ g++ -O3 NoNameOS.cpp -o nonameos -lpthread
 
 ```
 $ ./nonameos
-
-  _   __      _   __                     ____  _____
- / | / /___  / | / /___ _____ ___  ___  / __ \/ ___/
-/  |/ / __ \/  |/ / __ `/ __ `__ \/ _ \/ / / /\__ \
-/ /|  / /_/ / /|  / /_/ / / / / / /  __/ /_/ /___/ /
+    _   __      _   __                     ____  _____
+   / | / /___  / | / /___ _____ ___  ___  / __ \/ ___/
+  /  |/ / __ \/  |/ / __ `/ __ `__ \/ _ \/ / / /\__ \
+ / /|  / /_/ / /|  / /_/ / / / / / /  __/ /_/ /___/ /
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 
-root@nonameos:/$
-❯ tetris
+                    ═══════════════════════════════════════════
+                     v1.0.2 · Pure C++ OS Simulation
+                    ═══════════════════════════════════════════
 
-  🧱 TETRIS  Score: 4200  (AD/←→=move W/↑=rotate S/↓=drop Q=quit)
+  [━━━━━━━━━━━━━━━━━━━━━━━━━] System ready
 
-  ┌──────────────────┐
-  │          ■       │
-  │        ■■■       │
-  │                  │
-  │ ■■■■             │
-  │                  │
-  └──────────────────┘
+  ✓ NoNameOS v1.0.2 booted successfully
+  Type help for available commands
+  ↑↓ history  ←→ cursor  Backspace delete
+
+
+root@nonameos:/
+❯ cowsay
+
+  ────────
+    Moo.
+  ────────
+          \   ^__^
+           \  (oo)\_______
+              (__)\       )\/\\
+                  ||----w |
+                  ||     ||
+
+
+root@nonameos:/
+❯ lolcat
+NoNameOS
+
+root@nonameos:/
+❯ tableflip
+
+  (╯°□°)╯︵ ┻━┻
+
+
+root@nonameos:/
+❯ banner
+
+╔===========╗
+║ NoNameOS  ║
+╚===========╝
+
+
+root@nonameos:/
+❯
 ```
 
 ---
@@ -731,7 +762,6 @@ This project is licensed under the GNU General Public License v3. See the [LICEN
 
 ## You Might Also Like
 
-- [Termux TUI Package Store](https://github.com/Mark44928/Termux-TUI-Package-Store) - Interactive fzf-powered package browser for Termux
 - [Anti-Bloatware List](https://github.com/Mark44928/Anti-bloatware-list-for-Android-TV-Boxes-and-Sticks-for-rooted) - Debloat rooted Android TV sticks
 
 ---
