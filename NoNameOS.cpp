@@ -2036,9 +2036,56 @@ void cmd_wordcount(const string& args, map<string,FSNode>& fs, const string& cdi
     cout << "\n";
 }
 
+// Animated matrix rain; runs until any key is pressed, then returns to the shell.
+// Rendering is kept lightweight (short ANSI codes, color grouped per row) so the
+// animation never blocks on terminal output and stays responsive to keypresses.
+void matrix_rain(int height, const string& chars, const vector<size_t>& offsets) {
+    constexpr int W = 40;
+    constexpr int TRAIL = 6;
+    constexpr int FRAME_MS = 60;
+    const int H = max(1, min(height, 24));
+    vector<int> head(W), speed(W);
+    for (int x = 0; x < W; x++) {
+        head[x] = rng_int(-H - 4, 0);
+        speed[x] = rng_int(1, 3);
+    }
+    while (kbhit()) (void)getchar();
+    cout << "\033[2J\033[1;1H";
+    while (true) {
+        if (kbhit()) { (void)getkey(); break; }
+        cout << "\033[H";
+        for (int y = 0; y < H; y++) {
+            int prev = -1;
+            for (int x = 0; x < W; x++) {
+                int dist = y - head[x];
+                int c = 0;
+                if (dist == 0) c = 3;
+                else if (dist > 0 && dist < TRAIL) c = (dist < 3) ? 2 : 1;
+                if (c == 0) {
+                    cout << " ";
+                } else {
+                    if (c != prev) {
+                        cout << (c == 3 ? "\033[92m" : c == 2 ? "\033[32m" : "\033[2;32m");
+                        prev = c;
+                    }
+                    size_t idx = offsets[rng_int(0, (int)offsets.size() - 1)];
+                    unsigned char lead = chars[idx];
+                    size_t len = (lead < 0x80) ? 1 : (lead < 0xE0) ? 2 : (lead < 0xF0) ? 3 : 4;
+                    cout << chars.substr(idx, len);
+                }
+            }
+            cout << "\033[0m\n";
+        }
+        for (int x = 0; x < W; x++) {
+            head[x] += speed[x];
+            if (head[x] > H) head[x] = rng_int(-H - 4, -1);
+        }
+        this_thread::sleep_for(chrono::milliseconds(FRAME_MS));
+    }
+}
+
 void cmd_matrix(int rows) {
     if (rows <= 0) rows = 20;
-    cout << "\033[2J\033[1;1H";
     string chars = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789";
     vector<size_t> offsets;
     for (size_t i = 0; i < chars.size();) {
@@ -2048,17 +2095,7 @@ void cmd_matrix(int rows) {
         if (i + len > chars.size()) break;
         i += len;
     }
-    for (int r = 0; r < rows; r++) {
-        for (int c = 0; c < 60; c++) {
-            size_t idx = offsets[rng_int(0, (int)offsets.size() - 1)];
-            unsigned char lead = chars[idx];
-            size_t len = (lead < 0x80) ? 1 : (lead < 0xE0) ? 2 : (lead < 0xF0) ? 3 : 4;
-            if (rng_int(0, 3) == 0) cout << clr::green << chars.substr(idx, len) << clr::reset;
-            else cout << clr::dgray << chars.substr(idx, len) << clr::reset;
-        }
-        cout << "\n";
-    }
-    cout << "\n";
+    matrix_rain(rows, chars, offsets);
 }
 
 void cmd_countdown(int sec) {
@@ -4668,14 +4705,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
         else if (cmd == "wordcount") { cmd_wordcount(args, file_system, current_dir); }
         else if (cmd == "matrix") {
             if (args == "-r") {
-                cout << "\033[2J\033[1;1H";
-                for (int i = 0; i < 30; i++) {
-                    for (int j = 0; j < 60; j++) {
-                        if (rng_int(0, 3) == 0) cout << clr::green << "01"[rng_int(0, 1)] << clr::reset;
-                        else cout << clr::dgray << "01"[rng_int(0, 1)] << clr::reset;
-                    }
-                    cout << "\n";
-                }
+                matrix_rain(30, "01", vector<size_t>{0, 1});
                 cout << "\n  " << clr::dgray << "Wake up, Neo..." << clr::reset << "\n\n";
             } else {
                 int n = 0;
