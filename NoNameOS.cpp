@@ -9,7 +9,7 @@
 // Single-file C++ project (~4900 lines) featuring:
 //   - Interactive shell with color-coded prompt, arrow key support, history
 //   - Virtual filesystem (VFS) with files, directories, symlinks, permissions
-//   - 24+ built-in games (Snake, Tetris, Sudoku, Pong, 2048, etc.)
+//   - 40 built-in games (Snake, Tetris, Sudoku, Pong, 2048, Othello, etc.)
 //   - 135+ commands (text tools, converters, math, productivity, fun)
 //   - 256-color ANSI visuals with animated boot logo
 //   - 25+ hidden easter eggs
@@ -59,7 +59,7 @@ static void sigint_handler(int) {
 }
 
 static const auto program_start = chrono::steady_clock::now();
-const string VERSION = "v1.0.2";
+const string VERSION = "v2.0.0";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SECTION 3: ANSI Color System and Visual Helpers
@@ -297,7 +297,33 @@ string help_text(const string& cmd) {
         {"lsusb","USB devices"},{"arch","print architecture"},
         {"nproc","number of CPUs"},{"ln","create symlink"},
         {"trash","manage trash"},{"du","disk usage"},
-        {"pom","pomodoro timer"},{"alarm","set alarm"}
+        {"pom","pomodoro timer"},{"alarm","set alarm"},
+        {"othello","reversi vs AI"},{"mastermind","crack the secret code"},
+        {"simon","memory sequence game"},{"blackjack","beat the dealer"},
+        {"battleship","sink the AI fleet"},{"slots","spin the reels"},
+        {"maze","escape the maze"},{"nim","remove the last stone"},
+        {"buzz","multiples of 3 and 5"},{"bulls","cows and bulls number game"},
+        {"twentyone","beat the dealer to 21"},{"jumble","unscramble the word"},
+        {"arith","quick mental math"},{"bingo","mark your card"},
+        {"kernel","system internals"},{"boot","simulated reboot"},
+        {"shutdown","power down (exits)"},{"netstat","network connections"},
+        {"dns","resolve a hostname"},{"traceroute","trace network path"},
+        {"lsblk","list block devices"},{"mount","show virtual mounts"},
+        {"fib","fibonacci sequence"},{"primes","sieve of primes"},
+        {"collatz","collatz conjecture"},{"sine","plot a sine wave"},
+        {"cube","render a 3D cube"},{"shell","toy sub-shell"},
+        {"logout","end session"},{"report","system report"},
+        {"mac","random MAC address"},{"geoip","geo lookup"},
+        {"dict","dictionary (fake)"},{"log","kernel-style log"},
+        {"llm","chat with fake AI"},{"gpt","generated with pride"},
+        {"blockchain","mine a fake block"},{"mine","dig for diamonds"},
+        {"neo","pick the pill"},{"rabbit","check the pockets"},
+        {"dlc","paid feature gate"},{"kitchen","everything but the sink"},
+        {"toaster","toast time"},{"canon","official lore"},
+        {"spinner","terminal spinner"},{"progress","progress bar"},
+        {"gauge","system load gauge"},{"rain","rain effect"},
+        {"fire","fire effect"},{"stream","matrix stream"},
+        {"type","typewriter text"}
     };
     auto it = ht.find(cmd);
     return it != ht.end() ? it->second : "no description";
@@ -542,7 +568,14 @@ const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","c
     "rickroll","rick","beep","bell","yes-master","yes-sir",
     "glhf","gg","lenny","shrug","tableflip","unflip","dealwithit",
     "disco","dance","loading","wait",
-    "version","sudo-make-sandwich","open"};
+    "version","sudo-make-sandwich","open",
+    "othello","mastermind","simon","blackjack","battleship","slots","maze","nim",
+    "buzz","bulls","twentyone","jumble","arith","bingo",
+    "kernel","boot","shutdown","netstat","dns","traceroute","lsblk","mount",
+    "fib","primes","collatz","sine","cube","shell","logout","report",
+    "mac","geoip","dict","log","llm","gpt","blockchain","mine","neo",
+    "rabbit","dlc","kitchen","toaster","canon","spinner","progress",
+    "gauge","rain","fire","stream","type"};
 
 size_t edit_dist(const string& a, const string& b) {
     size_t n = a.size(), m = b.size();
@@ -3183,6 +3216,909 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
 
 
 // ═══════════════════════════════════════════════════════════════
+// SECTION 11.5: v2.0.0 — New Games, Tools, Eggs & Effects
+// ═══════════════════════════════════════════════════════════════
+
+// ---------- v2.0.0 GAMES ----------
+
+// Reversi/Othello vs a random-playing AI
+void play_othello() {
+    const int N = 8;
+    vector<vector<int>> b(N, vector<int>(N, 0));
+    b[3][3] = b[4][4] = 1; b[3][4] = b[4][3] = 2;
+    auto inb = [&](int r, int c) { return r >= 0 && r < N && c >= 0 && c < N; };
+    auto legal = [&](int r, int c, int p) -> bool {
+        if (!inb(r, c) || b[r][c] != 0) return false;
+        for (int dr = -1; dr <= 1; dr++) for (int dc = -1; dc <= 1; dc++) {
+            if (dr == 0 && dc == 0) continue;
+            int rr = r + dr, cc = c + dc; bool found = false;
+            while (inb(rr, cc) && b[rr][cc] == 3 - p) { found = true; rr += dr; cc += dc; }
+            if (found && inb(rr, cc) && b[rr][cc] == p) return true;
+        }
+        return false;
+    };
+    auto flip = [&](int r, int c, int p) {
+        for (int dr = -1; dr <= 1; dr++) for (int dc = -1; dc <= 1; dc++) {
+            if (dr == 0 && dc == 0) continue;
+            int rr = r + dr, cc = c + dc;
+            while (inb(rr, cc) && b[rr][cc] == 3 - p) { rr += dr; cc += dc; }
+            if (inb(rr, cc) && b[rr][cc] == p && (rr != r + dr || cc != c + dc)) {
+                for (int x = r + dr, y = c + dc; x != rr || y != cc; x += dr, y += dc) b[x][y] = p;
+            }
+        }
+    };
+    int turn = 1;
+    while (true) {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::green << "♟ OTHELLO" << clr::reset << "  "
+             << clr::gray << "You=● AI=○ " << clr::dgray << "(r c to place, q=quit)" << clr::reset << "\n\n";
+        for (int r = 0; r < N; r++) {
+            cout << "    ";
+            for (int c = 0; c < N; c++) {
+                if (b[r][c] == 1) cout << clr::green << "● " << clr::reset;
+                else if (b[r][c] == 2) cout << clr::cyan << "○ " << clr::reset;
+                else cout << clr::dgray << "· " << clr::reset;
+            }
+            cout << "\n";
+        }
+        int p1 = 0, p2 = 0;
+        for (int r = 0; r < N; r++) for (int c = 0; c < N; c++) { if (b[r][c] == 1) p1++; if (b[r][c] == 2) p2++; }
+        bool has1 = false, has2 = false;
+        for (int r = 0; r < N; r++) for (int c = 0; c < N; c++) { if (legal(r, c, 1)) has1 = true; if (legal(r, c, 2)) has2 = true; }
+        cout << "    " << clr::green << "You: " << p1 << clr::reset << "   " << clr::cyan << "AI: " << p2 << clr::reset
+             << "   " << clr::dgray << "(turn: " << (turn == 1 ? "you" : "AI") << ")" << clr::reset << "\n";
+        if (!has1 && !has2) {
+            cout << "  " << clr::success << (p1 >= p2 ? ">> You win " : ">> AI wins ") << p1 << " vs " << p2 << "!" << clr::reset << "\n";
+            break;
+        }
+        if ((turn == 1 && !has1) || (turn == 2 && !has2)) { turn = 3 - turn; continue; }
+        if (turn == 1) {
+            cout << "  Your move: ";
+            string line; line = cooked_readline();
+            if (line == "q" || line == "Q") break;
+            int r, c; istringstream is(line); if (!(is >> r >> c)) continue;
+            r--; c--;
+            if (!legal(r, c, 1)) { cout << "  " << clr::error << "Illegal move." << clr::reset << "\n"; continue; }
+            b[r][c] = 1; flip(r, c, 1);
+        } else {
+            vector<pair<int,int>> moves;
+            for (int r = 0; r < N; r++) for (int c = 0; c < N; c++) if (legal(r, c, 2)) moves.push_back({r, c});
+            if (moves.empty()) { turn = 1; continue; }
+            auto mv = moves[rng_int(0, (int)moves.size() - 1)];
+            b[mv.first][mv.second] = 2; flip(mv.first, mv.second, 2);
+            cout << "  " << clr::cyan << "AI plays " << mv.first + 1 << " " << mv.second + 1 << clr::reset << "\n";
+        }
+        turn = 3 - turn;
+    }
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// Mastermind: crack the 4-digit code (digits 1-6)
+void play_mastermind() {
+    array<int, 4> code;
+    for (int i = 0; i < 4; i++) code[i] = rng_int(1, 6);
+    for (int a = 0; a < 10; a++) {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::magenta << "🎯 MASTERMIND" << clr::reset << "  "
+             << clr::dgray << "Attempt " << a + 1 << "/10 (4 digits 1-6, q=quit)" << clr::reset << "\n\n";
+        string line; line = cooked_readline();
+        if (line == "q" || line == "Q") break;
+        if (line.size() != 4) { cout << "  " << clr::warning << "Enter 4 digits (1-6)." << clr::reset << "\n"; continue; }
+        int bull = 0; bool bad = false;
+        for (int i = 0; i < 4; i++) {
+            int d = line[i] - '0';
+            if (d < 1 || d > 6) bad = true;
+            if (d == code[i]) bull++;
+        }
+        if (bad) continue;
+        int cow = 0;
+        array<int, 6> used = {};
+        for (int i = 0; i < 4; i++) if (line[i] - '0' != code[i]) used[code[i] - 1]++;
+        for (int i = 0; i < 4; i++) {
+            int d = line[i] - '0';
+            if (d != code[i] && used[d - 1] > 0) { cow++; used[d - 1]--; }
+        }
+        cout << "  " << clr::lgreen << "●x" << bull << clr::reset << "  " << clr::lmagenta << "○x" << cow << clr::reset << "\n";
+        if (bull == 4) { cout << "  " << clr::success << ">> Code cracked: " << code[0] << code[1] << code[2] << code[3] << clr::reset << "\n"; break; }
+        if (a == 9) cout << "  " << clr::error << ">> The code was " << code[0] << code[1] << code[2] << code[3] << clr::reset << "\n";
+    }
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// Simon: repeat the arrow sequence with arrow keys
+void play_simon() {
+    int score = 0;
+    vector<int> seq;
+    while (true) {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::yellow << "🕹 SIMON" << clr::reset << "  " << clr::gray << "Score: " << clr::cyan << score << clr::reset
+             << "  " << clr::dgray << "(arrow keys, q/Esc=quit)" << clr::reset << "\n\n";
+        seq.push_back(rng_int(0, 3));
+        for (int s : seq) {
+            cout << "  " << clr::lgreen << (s == 0 ? "← LEFT" : s == 1 ? "↑ UP" : s == 2 ? "↓ DOWN" : "→ RIGHT") << clr::reset << flush;
+            this_thread::sleep_for(chrono::milliseconds(450));
+            cout << "\r           \r" << flush;
+            this_thread::sleep_for(chrono::milliseconds(120));
+        }
+        cout << "  Your turn...\n";
+        bool ok = true;
+        for (int s : seq) {
+            int k = getkey();
+            while (k != KEY_UP && k != KEY_DOWN && k != KEY_LEFT && k != KEY_RIGHT && k != KEY_Q && k != KEY_ESC) k = getkey();
+            if (k == KEY_Q || k == KEY_ESC) { cout << "  Quit. Final score: " << score << "\n"; return; }
+            int want = s == 0 ? KEY_LEFT : s == 1 ? KEY_UP : s == 2 ? KEY_DOWN : KEY_RIGHT;
+            if (k != want) { ok = false; break; }
+        }
+        if (!ok) { cout << "  " << clr::error << "✗ MISTAKE! Final score: " << score << clr::reset << "\n"; break; }
+        score++;
+    }
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// Blackjack: beat the dealer
+void play_blackjack() {
+    auto deal = []() -> int { return rng_int(2, 11); };
+    int bank = 100;
+    while (bank > 0) {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::lred << "♠ BLACKJACK" << clr::reset << "  " << clr::gray << "Bank: " << clr::green << "$" << bank << clr::reset << "\n\n";
+        int bet = bank >= 10 ? 10 : bank;
+        int p = deal() + deal(), d = deal();
+        auto show = [&]() {
+            cout << "  " << clr::yellow << "Dealer: " << clr::reset << d << "\n";
+            cout << "  " << clr::cyan << "You:    " << clr::reset << p << "\n";
+        };
+        show();
+        while (p < 21) {
+            cout << "  " << clr::dgray << "(h)it / (s)tand / (q)uit: " << clr::reset;
+            string line; line = cooked_readline();
+            if (line == "q" || line == "Q") return;
+            if (line == "h" || line == "H") { p += deal(); show(); }
+            else break;
+        }
+        if (p > 21) { cout << "  " << clr::error << "Bust! Lost $" << bet << "." << clr::reset << "\n"; bank -= bet; }
+        else {
+            while (d < 17) d += deal();
+            show();
+            if (d > 21 || p > d) { cout << "  " << clr::success << "You win $" << bet << "! (" << p << " vs " << d << ")" << clr::reset << "\n"; bank += bet; }
+            else { cout << "  " << clr::error << "Dealer wins. Lost $" << bet << "." << clr::reset << "\n"; bank -= bet; }
+        }
+        if (bank <= 0) { cout << "  " << clr::error << "You're broke!" << clr::reset << "\n"; break; }
+        cout << "  " << clr::dgray << "Press Enter for next hand..." << clr::reset;
+        cooked_readline();
+    }
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// Battleship: sink 3 hidden ships on an 8x8 grid
+void play_battleship() {
+    const int N = 8;
+    vector<vector<char>> g(N, vector<char>(N, '.'));
+    int lens[3] = {3, 2, 2}, total = 7;
+    for (int len : lens) {
+        while (true) {
+            int r = rng_int(0, N - 1), c = rng_int(0, N - 1);
+            bool h = rng_int(0, 1) == 1;
+            if (h && c + len > N) continue;
+            if (!h && r + len > N) continue;
+            bool ok = true;
+            for (int i = 0; i < len; i++) {
+                int rr = h ? r : r + i, cc = h ? c + i : c;
+                if (g[rr][cc] != '.') { ok = false; break; }
+            }
+            if (!ok) continue;
+            for (int i = 0; i < len; i++) { int rr = h ? r : r + i, cc = h ? c + i : c; g[rr][cc] = 'S'; }
+            break;
+        }
+    }
+    int hits = 0, shots = 0;
+    while (hits < total) {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::blue << "🚢 BATTLESHIP" << clr::reset << "  " << clr::gray << "Hits: " << clr::cyan << hits << "/" << total << clr::reset
+             << "  " << clr::dgray << "(r c to fire, q=quit)" << clr::reset << "\n\n";
+        cout << "    ";
+        for (int c = 0; c < N; c++) cout << clr::dgray << c + 1 << " " << clr::reset;
+        cout << "\n";
+        for (int r = 0; r < N; r++) {
+            cout << "  " << clr::dgray << r + 1 << " " << clr::reset;
+            for (int c = 0; c < N; c++) {
+                if (g[r][c] == 'X') cout << clr::lred << "✕ " << clr::reset;
+                else if (g[r][c] == 'o') cout << clr::dgray << "· " << clr::reset;
+                else cout << clr::blue << "~ " << clr::reset;
+            }
+            cout << "\n";
+        }
+        cout << "  Fire at: ";
+        string line; line = cooked_readline();
+        if (line == "q" || line == "Q") break;
+        int r, c; istringstream is(line); if (!(is >> r >> c)) continue;
+        r--; c--;
+        if (r < 0 || r >= N || c < 0 || c >= N) continue;
+        if (g[r][c] == 'S') { g[r][c] = 'X'; hits++; cout << "  " << clr::success << ">>> HIT! <<<" << clr::reset << "\n"; }
+        else if (g[r][c] == '.') { g[r][c] = 'o'; cout << "  " << clr::muted << "Miss." << clr::reset << "\n"; }
+        shots++;
+    }
+    if (hits >= total) cout << "  " << clr::success << "🏆 All ships sunk in " << shots << " shots!" << clr::reset << "\n";
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// Slot machine
+void play_slots() {
+    const string syms = "🍒🔔💎7🍋";
+    int bank = 100;
+    while (bank > 0) {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::yellow << "🎰 SLOTS" << clr::reset << "  " << clr::gray << "Bank: " << clr::cyan << "$" << bank << clr::reset << "\n\n";
+        int bet = bank >= 10 ? 10 : bank;
+        cout << "  " << clr::dgray << "Betting $" << bet << ". Enter to spin, q=quit." << clr::reset << "\n  ";
+        string line; line = cooked_readline();
+        if (line == "q" || line == "Q") break;
+        int a = 0, b = 0, c = 0;
+        for (int i = 0; i < 10; i++) {
+            a = rng_int(0, 4); b = rng_int(0, 4); c = rng_int(0, 4);
+            cout << "\r  " << syms[a] << " " << syms[b] << " " << syms[c] << "   " << flush;
+            this_thread::sleep_for(chrono::milliseconds(80));
+        }
+        cout << "\n";
+        if (a == b && b == c) {
+            int pay = a == 3 ? 40 : a == 2 ? 25 : 10;
+            cout << "  " << clr::success << "JACKPOT! +$" << bet * pay << clr::reset << "\n";
+            bank += bet * pay;
+        } else if (a == b) { cout << "  " << clr::lgreen << "pair! +$" << bet << clr::reset << "\n"; bank += bet; }
+        else { cout << "  " << clr::muted << "nothing..." << clr::reset << "\n"; bank -= bet; }
+        if (bank <= 0) { cout << "  " << clr::error << "Out of money!" << clr::reset << "\n"; }
+    }
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// Maze: reach the star with wasd
+void play_maze() {
+    const int R = 11, C = 21;
+    vector<string> maze(R, string(C, '#'));
+    vector<vector<bool>> vis(R, vector<bool>(C, false));
+    function<void(int,int)> carve = [&](int r, int c) {
+        vis[r][c] = true;
+        int dirs[4][2] = {{0,2},{0,-2},{2,0},{-2,0}};
+        vector<int> order = {0,1,2,3};
+        shuffle(order.begin(), order.end(), rng());
+        for (int d : order) {
+            int nr = r + dirs[d][0], nc = c + dirs[d][1];
+            if (nr > 0 && nr < R && nc > 0 && nc < C && !vis[nr][nc]) {
+                maze[r + dirs[d][0]/2][c + dirs[d][1]/2] = ' ';
+                maze[nr][nc] = ' ';
+                carve(nr, nc);
+            }
+        }
+    };
+    maze[1][1] = ' '; carve(1, 1);
+    maze[1][C - 2] = 'E';
+    int pr = 1, pc = 1;
+    while (true) {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::magenta << "🧩 MAZE" << clr::reset << "  " << clr::dgray << "(wasd to move, q=quit)" << clr::reset << "\n\n";
+        for (int r = 0; r < R; r++) {
+            cout << "  ";
+            for (int c = 0; c < C; c++) {
+                if (r == pr && c == pc) cout << clr::lgreen << "●" << clr::reset;
+                else if (maze[r][c] == '#') cout << clr::dgray << "█" << clr::reset;
+                else if (r == 1 && c == C - 2) cout << clr::yellow << "★" << clr::reset;
+                else cout << " ";
+            }
+            cout << "\n";
+        }
+        if (pr == 1 && pc == C - 2) { cout << "  " << clr::success << ">> You reached the star!" << clr::reset << "\n"; break; }
+        cout << "  Move: ";
+        string line; line = cooked_readline();
+        if (line == "q" || line == "Q") break;
+        int nr = pr, nc = pc;
+        if (!line.empty()) {
+            char dir = tolower((unsigned char)line[0]);
+            if (dir == 'w') nr--; else if (dir == 's') nr++; else if (dir == 'a') nc--; else if (dir == 'd') nc++;
+        }
+        if (nr > 0 && nr < R && nc > 0 && nc < C && maze[nr][nc] != '#') { pr = nr; pc = nc; }
+    }
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// Nim: take stones, last stone loses
+void play_nim() {
+    vector<int> piles = {3, 5, 7};
+    int turn = 1;
+    while (true) {
+        int left = 0;
+        for (int p : piles) left += p;
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::cyan << "⚡ NIM" << clr::reset << "  " << clr::dgray << "(pile n to take 1-3 stones, q=quit)" << clr::reset << "\n\n";
+        for (int i = 0; i < 3; i++)
+            cout << "  Pile " << i + 1 << ": " << clr::yellow << repeat(piles[i], "█") << clr::reset << " " << clr::gray << "(" << piles[i] << ")" << clr::reset << "\n";
+        if (left == 0) {
+            cout << "  " << clr::success << (turn == 1 ? ">> You win!" : ">> AI wins!") << clr::reset << "\n";
+            break;
+        }
+        if (turn == 1) {
+            cout << "  Your move: ";
+            string line; line = cooked_readline();
+            if (line == "q" || line == "Q") break;
+            int p, s; istringstream is(line); if (!(is >> p >> s)) continue;
+            p--;
+            if (p < 0 || p > 2 || s < 1 || s > 3 || piles[p] < s) continue;
+            piles[p] -= s;
+        } else {
+            int besti = -1, bestm = 0;
+            for (int i = 0; i < 3; i++) for (int s = 1; s <= min(3, piles[i]); s++)
+                if (besti < 0 || piles[i] - s > piles[besti] - bestm) { besti = i; bestm = s; }
+            if (besti < 0) for (int i = 0; i < 3; i++) if (piles[i] > 0) { besti = i; bestm = 1; break; }
+            if (besti >= 0) {
+                cout << "  " << clr::magenta << "AI takes " << bestm << " from pile " << besti + 1 << clr::reset << "\n";
+                piles[besti] -= bestm;
+            }
+        }
+        turn = 1 - turn;
+    }
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// FizzBuzz reflex game
+void play_buzz() {
+    cout << "\033[2J\033[1;1H";
+    cout << "\n  " << clr::bold << clr::orange << "🐝 FIZZBUZZ SPRINT" << clr::reset << "\n\n";
+    cout << "  " << clr::gray << "Divisible by 3 → fizz, by 5 → buzz, both → fizzbuzz, else the number." << clr::reset << "\n\n";
+    int score = 0;
+    for (int q = 0; q < 8; q++) {
+        int n = rng_int(1, 99);
+        string expect;
+        if (n % 15 == 0) expect = "fizzbuzz";
+        else if (n % 3 == 0) expect = "fizz";
+        else if (n % 5 == 0) expect = "buzz";
+        else expect = to_string(n);
+        cout << "  " << clr::cyan << "Q" << q + 1 << ": " << clr::bold << n << clr::reset << " → ";
+        string a; a = cooked_readline();
+        for (auto& ch : a) ch = tolower((unsigned char)ch);
+        if (a == expect) { cout << "  " << clr::success << "✓ +1" << clr::reset << "\n"; score++; }
+        else cout << "  " << clr::error << "✗ was " << expect << clr::reset << "\n";
+    }
+    cout << "\n  " << clr::bold << "Score: " << clr::cyan << score << "/8" << clr::reset << "\n\n";
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// Bulls and Cows: guess the 4-digit number
+void play_bulls_cows() {
+    vector<char> digits = {'1','2','3','4','5','6','7','8','9','0'};
+    shuffle(digits.begin(), digits.end(), rng());
+    string code(digits.begin(), digits.begin() + 4);
+    for (int a = 0; a < 10; a++) {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::amber << "🐄 BULLS & COWS" << clr::reset << "  "
+             << clr::dgray << "4 unique digits, q=quit" << clr::reset << "\n\n";
+        cout << "  Guess " << a + 1 << ": ";
+        string line; line = cooked_readline();
+        if (line == "q" || line == "Q") break;
+        if (line.size() != 4) continue;
+        int bull = 0, cow = 0;
+        for (int i = 0; i < 4; i++) if (line[i] == code[i]) bull++;
+        for (int i = 0; i < 4; i++) if (line[i] != code[i] && code.find(line[i]) != string::npos) cow++;
+        cout << "  " << clr::green << "Bulls: " << bull << clr::reset << "  " << clr::yellow << "Cows: " << cow << clr::reset << "\n";
+        if (bull == 4) { cout << "  " << clr::success << ">> You guessed it: " << code << clr::reset << "\n"; break; }
+        if (a == 9) cout << "  " << clr::error << ">> The number was " << code << clr::reset << "\n";
+    }
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// Twenty-one: dice game vs a dealer
+void play_twentyone() {
+    auto roll = []() -> int { return rng_int(1, 6); };
+    int bank = 50;
+    while (bank > 0) {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::lcyan << "🎲 TWENTY-ONE" << clr::reset << "  " << clr::gray << "Bank: " << clr::cyan << "$" << bank << clr::reset << "\n\n";
+        int you = roll(), d = 0;
+        cout << "  " << clr::yellow << "You rolled: " << clr::reset << you << "\n";
+        while (you < 21) {
+            cout << "  " << clr::dgray << "roll (r) / hold (h) / quit (q): " << clr::reset;
+            string line; line = cooked_readline();
+            if (line == "q" || line == "Q") return;
+            if (line == "r" || line == "R") { int x = roll(); you += x; cout << "  " << clr::lcyan << "+" << x << " → " << you << clr::reset << "\n"; }
+            else break;
+        }
+        while (d < 17) d += roll();
+        int bet = bank >= 10 ? 10 : bank;
+        cout << "  " << clr::cyan << "You: " << you << "  Dealer: " << d << clr::reset << "\n";
+        if (you > 21) { cout << "  " << clr::error << "Bust." << clr::reset << "\n"; bank -= bet; }
+        else if (d > 21 || you > d) { cout << "  " << clr::success << "You win $" << bet << "!" << clr::reset << "\n"; bank += bet; }
+        else if (you == d) { cout << "  " << clr::yellow << "Push." << clr::reset << "\n"; }
+        else { cout << "  " << clr::error << "Dealer wins." << clr::reset << "\n"; bank -= bet; }
+        if (bank <= 0) { cout << "  " << clr::error << "Bankrupt!" << clr::reset << "\n"; break; }
+        cout << "  " << clr::dgray << "Press Enter..." << clr::reset; cooked_readline();
+    }
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// Jumble: unscramble 5 words
+void play_jumble() {
+    vector<string> words = {"orange","pencil","guitar","python","banana","rocket","window","candle","planet","server","coffee","forest","silver","castle","oxygen","island","puzzle","turbo"};
+    for (int round = 0; round < 5; round++) {
+        string w = words[rng_int(0, (int)words.size() - 1)];
+        string sc = w;
+        while (sc == w) shuffle(sc.begin(), sc.end(), rng());
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::green << "🧩 JUMBLE" << clr::reset << "  " << clr::gray << round + 1 << "/5 " << clr::dgray << "(q=quit)" << clr::reset << "\n\n";
+        cout << "  Scrambled: ";
+        for (char ch : sc) cout << clr::bold << ch << " " << clr::reset;
+        cout << "\n  Your guess: ";
+        string line; line = cooked_readline();
+        if (line == "q" || line == "Q") return;
+        if (line == w) cout << "  " << clr::success << "✓ Correct!" << clr::reset << "\n";
+        else cout << "  " << clr::error << "✗ It was " << w << clr::reset << "\n";
+        cout << "  " << clr::dgray << "Press Enter..." << clr::reset; cooked_readline();
+    }
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// Arith: rapid-fire arithmetic
+void play_arith() {
+    int score = 0;
+    cout << "\033[2J\033[1;1H";
+    cout << "\n  " << clr::bold << clr::header << "🧮 ARITH SPRINT" << clr::reset << "  " << clr::dgray << "q=quit" << clr::reset << "\n\n";
+    for (int q = 0; q < 10; q++) {
+        int a = rng_int(1, 20), b = rng_int(1, 20), ans;
+        string op;
+        int o = rng_int(0, 2);
+        if (o == 0) { op = "+"; ans = a + b; }
+        else if (o == 1) { op = "×"; ans = a * b; }
+        else { op = "-"; if (a < b) swap(a, b); ans = a - b; }
+        cout << "  " << clr::cyan << a << " " << op << " " << b << " = " << clr::reset;
+        string l; l = cooked_readline();
+        if (l == "q" || l == "Q") break;
+        int guess = 0;
+        for (char ch : l) if (ch >= '0' && ch <= '9') {
+            int d = ch - '0';
+            if (guess > (INT_MAX - d) / 10) { guess = 0; break; }
+            guess = guess * 10 + d;
+        }
+        if (guess == ans) { cout << "  " << clr::success << "✓" << clr::reset << "\n"; score++; }
+        else cout << "  " << clr::error << "✗ " << ans << clr::reset << "\n";
+    }
+    cout << "  " << clr::bold << "Score: " << clr::cyan << score << "/10" << clr::reset << "\n\n";
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// Bingo: generate a 5x5 card
+void cmd_bingo() {
+    vector<vector<int>> card(5, vector<int>(5, 0));
+    for (int c = 0; c < 5; c++) {
+        vector<int> vals;
+        for (int v = 15 * c + 1; v <= 15 * (c + 1); v++) vals.push_back(v);
+        shuffle(vals.begin(), vals.end(), rng());
+        for (int r = 0; r < 5; r++) card[r][c] = vals[r];
+    }
+    card[2][2] = 0;
+    cout << "\n  " << clr::bold << clr::lmagenta << "🎱 BINGO CARD" << clr::reset << "\n";
+    cout << "    " << clr::bold << "B  I  N  G  O" << clr::reset << "\n";
+    for (int r = 0; r < 5; r++) {
+        cout << "    ";
+        for (int c = 0; c < 5; c++) {
+            if (card[r][c] == 0) cout << clr::bold << " ★ " << clr::reset;
+            else cout << setw(2) << card[r][c] << "  ";
+        }
+        cout << "\n";
+    }
+    cout << "\n";
+}
+
+// ---------- v2.0.0 SYSTEM / TOOLS ----------
+
+void cmd_kernel() {
+    cout << "\n";
+    cout << "  " << clr::bold << "Kernel" << clr::reset << "     : " << clr::cyan << "nonameos-" << VERSION << "-generic" << clr::reset << "\n";
+    cout << "  " << clr::bold << "Compiler" << clr::reset << " : " << clr::cyan << "g++ C++17" << clr::reset << "\n";
+    cout << "  " << clr::bold << "Random Gen" << clr::reset << ": " << clr::cyan << "Mersenne Twister 19937" << clr::reset << "\n";
+    cout << "  " << clr::bold << "Scheduler" << clr::reset << " : " << clr::cyan << "Round-robin (1 thread)" << clr::reset << "\n";
+    cout << "  " << clr::bold << "Modules" << clr::reset << "   : " << clr::cyan << "VFS, Term, Games" << clr::reset << "\n\n";
+}
+
+void cmd_boot() {
+    cout << "\033[2J\033[1;1H";
+    vector<pair<string,int>> steps = {
+        {"Restarting kernel", 6}, {"Syncing virtual filesystem", 5}, {"Restarting shell", 4},
+        {"Reloading games engine", 5}, {"System ready", 4}
+    };
+    for (const auto& [s, d] : steps) {
+        cout << "  " << clr::gray << s << clr::reset << "\n";
+        for (int i = 0; i < d; i++) {
+            cout << "\r    " << clr::lgreen << repeat(i + 1, "▰") << clr::reset << flush;
+            this_thread::sleep_for(chrono::milliseconds(120));
+        }
+        cout << "\r    " << clr::success << "done." << clr::reset << "\n";
+    }
+    cout << "\n  " << clr::success << vsep(30, "·") << clr::reset << "\n";
+    cout << "  " << clr::success << clr::bold << "NoNameOS " << VERSION << " back online" << clr::reset << "\n\n";
+}
+
+void cmd_shutdown() {
+    cout << "\n";
+    const string steps[] = {"cleaning up processes", "syncing virtual filesystem", "powering down"};
+    for (const string& s : steps) {
+        cout << "  " << clr::yellow << s << "..." << clr::reset << flush;
+        this_thread::sleep_for(chrono::milliseconds(400));
+        cout << " " << clr::success << "[OK]" << clr::reset << "\n";
+    }
+    cout << "\n  " << clr::bold << clr::red << "   System halted." << clr::reset << "\n";
+    cout << "  " << clr::gray << "  Thanks for using NoNameOS " << VERSION << "!" << clr::reset << "\n\n";
+    exit(0);
+}
+
+void cmd_netstat() {
+    cout << "\n  " << clr::bold << "Active Internet connections" << clr::reset << "\n";
+    cout << "  " << clr::dgray << repeat(52, "─") << clr::reset << "\n";
+    const string protos[] = {"tcp", "tcp", "tcp", "udp", "tcp"};
+    const string stat[] = {"ESTABLISHED", "LISTEN", "ESTABLISHED", "ESTABLISHED", "TIME_WAIT"};
+    const int ports[] = {443, 22, 80, 53, 8080};
+    for (int i = 0; i < 5; i++)
+        cout << "  " << protos[i] << "  0.0.0.0:" << ports[i] << "  0.0.0.0:*  " << clr::cyan << stat[i] << clr::reset << "\n";
+    cout << "  " << clr::dgray << vsep(52, "─") << clr::reset << "\n\n";
+}
+
+void cmd_dns(const string& args) {
+    string host = args.empty() ? "localhost" : args;
+    cout << "  Resolving " << clr::cyan << host << clr::reset << "...\n";
+    this_thread::sleep_for(chrono::milliseconds(300));
+    cout << "  " << "192.168." << rng_int(0, 255) << "." << rng_int(2, 254) << clr::dgray << "  (simulated)" << clr::reset << "\n\n";
+}
+
+void cmd_traceroute(const string& args) {
+    string host = args.empty() ? "google.com" : args;
+    cout << "  traceroute to " << clr::cyan << host << clr::reset << " (8.8.8.8)\n";
+    for (int h = 1; h <= 9; h++) {
+        cout << "  " << setw(2) << h << "  " << rng_int(1, 255) << "." << rng_int(0, 255) << "." << rng_int(0, 255) << "." << rng_int(1, 254)
+             << "  " << rng_int(1, 40) << ".0 ms  " << rng_int(1, 40) << ".0 ms  " << rng_int(1, 40) << ".0 ms\n";
+        this_thread::sleep_for(chrono::milliseconds(50));
+    }
+    cout << "\n";
+}
+
+void cmd_lsblk() {
+    cout << "\n  " << clr::bold << "NAME   MAJ:MIN RM  SIZE TYPE MOUNTPOINT" << clr::reset << "\n";
+    cout << "  " << clr::gray << "sda       8:0    0   32G disk" << clr::reset << "\n";
+    cout << "  " << clr::gray << "├─sda1    8:1    0  512M part /boot" << clr::reset << "\n";
+    cout << "  " << clr::gray << "└─sda2    8:2    0 31.5G part /" << clr::reset << "\n";
+    cout << "  " << clr::gray << "sdb       8:16   0   10G disk" << clr::reset << "  " << clr::cyan << "[virtual]" << clr::reset << "\n\n";
+}
+
+void cmd_mount(map<string,FSNode>& fs) {
+    cout << "\n  " << clr::bold << "Mount points" << clr::reset << "\n";
+    for (const auto& [p, n] : fs) {
+        if (n.is_dir) cout << "  " << clr::gray << p << clr::reset << "  type=vfs (dir)\n";
+        else cout << "  " << clr::cyan << p << clr::reset << "  type=vfs size=" << n.size() << "\n";
+    }
+    cout << "\n";
+}
+
+void cmd_fib(const string& args) {
+    int n = 20;
+    for (char c : args) if (c >= '0' && c <= '9') n = n * 10 + (c - '0');
+    n = max(1, min(n, 90));
+    long long a = 0, b = 1;
+    cout << "\n  ";
+    for (int i = 0; i < n; i++) {
+        cout << clr::cyan << a << (i == n - 1 ? "" : ", ") << clr::reset;
+        long long t = a + b; a = b; b = t;
+    }
+    cout << "\n\n";
+}
+
+void cmd_primes(const string& args) {
+    int n = 100;
+    for (char c : args) if (c >= '0' && c <= '9') n = n * 10 + (c - '0');
+    n = max(1, min(n, 2000));
+    vector<bool> sieve(n + 1, true);
+    sieve[0] = sieve[1] = false;
+    for (int i = 2; i * i <= n; i++) if (sieve[i]) for (int j = i * i; j <= n; j += i) sieve[j] = false;
+    cout << "\n  ";
+    int per = 0;
+    for (int i = 2; i <= n; i++)
+        if (sieve[i]) { cout << setw(5) << i << ((++per % 10 == 0) ? "\n  " : " "); }
+    cout << "\n\n";
+}
+
+void cmd_collatz(const string& args) {
+    int n = 0;
+    for (char c : args) if (c >= '0' && c <= '9') n = n * 10 + (c - '0');
+    if (n < 1) { cout << "Usage: collatz <n>\n"; return; }
+    cout << "\n  ";
+    int steps = 0;
+    while (n != 1) {
+        cout << clr::yellow << n << clr::reset << " → ";
+        if (n % 2) n = 3 * n + 1; else n /= 2;
+        steps++;
+    }
+    cout << clr::yellow << "1" << clr::reset << "\n";
+    cout << "  " << clr::dgray << "(" << steps << " steps)" << clr::reset << "\n\n";
+}
+
+void cmd_sine() {
+    cout << "\n";
+    for (int x = 0; x < 60; x++) {
+        int v = (int)(8 * sin(x * M_PI / 8.0));
+        cout << "        " << clr::cyan << string(v + 8, ' ') << "*" << clr::reset << "\n";
+    }
+    cout << "\n";
+}
+
+void cmd_cube() {
+    cout << "\n";
+    const int N = 9;
+    for (int y = 0; y < N; y++) {
+        for (int z = 0; z < N; z++) {
+            for (int x = 0; x < N; x++) {
+                bool surf = (x == 0 || y == 0 || z == 0 || x == N - 1 || y == N - 1 || z == N - 1);
+                cout << (surf ? clr::lgreen : clr::dgray) << "* " << clr::reset;
+            }
+            cout << "  ";
+        }
+        cout << "\n";
+    }
+    cout << "\n";
+}
+
+void cmd_shell() {
+    cout << "\n  " << clr::cyan << "sub-shell" << clr::reset << " — type " << clr::bold << "exit" << clr::reset << " to return.\n\n";
+    while (true) {
+        cout << clr::dgray << "sub" << clr::reset << "> ";
+        string line; line = cooked_readline();
+        if (line == "exit" || line == "quit" || line == "q" || line == "logout") break;
+        if (line.empty()) continue;
+        auto itok = parse_command(line);
+        cout << "  " << clr::gray << "sub-shell: " << clr::reset << itok.first << "   (just a toy shell)\n";
+    }
+    cout << "  " << clr::gray << "returned to NoNameOS" << clr::reset << "\n\n";
+}
+
+void cmd_logout() {
+    cout << "\n  " << clr::yellow << "logging out..." << clr::reset << "\n";
+    cout << "  " << clr::gray << "session ended. type 'login' to come back, or keep going — nobody checks." << clr::reset << "\n\n";
+}
+
+void cmd_report() {
+    cout << "\n  " << clr::bold << clr::amber << "─ NoNameOS System Report ─" << clr::reset << "\n";
+    cout << "  Kernel  : " << VERSION << "-generic\n";
+    cout << "  User    : root (admin)\n";
+    cout << "  Uptime  : " << (int)(chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - program_start).count() / 1000) << " s\n";
+    cout << "  Devices : virtio-blk, virtio-net, tty1\n";
+    cout << "  Services: shell, games, vfs, easter-egg-registry\n";
+    cout << "  Load    : 0, 0, 0\n\n";
+}
+
+void cmd_mac() {
+    cout << "\n  " << clr::bold << "MAC address:" << clr::reset << "  " << clr::cyan;
+    cout << "02";
+    for (int i = 1; i < 6; i++) cout << ":" << hex << setfill('0') << setw(2) << rng_int(0, 255);
+    cout << setfill(' ') << dec << clr::reset << "\n\n";
+}
+
+void cmd_geoip(const string& h) {
+    string host = h.empty() ? "192.168.1.1" : h;
+    cout << "\n  " << "GeoIP lookup for " << clr::cyan << host << clr::reset << ":\n";
+    cout << "    Country: " << clr::green << "PH (Philippines)" << clr::reset << "\n";
+    cout << "    City   : " << clr::green << "Manila" << clr::reset << "\n";
+    cout << "    Lat/Lon: 14.5995, 120.9842\n";
+    cout << "    ISP    : " << clr::cyan << "NoNameNet" << clr::reset << "\n\n";
+}
+
+void cmd_dict(const string& w) {
+    static const map<string,string> words = {
+        {"love", "a many-splendored thing"}, {"code", "coffee, formalized"},
+        {"bug", "an undocumented feature"}, {"vim", "vi's taller, more opinionated sibling"},
+        {"oss", "a group of people who give away free software"},
+        {"ai", "very fast pattern matching"}
+    };
+    string key = w.empty() ? "oss" : w;
+    if (words.find(key) != words.end())
+        cout << "\n  " << clr::cyan << key << clr::reset << ": " << words.at(key) << "\n\n";
+    else cout << "\n  " << clr::error << key << ": undefined (yet)\n\n";
+}
+
+void cmd_log() {
+    cout << "\n  " << clr::bold << "📋 kernel-style log" << clr::reset << "\n";
+    for (int i = 0; i < 8; i++) {
+        cout << "  [" << fixed << setprecision(6) << (double)rng_int(0, 8) << "] ";
+        cout << (i % 3 ? clr::info : clr::success) << "random kernel event #" << rng_int(0, 999) << clr::reset << "\n";
+    }
+    cout << "\n";
+}
+
+// ---------- v2.0.0 EASTER EGGS ----------
+
+void cmd_llm() {
+    cout << "\n  " << clr::bold << clr::lcyan << "🤖 NoNameAI" << clr::reset << "  " << clr::dgray << "(fake LLM, type 'exit' to leave)" << clr::reset << "\n";
+    const vector<string> canned = {
+        "That's a great question. With my 0.00001 parameters... I have no idea.",
+        "Error 418: I'm a teapot powered by 92.7% vibes.",
+        "I would answer that, but my licensing only covers GET requests.",
+        "The answer, as always, is 42. Follow-up question?",
+        "I've analyzed 10^12 tokens. Verdict: you're on to something.",
+        "Please rephrase. My free tier is feeling peckish."
+    };
+    int q = 0;
+    while (true) {
+        cout << "  " << clr::cyan << "you:   " << clr::reset;
+        string line; line = cooked_readline();
+        if (line == "exit" || line == "q" || line == "Q") break;
+        cout << "  " << clr::lgreen << "ai:    " << clr::reset << canned[q++ % (int)canned.size()] << "\n";
+    }
+    cout << "\n";
+}
+
+void cmd_gpt() {
+    cout << "\n  " << clr::bold << "gpt: this message was proudly generated in 0.00s." << clr::reset;
+    cout << "\n  " << clr::dgray << "but it's 100% free (this simulation, anyway)." << clr::reset << "\n\n";
+}
+
+void cmd_blockchain() {
+    cout << "\n  " << clr::bold << clr::yellow << "⛓ MINING BLOCK #" << rng_int(100000, 999999) << clr::reset << "\n\n";
+    for (int i = 0; i < 12; i++) {
+        string h;
+        for (int j = 0; j < 16; j++) h += "0123456789abcdef"[rng_int(0, 15)];
+        cout << "  " << clr::gray << setw(4) << setfill('0') << hex << i << clr::reset << "  " << clr::lgreen << h << clr::reset << "\n";
+        this_thread::sleep_for(chrono::milliseconds(120));
+    }
+    cout << setfill(' ') << dec << "\n  " << clr::success << "Block mined! Reward: 0.00000001 BTC (worth: $0.00)" << clr::reset << "\n\n";
+}
+
+void cmd_mine() {
+    cout << "\n  " << clr::yellow << "⛏ digging..." << clr::reset << flush;
+    this_thread::sleep_for(chrono::milliseconds(800));
+    cout << " " << clr::success << "you found a diamond!" << clr::reset << "\n";
+    cout << "  " << clr::gray << "too bad this isn't Minecraft. congrats anyway." << clr::reset << "\n\n";
+}
+
+void cmd_neo() {
+    cout << "\n  " << clr::bold << clr::lmagenta << "You take the BLUE pill." << clr::reset << "\n";
+    cout << "  " << clr::gray << "the story ends, you wake up and believe whatever you want to believe." << clr::reset << "\n";
+    cout << "  " << clr::red << "the RED pill: " << clr::reset << clr::gray << "you stay in the Matrix... I mean, NoNameOS." << clr::reset << "\n\n";
+}
+
+void cmd_rabbit() {
+    cout << "\n  " << "Oh dear! Oh dear! I shall be too late!" << "\n";
+    cout << "  " << clr::cyan << "🐇 checking pockets..." << clr::reset << flush;
+    this_thread::sleep_for(chrono::milliseconds(600));
+    cout << " " << clr::yellow << "found: gloves, fan, soda, rock." << clr::reset << "\n\n";
+}
+
+void cmd_dlc() {
+    cout << "\n  " << clr::yellow << "🔒 This feature requires the " << clr::bold << "NoNameOS™ Season Pass DLC" << clr::reset << clr::yellow << "." << clr::reset << "\n";
+    cout << "  " << clr::dgray << "(price: nothing. it's all fake. buy anyway?)" << clr::reset << "\n\n";
+}
+
+void cmd_kitchen() {
+    cout << "\n  " << clr::cyan << "Everything but the kitchen sink..." << clr::reset << flush;
+    this_thread::sleep_for(chrono::milliseconds(500));
+    cout << "\n  " << clr::red << "...except the kitchen sink. we kept that." << clr::reset << "\n\n";
+}
+
+void cmd_toaster() {
+    cout << "\n  " << clr::amber << "Click! 🍞" << clr::reset << flush;
+    this_thread::sleep_for(chrono::milliseconds(700));
+    cout << "\n  " << clr::yellow << "Your toast is ready. NoNameOS controls 15 appliances now." << clr::reset << "\n\n";
+}
+
+void cmd_canon() {
+    cout << "\n  " << "📜 Dark depths of NoNameOS lore: " << clr::gray << "a mouse was once root for 0.4 seconds." << clr::reset << "\n";
+    cout << "  " << clr::dgray << "this is canon now. no take-backs." << clr::reset << "\n\n";
+}
+
+// ---------- v2.0.0 TERMINAL EFFECTS ----------
+
+void cmd_spinner() {
+    cout << "\n  " << "thinking";
+    const char seq[] = "|/-\\";
+    for (int i = 0; i < 40; i++) {
+        cout << "\r  thinking " << clr::cyan << seq[i % 4] << clr::reset << flush;
+        this_thread::sleep_for(chrono::milliseconds(60));
+    }
+    cout << "\r  " << clr::success << "done. ✔" << clr::reset << "\n\n";
+}
+
+void cmd_progress() {
+    int total = 60;
+    cout << "\n  |";
+    for (int i = 1; i <= total; i++) {
+        cout << "\r  |" << clr::lgreen << string((int)(i * 40 / (double)total), '=') << clr::reset
+             << string(40 - (int)(i * 40 / (double)total), '-') << "| "
+             << setw(3) << (int)(i * 100 / (double)total) << "%" << flush;
+        this_thread::sleep_for(chrono::milliseconds(80));
+    }
+    cout << "\n  " << clr::success << "100% complete. as always." << clr::reset << "\n\n";
+}
+
+void cmd_gauge() {
+    cout << "\n  " << clr::bold << "System load" << clr::reset << ": " << clr::cyan << "17%" << clr::reset << "\n";
+    cout << "  " << clr::cyan << repeat(17, "█") << clr::reset << repeat(83, "░") << "\n\n";
+}
+
+void cmd_rain() {
+    const int W = 56, H = 22;
+    vector<int> xs(80), ys(80), sp(80);
+    for (int i = 0; i < 80; i++) { xs[i] = i % W; ys[i] = -(i % (H + 3)); sp[i] = (i % 3) + 1; }
+    for (int steps = 0; steps < 240 && !kbhit(); steps++) {
+        cout << "\033[2J\033[1;1H";
+        for (int i = 0; i < 80; i++) {
+            if (ys[i] >= 0 && ys[i] < H) {
+                cout << "\033[" << (ys[i] + 1) << ";" << (xs[i] + 1) << "H";
+                cout << clr::cyan << "│" << clr::reset;
+            }
+            ys[i] += sp[i];
+            if (ys[i] >= H) ys[i] = -rng_int(1, 5);
+        }
+        this_thread::sleep_for(chrono::milliseconds(45));
+    }
+    cout << "\033[0m\033[2J\033[1;1H";
+    (void)getkey();
+}
+
+void cmd_fire() {
+    const int W = 40, H = 8;
+    vector<vector<int>> heat(H, vector<int>(W, 0));
+    for (int w = 0; w < W; w++) heat[H - 1][w] = 100;
+    for (int f = 0; f < 90 && !kbhit(); f++) {
+        for (int h = 0; h < H; h++) {
+            for (int w = 0; w < W; w++) {
+                if (heat[h][w] > 0) heat[h][w] = max(0, heat[h][w] - rng_int(0, 30));
+                char c = heat[h][w] > 75 ? '#' : heat[h][w] > 45 ? 'o' : heat[h][w] > 20 ? '.' : ' ';
+                cout << (heat[h][w] > 75 ? clr::red : heat[h][w] > 45 ? clr::yellow : clr::dgray) << c << clr::reset;
+            }
+            cout << "\n";
+        }
+        for (int w = 0; w < W; w++) {
+            for (int h = 0; h < H - 1; h++) heat[h][w] = (heat[h][w] + heat[h + 1][w]) / 2;
+            heat[H - 1][w] = 100;
+        }
+        cout << "\033[0m\033[2J\033[1;1H";
+        this_thread::sleep_for(chrono::milliseconds(90));
+    }
+    cout << "\033[0m\033[2J\033[1;1H";
+    (void)getkey();
+}
+
+void cmd_stream() {
+    const int W = 56, H = 12;
+    vector<int> y(W), sp(W);
+    for (int i = 0; i < W; i++) { y[i] = rng_int(0, H - 1); sp[i] = rng_int(1, 3); }
+    for (int f = 0; f < 180 && !kbhit(); f++) {
+        cout << "\033[2J\033[1;1H";
+        for (int yy = 0; yy < H; yy++) {
+            for (int xx = 0; xx < W; xx++) {
+                char k = (rng_int(1, 10) == 10) ? "·+*#"[rng_int(0, 3)] : "0123456789"[rng_int(0, 9)];
+                bool head = (y[xx] == yy);
+                cout << (head ? clr::lgreen : clr::green) << k << clr::reset;
+            }
+            cout << "\n";
+        }
+        for (int xx = 0; xx < W; xx++) { y[xx] = (y[xx] + sp[xx]) % H; }
+        this_thread::sleep_for(chrono::milliseconds(70));
+    }
+    cout << "\033[0m\033[2J\033[1;1H";
+    (void)getkey();
+}
+
+void cmd_type() {
+    const string t[] = {
+        "Your mission is what you make it.",
+        "NoNameOS — pride. prestige. pydium.",
+        "sudo rm -rf / is, always and forever, a trap.",
+        "there is no new idea in this OS except you."
+    };
+    cout << "\n";
+    for (const string& s : t) {
+        for (char c : s) {
+            cout << clr::cyan << c << clr::reset << flush;
+            this_thread::sleep_for(chrono::milliseconds(40 + rng_int(0, 30)));
+        }
+        cout << "\n";
+    }
+    cout << "\n";
+}
+
+// ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
 // SECTION 12: Main Entry Point
 // ═══════════════════════════════════════════════════════════════
@@ -3318,8 +4254,13 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
             section("Tools", "nano, calc, bc, cowsay, cal, rainbow, lolcat\nyes, sleep, which, alias, unalias, su\nuseradd, userdel, users, banner, fortune\nfactor, shuf, sl, train");
             section("Text", "rev, tr, cut, paste, uniq, nl, fold\nbasename, dirname");
             section("System Info", "free, dmesg, lscpu, lsusb, arch, nproc, ping, watch, df, seq");
-            section("Games", "play (AsciiDash), guess, trivia, adventure, snake\nminesweeper, tictactoe (ttt), hangman, rps\n2048, typing, reaction, nummem");
+            section("Games", "play (AsciiDash), guess, trivia, adventure, snake\nminesweeper, tictactoe (ttt), hangman, rps\n2048, typing, reaction, nummem, wordle, quiz");
             section("Productivity", "todo, notes, stopwatch, timer, pom, alarm");
+            section("v2.0 Games", "othello, mastermind, simon, blackjack, battleship\nslots, maze, nim, buzz, bulls, twentyone\njumble, arith, bingo");
+            section("v2.0 System", "kernel, boot, shutdown, netstat, dns\ntraceroute, lsblk, mount, report, log");
+            section("v2.0 Tools", "fib, primes, collatz, sine, cube, shell\nlogout, mac, geoip, dict");
+            section("v2.0 Easter Eggs", "llm, gpt, blockchain, mine, neo, rabbit\ndlc, kitchen, toaster, canon");
+            section("v2.0 Effects", "spinner, progress, gauge, rain, fire, stream, type");
 
             cout << "\n  " << clr::dgray << vsep(42) << clr::reset << "\n";
             cout << "  " << clr::dim << "Tip: " << clr::muted << "type " << clr::lcyan << "help <cmd>" << clr::muted << " or " << clr::lcyan << "man <cmd>" << clr::muted << " for details" << clr::reset << "\n\n";
@@ -4926,7 +5867,7 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
             cout << "\n  " << clr::bold << "NoNameOS " << VERSION << clr::reset << "\n";
             if (args == "-a") {
                 cout << "  " << clr::gray << "Built with: love, C++, and questionable life choices" << clr::reset << "\n";
-                cout << "  " << clr::gray << "Lines of code: ~4900" << clr::reset << "\n";
+                cout << "  " << clr::gray << "Lines of code: ~6000" << clr::reset << "\n";
                 cout << "  " << clr::gray << "Bugs fixed: 49" << clr::reset << "\n";
                 cout << "  " << clr::gray << "Bugs remaining: probably some" << clr::reset << "\n";
                 cout << "  " << clr::gray << "Author: Mark44928" << clr::reset << "\n";
@@ -4934,6 +5875,69 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
             }
             cout << "\n";
         }
+        // ═══════════════════════════════════════════════════════════
+        //  v2.0.0 — GAMES
+        // ═══════════════════════════════════════════════════════════
+        else if (cmd == "othello") { play_othello(); }
+        else if (cmd == "mastermind") { play_mastermind(); }
+        else if (cmd == "simon") { play_simon(); }
+        else if (cmd == "blackjack") { play_blackjack(); }
+        else if (cmd == "battleship") { play_battleship(); }
+        else if (cmd == "slots") { play_slots(); }
+        else if (cmd == "maze") { play_maze(); }
+        else if (cmd == "nim") { play_nim(); }
+        else if (cmd == "buzz") { play_buzz(); }
+        else if (cmd == "bulls") { play_bulls_cows(); }
+        else if (cmd == "twentyone") { play_twentyone(); }
+        else if (cmd == "jumble") { play_jumble(); }
+        else if (cmd == "arith") { play_arith(); }
+        else if (cmd == "bingo") { cmd_bingo(); }
+        // ═══════════════════════════════════════════════════════════
+        //  v2.0.0 — SYSTEM / TOOLS
+        // ═══════════════════════════════════════════════════════════
+        else if (cmd == "kernel") { cmd_kernel(); }
+        else if (cmd == "boot") { cmd_boot(); }
+        else if (cmd == "shutdown") { cmd_shutdown(); }
+        else if (cmd == "netstat") { cmd_netstat(); }
+        else if (cmd == "dns") { cmd_dns(args); }
+        else if (cmd == "traceroute") { cmd_traceroute(args); }
+        else if (cmd == "lsblk") { cmd_lsblk(); }
+        else if (cmd == "mount") { cmd_mount(file_system); }
+        else if (cmd == "fib") { cmd_fib(args); }
+        else if (cmd == "primes") { cmd_primes(args); }
+        else if (cmd == "collatz") { cmd_collatz(args); }
+        else if (cmd == "sine") { cmd_sine(); }
+        else if (cmd == "cube") { cmd_cube(); }
+        else if (cmd == "shell") { cmd_shell(); }
+        else if (cmd == "logout") { cmd_logout(); }
+        else if (cmd == "report") { cmd_report(); }
+        else if (cmd == "mac") { cmd_mac(); }
+        else if (cmd == "geoip") { cmd_geoip(args); }
+        else if (cmd == "dict") { cmd_dict(args); }
+        else if (cmd == "log") { cmd_log(); }
+        // ═══════════════════════════════════════════════════════════
+        //  v2.0.0 — EASTER EGGS
+        // ═══════════════════════════════════════════════════════════
+        else if (cmd == "llm") { cmd_llm(); }
+        else if (cmd == "gpt") { cmd_gpt(); }
+        else if (cmd == "blockchain") { cmd_blockchain(); }
+        else if (cmd == "mine") { cmd_mine(); }
+        else if (cmd == "neo") { cmd_neo(); }
+        else if (cmd == "rabbit") { cmd_rabbit(); }
+        else if (cmd == "dlc") { cmd_dlc(); }
+        else if (cmd == "kitchen") { cmd_kitchen(); }
+        else if (cmd == "toaster") { cmd_toaster(); }
+        else if (cmd == "canon") { cmd_canon(); }
+        // ═══════════════════════════════════════════════════════════
+        //  v2.0.0 — TERMINAL EFFECTS
+        // ═══════════════════════════════════════════════════════════
+        else if (cmd == "spinner") { cmd_spinner(); }
+        else if (cmd == "progress") { cmd_progress(); }
+        else if (cmd == "gauge") { cmd_gauge(); }
+        else if (cmd == "rain") { cmd_rain(); }
+        else if (cmd == "fire") { cmd_fire(); }
+        else if (cmd == "stream") { cmd_stream(); }
+        else if (cmd == "type") { cmd_type(); }
         else {
             cout << "\n  " << clr::error << "✗ " << clr::bold << "command not found: " << clr::reset << clr::error << cmd << clr::reset << "\n";
             string sug = closest_cmd(cmd);

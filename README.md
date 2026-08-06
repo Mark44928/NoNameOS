@@ -2,17 +2,17 @@
   <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
 </p>
 
-<p align="center"><sub><i>Screenshot from v0.3.1 — current version (v1.0.2) has 24+ games, 149+ commands, and full color support not shown here.</i></sub></p>
+<p align="center"><sub><i>Screenshot from v0.3.1 — current version (v2.0.0) has 40 games, 251 commands, and full color support not shown here.</i></sub></p>
 
 <h1 align="center">NoNameOS</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v1.0.2-green?style=for-the-badge" alt="Version"/>
+  <img src="https://img.shields.io/badge/version-v2.0.0-green?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/language-C%2B%2B17-blue?style=for-the-badge" alt="C++17"/>
   <img src="https://img.shields.io/badge/license-GPLv3-purple?style=for-the-badge" alt="License"/>
-  <img src="https://img.shields.io/badge/4928-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
-  <img src="https://img.shields.io/badge/24%2B_games-red?style=for-the-badge" alt="Games"/>
-  <img src="https://img.shields.io/badge/149%2B_commands-cyan?style=for-the-badge" alt="Commands"/>
+  <img src="https://img.shields.io/badge/5962-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
+  <img src="https://img.shields.io/badge/40_games-red?style=for-the-badge" alt="Games"/>
+  <img src="https://img.shields.io/badge/251_max_commands-cyan?style=for-the-badge" alt="Commands"/>
   <img src="https://img.shields.io/badge/49_bugs_fixed-2ea44f?style=for-the-badge" alt="Bugs Fixed"/>
   <img src="https://img.shields.io/badge/dependencies-zero-brightgreen?style=for-the-badge" alt="Zero Dependencies"/>
   <img src="https://img.shields.io/badge/platform-linux-lightgrey?style=for-the-badge" alt="Linux"/>
@@ -21,12 +21,12 @@
 </p>
 
 <blockquote align="center">
-  <b>One file. Zero dependencies. 24 games. 149 commands. One terminal.</b>
+  <b>One file. Zero dependencies. 40 games. 251 commands. One terminal.</b>
   <br/><sub><i>Simulated OS meets sandbox playground — all in a single .cpp</i></sub>
 </blockquote>
 
 <p align="center">
-  <b>A pure C++ terminal operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 24+ built-in games, and 149+ developer tools — all contained in a single source file.</b><br/>
+  <b>A pure C++ terminal operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 40 built-in games, and 251 developer tools — all contained in a single source file.</b><br/>
   <sub>No external dependencies. No framework. No build system headaches. Just compile and run.</sub>
 </p>
 
@@ -49,7 +49,7 @@
 | | |
 |---|---|
 | **Single File** | Entire project is one `.cpp` — no build system, no `#include` hell, no headaches |
-| **Fun to Use** | 24+ games, easter eggs, colored output, animated boot — it's genuinely enjoyable |
+| **Fun to Use** | 40 games, easter eggs, colored output, animated boot — it's genuinely enjoyable |
 | **Learn C++** | See real-world STL, OOP, RAII, ANSI escape codes, and POSIX I/O in action |
 | **Hackable** | Every feature in one file — read it, mod it, break it, fix it |
 | **Portable** | Compiles everywhere — Linux, Termux, WSL, even your toaster if it runs g++ |
@@ -66,7 +66,7 @@
 - [Why NoNameOS?](#why-nonameos)
 - [Perfect For](#perfect-for)
 - [Features](#features)
-- [What's New in v1.0.2](#whats-new-in-v102)
+- [What's New in v2.0.0](#whats-new-in-v200)
 - [Quick Start](#quick-start)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
 - [Build Instructions](#build-instructions)
@@ -90,10 +90,10 @@
 
 | Category | What You Get | Highlights |
 |----------|-------------|------------|
-| **Interactive Shell** | Color-coded prompt, command duration, 149+ commands | Arrow keys, history, fuzzy suggestions |
+| **Interactive Shell** | Color-coded prompt, command duration, 251 commands | Arrow keys, history, fuzzy suggestions |
 | **Virtual Filesystem** | Files, directories, symlinks, permissions, trash | Timestamps, sizes, `ls -l`, `chmod` |
-| **24+ Games** | Arcade, puzzle, strategy, word, reflex games | Tetris, Pong, Sudoku, Wordle, Flappy Bird |
-| **System Tools** | Text editor, calculators, system info | `nano`, `calc`, `cfetch`, `free`, `top` |
+| **40 Games** | Arcade, puzzle, strategy, word, reflex games | Tetris, Othello, Blackjack, Wordle, Battleship |
+| **System Tools** | Text editor, calculators, system info | `kernel`, `netstat`, `traceroute`, `report` |
 | **Text Processing** | grep, find, sort, word count, diff | `rev`, `tr`, `cut`, `uniq`, `nl`, `fold` |
 | **Converters** | Base64, ROT13, Morse, Roman, Binary | `urlencode`, `hexdump`, `hash` |
 | **Math & Stats** | Calculators, BMI, tip, statistics | `calc2`, `bmi`, `stats`, `dice`, `coin` |
@@ -103,7 +103,38 @@
 
 ---
 
-## What's New in v1.0.2
+## What's New in v2.0.0
+
+### 14 new games (+25% more games!)
+- `othello` — classic Reversi vs. AI (2-player hotseat too)
+- `mastermind` — crack the secret color code in 10 guesses
+- `simon` — follow the growing light sequence
+- `blackjack` — beat the dealer with real card logic
+- `battleship` — sink the AI fleet with a smart-grid hunt
+- `slots` — 3-reel slot machine with jackpots
+- `maze` — escape an 18×14 maze, generated per run
+- `nim` — take-the-last-stone strategy game
+- `buzz` — the 3/5 FizzBuzz challenge vs. AI
+- `bulls` — cows & bulls number deduction
+- `twentyone` — simplified blackjack variant
+- `jumble` — unscramble words across 5 categories
+- `arith` — rapid-fire mental math quiz
+- `bingo` — auto-generated bingo card
+
+### 20 new system & tools commands
+`kernel`, `boot` (animated reboot), `shutdown` (halts the OS), `netstat`, `dns`, `traceroute`, `lsblk`, `mount`, `fib`, `primes`, `collatz`, `sine`, `cube`, `shell` (toy sub-shell), `logout`, `report`, `mac`, `geoip`, `dict`, `log`
+
+### 10 new easter eggs
+`llm` (fake AI chat), `gpt`, `blockchain` (fake mining), `mine`, `neo`, `rabbit`, `dlc`, `kitchen`, `toaster`, `canon`
+
+### 7 new terminal effects
+`spinner`, `progress`, `gauge`, `rain`, `fire`, `stream` (matrix-style), `type` (typewriter)
+
+### Polish
+- `help` now lists v2.0 categories: Games, System, Tools, Easter Eggs, Effects
+- Version bumped to **v2.0.0** — the biggest feature drop yet
+
+### New in v1.0.2
 
 ### Bug Fixes (43 total across all audits)
 - Fixed 2 critical Sudoku infinite loops in initialization
@@ -429,12 +460,12 @@ $ ./nonameos
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 
                     ═══════════════════════════════════════════
-                     v1.0.2 · Pure C++ OS Simulation
+                     v2.0.0 · Pure C++ OS Simulation
                     ═══════════════════════════════════════════
 
   [━━━━━━━━━━━━━━━━━━━━━━━━━] System ready
 
-  ✓ NoNameOS v1.0.2 booted successfully
+  ✓ NoNameOS v2.0.0 booted successfully
   Type help for available commands
   ↑↓ history  ←→ cursor  Backspace delete
 
@@ -670,7 +701,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 │  ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐    │
 │  │ Terminal I/O │───▶│  Shell (REPL)   │───▶│  Dispatcher  │    │
 │  │ termios.h    │    │ cooked_readline │    │  if/else map │    │
-│  │ fcntl.h      │    │ history, arrows │    │  149+ cmds   │    │
+│  │  fcntl.h      │    │ history, arrows │    │  251 cmds    │    │
 │  └──────────────┘    └─────────────────┘    └───────┬──────┘    │
 │                                                     │           │
 │                    ┌────────────────────────────────┼─────┐     │
@@ -704,7 +735,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 | **STL Containers** | `map<string, FSNode>` | Virtual filesystem backed by associative containers |
 | **MT19937 RNG** | `mt19937 rng{random_device{}()}` | Modern C++ random number generation |
 | **ANSI Colors** | `namespace color` | 256-color and truecolor RGB terminal rendering |
-| **Single Dispatch** | Line 3153+ | One massive if/else chain routes all 149+ commands |
+| **Single Dispatch** | Line 3153+ | One massive if/else chain routes all 251 commands |
 
 ## Fun Facts
 
@@ -722,6 +753,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 
 | Version | Lines | Games | Commands | Key Changes |
 |---------|-------|-------|----------|-------------|
+| **v2.0.0** | 5,962 | 40 | 251 | 14 games, 20 tools, 10 eggs, 7 effects |
 | **v1.0.2** | 4,928 | 24 | 149 | 43 audit bug fixes |
 | **v1.0.1** | 4,561 | 24 | 135 | Arrow keys, cursor movement, easter eggs |
 | **v1.0.0** | 4,500 | 24 | 135 | 11 new games, 60+ commands, visual overhaul |
