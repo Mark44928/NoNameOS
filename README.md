@@ -8,7 +8,6 @@
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 </pre>
 
-<img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
 <img scr="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260808-140453.png"/>
 </div>
 
