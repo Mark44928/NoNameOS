@@ -44,18 +44,38 @@
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
 
 using namespace std;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SECTION 2: Signal Handling and Terminal State Management
 // ══════════════════════════════════════════════════════════════════════════════
-// SIGINT handler exits cleanly — the shell restores terminal state on process exit.
-// tcsetattr() is NOT async-signal-safe, so we must not call it here.
+// SIGINT handler sets a flag so the shell can exit cleanly, allowing the
+// TerminalGuard RAII object to restore the terminal. tcsetattr() is NOT
+// async-signal-safe, so we must not call it here — the flag is polled by the
+// readline loop and main loop instead.
 static struct termios g_orig_term;
 static volatile sig_atomic_t g_term_saved = 0;
+static volatile sig_atomic_t g_sigint = 0;
+static bool g_quit = false;
+static bool g_stdin_eof = false;
 static void sigint_handler(int) {
-    _exit(1);
+    g_sigint = 1;
+}
+static void sigtstp_handler(int) {
+    // Restore cooked terminal before suspending so the user's shell isn't left raw
+    if (g_term_saved) tcsetattr(STDIN_FILENO, TCSANOW, &g_orig_term);
+    signal(SIGTSTP, SIG_DFL);
+    raise(SIGTSTP);
+}
+static void sigcont_handler(int) {
+    if (g_term_saved) {
+        struct termios raw2 = g_orig_term;
+        raw2.c_lflag &= ~(ICANON | ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &raw2);
+    }
+    signal(SIGCONT, sigcont_handler);
 }
 
 static const auto program_start = chrono::steady_clock::now();
@@ -126,6 +146,61 @@ string repeat(int n, const string& ch) {
     return s;
 }
 
+// --- UTF-8 aware helpers ---
+// Length (in bytes) of the UTF-8 sequence that starts at the given byte
+static size_t utf8_seq_len(unsigned char c) {
+    if (c < 0x80) return 1;
+    if ((c & 0xE0) == 0xC0) return 2;
+    if ((c & 0xF0) == 0xE0) return 3;
+    if ((c & 0xF8) == 0xF0) return 4;
+    return 1;
+}
+static size_t utf8_length(const string& s) {
+    size_t count = 0;
+    for (size_t i = 0; i < s.size(); count++)
+        i += utf8_seq_len((unsigned char)s[i]);
+    return count;
+}
+// First `n` UTF-8 characters of `s` (never splits a multibyte sequence)
+static string utf8_take(const string& s, size_t n) {
+    string out;
+    for (size_t i = 0; i < s.size() && utf8_length(out) < n; ) {
+        size_t len = utf8_seq_len((unsigned char)s[i]);
+        if (i + len > s.size()) len = 1;
+        out += s.substr(i, len);
+        i += len;
+    }
+    return out;
+}
+// Reverse the string without splitting multibyte characters
+static string utf8_reverse(const string& s) {
+    string out;
+    size_t i = s.size();
+    while (i > 0) {
+        size_t start = i - 1;
+        while (start > 0 && (s[start] & 0xC0) == 0x80) start--; // walk back over continuation bytes
+        out += s.substr(start, i - start);
+        i = start;
+    }
+    return out;
+}
+// Split `s` into lines of at most `width` UTF-8 characters
+static vector<string> utf8_fold(const string& s, size_t width) {
+    vector<string> out;
+    for (size_t i = 0; i < s.size(); ) {
+        size_t taken = 0, count = 0;
+        while (i + taken < s.size() && count < width) {
+            size_t len = utf8_seq_len((unsigned char)s[i + taken]);
+            if (i + taken + len > s.size()) len = 1;
+            taken += len;
+            count++;
+        }
+        out.push_back(s.substr(i, taken));
+        i += taken;
+    }
+    return out;
+}
+
 // --- Pseudo-random engine (replaces weak srand/rand) ---
 static mt19937& rng() {
     static mt19937 gen(random_device{}());
@@ -134,6 +209,104 @@ static mt19937& rng() {
 static int rng_int(int lo, int hi) {
     uniform_int_distribution<int> dist(lo, hi);
     return dist(rng());
+}
+
+// --- Expression evaluator (shared by `bc` and `calc2`) ---
+// Full recursive-descent parser supporting +, -, *, /, %, ^, parentheses,
+// unary minus, and operand grouping. Prints its own error messages on failure
+// so bad input is never silently swallowed nor yields a wrong partial result.
+namespace expr {
+    struct Parser {
+        const string& s;
+        size_t i = 0;
+        bool error = false;
+        explicit Parser(const string& str) : s(str) {}
+        char peek() const { return i < s.size() ? s[i] : '\0'; }
+        void skipws() { while (i < s.size() && isspace((unsigned char)s[i])) i++; }
+        bool number(double& out) {
+            skipws();
+            size_t start = i;
+            bool has_digit = false;
+            while (i < s.size() && isdigit((unsigned char)s[i])) { i++; has_digit = true; }
+            if (i < s.size() && s[i] == '.') {
+                i++;
+                while (i < s.size() && isdigit((unsigned char)s[i])) { i++; has_digit = true; }
+            }
+            if (!has_digit) { i = start; return false; }
+            out = strtod(s.substr(start, i - start).c_str(), nullptr);
+            return true;
+        }
+        bool primary(double& out) {
+            skipws();
+            if (peek() == '(') {
+                i++;
+                if (!expr_op(out)) return false;
+                skipws();
+                if (peek() != ')') { error = true; return false; }
+                i++;
+                return true;
+            }
+            if (peek() == ')') { error = true; return false; }
+            return number(out);
+        }
+        bool unary(double& out) {
+            skipws();
+            if (peek() == '-') { i++; double v; if (!unary(v)) return false; out = -v; return true; }
+            if (peek() == '+') { i++; double v; if (!unary(v)) return false; out = v; return true; }
+            return primary(out);
+        }
+        bool power(double& out) {
+            if (!unary(out)) return false;
+            skipws();
+            if (peek() == '^') {
+                i++;
+                double rhs;
+                if (!power(rhs)) return false; // right-associative
+                out = pow(out, rhs);
+            }
+            return true;
+        }
+        bool term(double& out) {
+            if (!power(out)) return false;
+            while (true) {
+                skipws();
+                char c = peek();
+                if (c == '*' || c == '/' || c == '%') {
+                    i++;
+                    double rhs;
+                    if (!power(rhs)) return false;
+                    if (c == '*') out = out * rhs;
+                    else if (c == '/') { if (rhs == 0) { error = true; return false; } out = out / rhs; }
+                    else { if (rhs == 0) { error = true; return false; } out = fmod(out, rhs); }
+                } else break;
+            }
+            return true;
+        }
+        bool expr_op(double& out) {
+            if (!term(out)) return false;
+            while (true) {
+                skipws();
+                char c = peek();
+                if (c == '+' || c == '-') {
+                    i++;
+                    double rhs;
+                    if (!term(rhs)) return false;
+                    out = (c == '+') ? (out + rhs) : (out - rhs);
+                } else break;
+            }
+            return true;
+        }
+        bool eval(double& out) {
+            bool ok = expr_op(out);
+            skipws();
+            if (ok && i == s.size() && !error) return true;
+            return false;
+        }
+    };
+    inline bool evaluate(const string& s, double& out) {
+        Parser p(s);
+        return p.eval(out);
+    }
 }
 
 // --- Named constants (replaces magic numbers) ---
@@ -189,8 +362,17 @@ struct TerminalGuard {
             g_orig_term = oldt;
             g_term_saved = 1;
             struct termios newt = oldt;
-            newt.c_lflag &= ~(ICANON | ECHO);
-            tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+            newt.c_iflag &= ~(IGNBRK | BRKINT | INLCR | IGNCR | ICRNL | IXON | IXOFF | ISTRIP);
+            newt.c_lflag &= ~(ICANON | ECHO | ECHONL | IEXTEN);
+            newt.c_cflag &= ~(CSIZE | PARENB);
+            newt.c_cflag |= CS8;
+            if (tcsetattr(STDIN_FILENO, TCSANOW, &newt) != 0) {
+                // tcsetattr failed — treat as inactive so callers don't assume raw mode
+                tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+                active = false;
+                g_term_saved = 0;
+                return;
+            }
             oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
             fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
         }
@@ -241,8 +423,17 @@ struct FSNode {
 
 string resolved_path(map<string,FSNode>& fs, const string& path, int depth = 0) {
     if (depth > 8) return path;
-    if (fs.find(path) != fs.end() && fs[path].is_link)
-        return resolved_path(fs, fs[path].link_target, depth + 1);
+    if (fs.find(path) != fs.end() && fs[path].is_link) {
+        string tgt = fs[path].link_target;
+        // Try the target verbatim, then with/without a trailing slash to match VFS keys
+        if (fs.find(tgt) == fs.end()) {
+            string t2 = tgt;
+            if (!t2.empty() && t2.back() == '/') t2.pop_back();
+            else t2 += "/";
+            if (fs.find(t2) != fs.end()) tgt = t2;
+        }
+        return resolved_path(fs, tgt, depth + 1);
+    }
     return path;
 }
 
@@ -411,40 +602,48 @@ enum Key { KEY_NONE=0, KEY_UP=1000, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_ENTER, KE
 
 // Read a key, handling escape sequences for arrow keys
 // Returns the raw char for normal keys, or KEY_UP/DOWN/LEFT/RIGHT for arrows
+// Uses poll() to wait for the escape-sequence continuation so a lone ESC never
+// swallows the user's next real keystroke.
 int getkey() {
     auto read_ch = []() -> int {
         if (peek_buf != EOF) { int ch = peek_buf; peek_buf = EOF; return ch; }
         return getchar();
     };
+    auto available = [](int ms) {
+        pollfd pfd{STDIN_FILENO, POLLIN, 0};
+        return poll(&pfd, 1, ms) > 0;
+    };
+    auto normalize = [](int c) -> int {
+        if (c == '\n' || c == '\r') return KEY_ENTER;
+        if (c == ' ') return KEY_SPACE;
+        return c;
+    };
     int ch = read_ch();
     if (ch == EOF) return KEY_NONE;
     if (ch == 27) { // ESC
+        // Wait briefly for a possible arrow-key sequence
+        if (!available(50)) return KEY_ESC; // lone ESC
         int ch2 = read_ch();
         if (ch2 == EOF || ch2 == 27) return KEY_ESC; // bare ESC
         if (ch2 == '[') {
-            // Wait briefly for the final byte of escape sequence
-            for (int retry = 0; retry < 5; retry++) {
-                int ch3 = read_ch();
-                if (ch3 != EOF) {
-                    if (ch3 == 'A') return KEY_UP;
-                    if (ch3 == 'B') return KEY_DOWN;
-                    if (ch3 == 'C') return KEY_RIGHT;
-                    if (ch3 == 'D') return KEY_LEFT;
-                    return KEY_NONE;
-                }
-                this_thread::sleep_for(chrono::milliseconds(5));
-            }
-            return KEY_NONE;
+            // Wait for the final byte of the escape sequence
+            if (!available(50)) return KEY_NONE;
+            int ch3 = read_ch();
+            if (ch3 == 'A') return KEY_UP;
+            if (ch3 == 'B') return KEY_DOWN;
+            if (ch3 == 'C') return KEY_RIGHT;
+            if (ch3 == 'D') return KEY_LEFT;
+            if (ch3 == EOF) return KEY_NONE;
+            return normalize(ch3);
         }
-        return KEY_ESC;
+        return normalize(ch2);
     }
-    if (ch == '\n' || ch == '\r') return KEY_ENTER;
-    if (ch == ' ') return KEY_SPACE;
-    return ch;
+    return normalize(ch);
 }
 
 // Global readline with arrow key support for history navigation
-// NOTE: Only supports ASCII input (k >= 32 && k < 127). UTF-8 in history will misposition the cursor.
+// NOTE: Input bytes 0x20..0xFF are inserted verbatim (raw UTF-8 supported). The cursor
+// is counted in bytes, so positioning can drift on terminals when wide multibyte chars are in use.
 string readline_global(const vector<string>& history) {
     string line;
     size_t cursor = 0;
@@ -457,8 +656,20 @@ string readline_global(const vector<string>& history) {
     };
 
     while (true) {
+        if (g_sigint) {
+            // Ctrl+C aborts the current input line and returns to the prompt
+            g_sigint = 0;
+            cout << "\n";
+            line.clear();
+            return line;
+        }
         int k = getkey();
         if (k == KEY_NONE) {
+            if (feof(stdin) || cin.eof()) {
+                g_stdin_eof = true;
+                cout << "\n";
+                return line;
+            }
             this_thread::sleep_for(chrono::milliseconds(1));
             continue;
         }
@@ -502,8 +713,8 @@ string readline_global(const vector<string>& history) {
                 redraw_from();
             }
         }
-        else if (k == KEY_SPACE || (k >= 32 && k < 127)) { // Printable
-            line.insert(line.begin() + (int)cursor, k == KEY_SPACE ? ' ' : (char)k);
+        else if (k == KEY_SPACE || (k >= 32 && k < 256)) { // Printable (or raw UTF-8 byte)
+            line.insert(line.begin() + (int)cursor, static_cast<char>(k == KEY_SPACE ? ' ' : k));
             cursor++;
             redraw_from();
         }
@@ -524,6 +735,15 @@ optional<string> vfs_read(const string& path, map<string,FSNode>& fs, const stri
 // This allows games using getline to echo typed characters properly
 
 string cooked_readline() {
+    // If we never entered raw mode (non-tty stdin, or TerminalGuard inactive),
+    // just read a line normally — never touch termios with a stale/zeroed struct.
+    if (g_term_saved == 0) {
+        string line;
+        getline(cin, line);
+        if (cin.eof()) g_stdin_eof = true;
+        cin.clear();
+        return line;
+    }
     struct termios raw_t;
     tcgetattr(STDIN_FILENO, &raw_t);
     int old_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
@@ -531,10 +751,15 @@ string cooked_readline() {
     tcsetattr(STDIN_FILENO, TCSANOW, &g_orig_term);
     string line;
     getline(cin, line);
+    if (cin.eof()) g_stdin_eof = true;
     cin.clear();
     fcntl(STDIN_FILENO, F_SETFL, old_flags);
+    // Re-apply raw mode from the LIVE captured termios, not a possibly-stale global
     struct termios raw2 = g_orig_term;
-    raw2.c_lflag &= ~(ICANON | ECHO);
+    raw2.c_iflag &= ~(IGNBRK | BRKINT | INLCR | IGNCR | ICRNL | IXON | IXOFF | ISTRIP);
+    raw2.c_lflag &= ~(ICANON | ECHO | ECHONL | IEXTEN);
+    raw2.c_cflag &= ~(CSIZE | PARENB);
+    raw2.c_cflag |= CS8;
     tcsetattr(STDIN_FILENO, TCSANOW, &raw2);
     return line;
 }
@@ -562,8 +787,8 @@ const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","c
     "bmi","tip","units","roman","binary","morse","bar","sparkline",
     "colorgen","palette","diff","csv","stats","age","datecalc","encode",
     "hash","djb2","md5","sha1","urlencode","urldecode","reverse","capitalize",
-    "repeat","scrabble","zodiac","chinese","emoji","random","pick","dice",
-    "coin","timer2","pom2","worldclock","stopwatch2","quiz","wordle",
+    "repeat","scrabble","zodiac","emoji","random","pick","dice",
+    "coin","worldclock","quiz","wordle",
     "sudo","sandwich","42","meaning","life","konami","hack","hacker",
     "rickroll","rick","beep","bell","yes-master","yes-sir",
     "glhf","gg","lenny","shrug","tableflip","unflip","dealwithit",
@@ -575,7 +800,7 @@ const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","c
     "fib","primes","collatz","sine","cube","shell","logout","report",
     "mac","geoip","dict","log","llm","gpt","blockchain","mine","neo",
     "rabbit","dlc","kitchen","toaster","canon","spinner","progress",
-    "gauge","rain","fire","stream","type"};
+    "gauge","rain","fire","stream","type","up"};
 
 size_t edit_dist(const string& a, const string& b) {
     size_t n = a.size(), m = b.size();
@@ -605,7 +830,7 @@ void cmd_rev(const string& args, map<string,FSNode>& fs, const string& cdir) {
     auto c = vfs_read(args, fs, cdir);
     if (!c) { cout << "error: file not found.\n"; return; }
     istringstream ss(*c); string line;
-    while (getline(ss, line)) { reverse(line.begin(), line.end()); cout << line << "\n"; }
+    while (getline(ss, line)) { cout << utf8_reverse(line) << "\n"; }
 }
 
 void cmd_tr(const string& args, map<string,FSNode>& fs, const string& cdir) {
@@ -614,14 +839,35 @@ void cmd_tr(const string& args, map<string,FSNode>& fs, const string& cdir) {
     if (fn.empty() || f.empty() || r.empty()) { cout << "Usage: tr <file> <find> <replace>\n"; return; }
     auto c = vfs_read(fn, fs, cdir);
     if (!c) { cout << "error: file not found.\n"; return; }
-    string content = *c;
-    // Map each find char to its corresponding replace char (cycle replace if shorter)
-    for (char& ch : content) {
-        for (size_t i = 0; i < f.size(); i++) {
-            if (ch == f[i]) { ch = r[i % r.size()]; break; }
+    // Build a map of UTF-8 sequences from `find` to their replacements (cycling `r`).
+    // Works for ASCII and multibyte characters alike.
+    auto seqs = [](const string& s) {
+        vector<string> out;
+        for (size_t i = 0; i < s.size();) {
+            size_t len = utf8_seq_len((unsigned char)s[i]);
+            if (i + len > s.size()) len = 1;
+            out.push_back(s.substr(i, len));
+            i += len;
         }
+        return out;
+    };
+    auto find_seqs = seqs(f), repl_seqs = seqs(r);
+    if (repl_seqs.size() > find_seqs.size()) repl_seqs.resize(find_seqs.size());
+    string content = *c;
+    string out;
+    for (size_t i = 0; i < content.size();) {
+        size_t len = utf8_seq_len((unsigned char)content[i]);
+        if (i + len > content.size()) len = 1;
+        string cur = content.substr(i, len);
+        size_t idx = (size_t)(find(find_seqs.begin(), find_seqs.end(), cur) - find_seqs.begin());
+        if (idx < find_seqs.size()) {
+            out += (idx < repl_seqs.size()) ? repl_seqs[idx] : ""; // delete if no replacement
+        } else {
+            out += cur;
+        }
+        i += len;
     }
-    cout << content << "\n";
+    cout << out << "\n";
 }
 
 void cmd_cut(const string& args, map<string,FSNode>& fs, const string& cdir) {
@@ -631,7 +877,7 @@ void cmd_cut(const string& args, map<string,FSNode>& fs, const string& cdir) {
     auto c = vfs_read(fn, fs, cdir);
     if (!c) { cout << "error: file not found.\n"; return; }
     istringstream is(*c); string line;
-    while (getline(is, line)) cout << line.substr(0, (size_t)n) << "\n";
+    while (getline(is, line)) cout << utf8_take(line, (size_t)n) << "\n";
 }
 
 void cmd_paste(const string& args, map<string,FSNode>& fs, const string& cdir) {
@@ -653,8 +899,12 @@ void cmd_uniq(const string& args, map<string,FSNode>& fs, const string& cdir) {
     if (args.empty()) { cout << "Usage: uniq <file>\n"; return; }
     auto c = vfs_read(args, fs, cdir);
     if (!c) { cout << "error: file not found.\n"; return; }
-    istringstream ss(*c); string line, prev;
-    while (getline(ss, line)) { if (line != prev) cout << line << "\n"; prev = line; }
+    istringstream ss(*c); string line, prev; bool first = true;
+    while (getline(ss, line)) {
+        if (first || line != prev) cout << line << "\n";
+        prev = line;
+        first = false;
+    }
 }
 
 void cmd_nl(const string& args, map<string,FSNode>& fs, const string& cdir) {
@@ -672,15 +922,17 @@ void cmd_fold(const string& args, map<string,FSNode>& fs, const string& cdir) {
     if (n <= 0) { cout << "error: width must be > 0.\n"; return; }
     auto c = vfs_read(fn, fs, cdir);
     if (!c) { cout << "error: file not found.\n"; return; }
-    for (size_t i = 0; i < c->length(); i += (size_t)n) cout << c->substr(i, (size_t)n) << "\n";
+    for (const auto& line : utf8_fold(*c, (size_t)n)) cout << line << "\n";
 }
 
 void cmd_basename(const string& args) {
     if (args.empty()) { cout << "Usage: basename <path>\n"; return; }
-    size_t pos = args.find_last_of('/');
-    if (pos == string::npos) cout << args << "\n";
-    else if (pos == 0 && args.size() == 1) cout << "/\n";
-    else cout << args.substr(pos + 1) << "\n";
+    string a = args;
+    while (a.size() > 1 && a.back() == '/') a.pop_back(); // strip trailing slashes
+    size_t pos = a.find_last_of('/');
+    if (pos == string::npos) cout << a << "\n";
+    else if (pos == 0 && a.size() == 1) cout << "/\n";
+    else cout << a.substr(pos + 1) << "\n";
 }
 
 void cmd_dirname(const string& args) {
@@ -754,6 +1006,13 @@ void cmd_nproc() { cout << "4\n"; }
 void cmd_du(const string& args, map<string,FSNode>& fs, const string& cdir) {
     string a = args;
     while (!a.empty() && a.back() == '/') a.pop_back();
+    string resolved = resolve_user_path(a, cdir);
+    resolved = resolved_path(fs, resolved);
+    // If it's a regular file, report its own size
+    if (resolved != "/" && fs.find(resolved) != fs.end() && !fs[resolved].is_dir) {
+        cout << fs[resolved].size() << "\t" << (args.empty() ? "." : args) << "\n";
+        return;
+    }
     string dir = a.empty() ? cdir : (a[0] == '/' ? a + "/" : cdir + a + "/");
     size_t total = 0;
     for (const auto& [p, n] : fs) {
@@ -819,56 +1078,12 @@ void cmd_alarm(const string& args) {
 
 void cmd_bc(const string& args, map<string,FSNode>&, const string&) {
     if (args.empty()) { cout << "Usage: bc <expression>\n"; return; }
-    auto precedence = [](char op) -> int {
-        if (op == '+' || op == '-') return 1;
-        if (op == '*' || op == '/' || op == '%') return 2;
-        if (op == '^') return 3;
-        return 0;
-    };
-    auto apply_op = [](double a, double b, char op) -> double {
-        switch(op) {
-            case '+': return a + b;
-            case '-': return a - b;
-            case '*': return a * b;
-            case '/': if (b == 0) { cout << "\033[31merror:\033[0m division by zero.\n"; return NAN; } return a / b;
-            case '%': if (b == 0) { cout << "\033[31merror:\033[0m division by zero.\n"; return NAN; } return fmod(a, b);
-            case '^': return pow(a, b);
-            default: return 0;
-        }
-    };
-    vector<double> nums;
-    vector<char> ops;
-    istringstream ss(args);
-    double val; char op;
-    if (ss >> val) {
-        nums.push_back(val);
-        while (ss >> op >> val) {
-            if (op != '+' && op != '-' && op != '*' && op != '/' && op != '%' && op != '^') {
-                cout << "error: invalid operator.\n"; return;
-            }
-            while (!ops.empty() && (ops.back() == '^' ? precedence(ops.back()) > precedence(op) : precedence(ops.back()) >= precedence(op))) {
-                if (nums.size() < 2) { cout << "error: invalid expression.\n"; return; }
-                double b = nums.back(); nums.pop_back();
-                double a = nums.back(); nums.pop_back();
-                double r = apply_op(a, b, ops.back());
-                if (isnan(r)) return;
-                nums.push_back(r);
-                ops.pop_back();
-            }
-            ops.push_back(op);
-            nums.push_back(val);
-        }
+    double result;
+    if (expr::evaluate(args, result)) {
+        cout << "= " << result << "\n";
+    } else {
+        cout << "\033[31merror:\033[0m division by zero or invalid expression.\n";
     }
-    while (!ops.empty()) {
-        if (nums.size() < 2) { cout << "error: invalid expression.\n"; return; }
-        double b = nums.back(); nums.pop_back();
-        double a = nums.back(); nums.pop_back();
-        double r = apply_op(a, b, ops.back());
-        if (isnan(r)) return;
-        nums.push_back(r);
-        ops.pop_back();
-    }
-    if (!nums.empty()) cout << "= " << nums.back() << "\n";
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1031,12 +1246,23 @@ void play_minesweeper() {
     int remaining = MINESWEEPER_W * MINESWEEPER_H - MINESWEEPER_MINES;
     bool game_over = false;
     bool won = false;
+    bool first_click = true;
 
-    int placed = 0;
-    while (placed < MINESWEEPER_MINES) {
-        int mx = rng_int(0, MINESWEEPER_W - 1), my = rng_int(0, MINESWEEPER_H - 1);
-        if (!mines[my][mx]) { mines[my][mx] = true; placed++; }
-    }
+    auto place_mines = [&](int ex, int ey) {
+        // Place mines avoiding the first-revealed cell and its 8 neighbors
+        auto is_clear = [&](int x, int y) {
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                    if (x + dx == ex && y + dy == ey) return false;
+            return true;
+        };
+        int placed = 0;
+        while (placed < MINESWEEPER_MINES) {
+            int mx = rng_int(0, MINESWEEPER_W - 1), my = rng_int(0, MINESWEEPER_H - 1);
+            if (first_click && !is_clear(mx, my)) continue; // never a mine on/near first click
+            if (!mines[my][mx]) { mines[my][mx] = true; placed++; }
+        }
+    };
 
     auto count_adj = [&](int x, int y) {
         int cnt = 0;
@@ -1049,12 +1275,14 @@ void play_minesweeper() {
     };
 
     function<void(int,int)> reveal = [&](int x, int y) {
+        if (game_over) return;
         if (x < 0 || x >= MINESWEEPER_W || y < 0 || y >= MINESWEEPER_H || revealed[y][x]) return;
         if (board[y][x] == 'F') return;
+        if (mines[y][x]) return; // stop flood at/through mines
         revealed[y][x] = true;
         remaining--;
         int adj = count_adj(x, y);
-        board[y][x] = adj + '0';
+        board[y][x] = static_cast<char>(adj + '0');
         if (adj == 0) {
             for (int dy = -1; dy <= 1; dy++)
                 for (int dx = -1; dx <= 1; dx++)
@@ -1091,7 +1319,7 @@ void play_minesweeper() {
 
         cout << "\nEnter coordinates (x y) or 'f x y' to flag: ";
         string line;
-        line = cooked_readline(); if (line.empty() && cin.eof()) break;
+        line = cooked_readline(); if (line.empty() && g_stdin_eof) break;
         if (line.empty()) continue;
         istringstream iss(line);
         string cmd; int fx, fy;
@@ -1104,6 +1332,7 @@ void play_minesweeper() {
             istringstream iss2(line);
             if (iss2 >> fx >> fy) {
                 if (fx >= 0 && fx < MINESWEEPER_W && fy >= 0 && fy < MINESWEEPER_H) {
+                    if (first_click) { place_mines(fx, fy); first_click = false; }
                     if (mines[fy][fx]) {
                         game_over = true;
                         for (int y = 0; y < MINESWEEPER_H; y++)
@@ -1221,6 +1450,7 @@ void play_tictactoe() {
 
     print_board();
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         if (turn == 0) {
             cout << "Your move (1-9): ";
             string line; line = cooked_readline();
@@ -1277,13 +1507,14 @@ void play_hangman() {
 
         cout << "Guess a letter: ";
         string line;
-        line = cooked_readline(); if (line.empty() && cin.eof()) break;
+        line = cooked_readline(); if (line.empty() && g_stdin_eof) break;
         if (line.empty()) continue;
-        char g = tolower(line[0]);
+        char g = static_cast<char>(tolower(static_cast<unsigned char>(line[0])));
 
         bool found = false;
         for (size_t i = 0; i < word.length(); i++) {
             if (word[i] == g && guessed[i] == '_') { guessed[i] = g; found = true; }
+            else if (word[i] == g && guessed[i] == g) { found = true; } // already revealed
         }
         if (!found) {
             if (find(wrong.begin(), wrong.end(), g) == wrong.end()) {
@@ -1323,7 +1554,7 @@ void play_rps() {
         cout << "  Choice (1-3): ";
 
         string line;
-        line = cooked_readline(); if (line.empty() && cin.eof()) break;
+        line = cooked_readline(); if (line.empty() && g_stdin_eof) break;
         if (line.empty()) continue;
         int p = line[0] - '1';
         if (p < 0 || p > 2) { cout << "\033[31merror:\033[0m invalid choice.\n"; this_thread::sleep_for(chrono::milliseconds(500)); continue; }
@@ -1415,6 +1646,7 @@ void play_2048() {
     const char* tc[] = {"\033[0m", "\033[37m", "\033[33m", "\033[32m", "\033[36m", "\033[34m", "\033[35m", "\033[31m", "\033[37;41m", "\033[33;44m", "\033[37;42m"};
     bool won_2048 = false;
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         cout << "\033[2J\033[1;1H";
         cout << "\n  " << clr::bold << clr::orange << "🔢 2048" << clr::reset << " " << clr::dgray << "v1.0" << clr::reset << "   " << clr::gray << "(WASD move, Q quit)" << clr::reset << "\n\n";
         for (int r = 0; r < 4; r++) {
@@ -1450,7 +1682,7 @@ void play_2048() {
         cout << "Move: ";
         string ln; ln = cooked_readline();
         if (ln.empty()) continue;
-        char d = tolower(ln[0]);
+        char d = static_cast<char>(tolower(static_cast<unsigned char>(ln[0])));
         if (d == 'q') break;
         bool moved = false;
         if (d == 'a') moved = slide_left();
@@ -1520,7 +1752,8 @@ void play_reaction_time() {
         }
         cout << "  \033[32mNOW!\033[0m" << flush;
         auto start = chrono::steady_clock::now();
-        while (!kbhit()) this_thread::sleep_for(chrono::milliseconds(1));
+        while (!kbhit() && !g_stdin_eof && !g_sigint) this_thread::sleep_for(chrono::milliseconds(1));
+        if (g_stdin_eof || g_sigint) return;
         (void)getchar();
         auto end = chrono::steady_clock::now();
         times[r] = (double)chrono::duration_cast<chrono::milliseconds>(end - start).count();
@@ -1528,7 +1761,8 @@ void play_reaction_time() {
         while (kbhit()) (void)getchar();
         if (r < 2) {
             cout << "Enter for round " << (r+2) << "...";
-            while (!kbhit()) this_thread::sleep_for(chrono::milliseconds(50));
+            while (!kbhit() && !g_stdin_eof && !g_sigint) this_thread::sleep_for(chrono::milliseconds(50));
+            if (g_stdin_eof || g_sigint) return;
             while (kbhit()) (void)getchar();
         }
     }
@@ -1540,7 +1774,7 @@ cooked_readline();
 
 void play_number_memory() {
     cout << "\033[2J\033[1;1H";
-    cout << "\n  " << clr::bold << clr::lcyan << "🧠 NUMBER MEMORY" << clr::reset << "\n\n";
+    cout << "\n  " << clr::bold << clr::lcyan << "💯 NUMBER MEMORY" << clr::reset << "\n\n";
     cout << "Remember the number shown, then type it back.\n";
     cout << "Press Enter to start...";
     cooked_readline();
@@ -1617,7 +1851,7 @@ void play_tetris() {
         {"XX\nXX"},                 // O
         {".X.\nXXX","X..\nXX.\nX..","XXX\n..X.",".X.\nXX.\n.X."}, // T
         {".XX\nXX.","X..\nXX.\n.X."}, // S
-        {"XX..\n.XX","..X.\n.XX\n.X.."}, // Z
+        {"XX.\n.XX",".X.\nXX.\nX..","XX.\n.XX",".X.\nXX.\nX.."}, // Z — 180°-symmetric: states 0/2 and 1/3 match
         {"X..\nX..\nXX.",".XX\nX..\nX..","XX.\n.X.\n.X.","..X\n..X\nXX."}, // L
         {"..X\n..X\nXX.","X..\nX..\nXX.","XX.\n.X.\n.X.",".X.\n.X.\nXX."}  // J
     };
@@ -1659,7 +1893,7 @@ void play_tetris() {
             int cx = x + (i % (sw + 1));
             int cy = y + i / (sw + 1);
             if (cy >= 0 && cy < TETRIS_H && cx >= 0 && cx < TETRIS_W)
-                board[cy][cx] = 'A' + p;
+                board[cy][cx] = static_cast<char>('A' + p);
         }
     };
 
@@ -1679,6 +1913,7 @@ void play_tetris() {
     };
 
     while (!game_over) {
+        if (g_stdin_eof || g_sigint) break;
         if (kbhit()) {
             int k = getkey();
             if ((k == 'a' || k == KEY_LEFT) && can_place(piece, rotation, px - 1, py)) px--;
@@ -1713,11 +1948,11 @@ void play_tetris() {
             int cx = px + (i % (sw2 + 1));
             int cy = py + i / (sw2 + 1);
             if (cy >= 0 && cy < TETRIS_H && cx >= 0 && cx < TETRIS_W)
-                display[cy][cx] = 'A' + piece;
+                display[cy][cx] = static_cast<char>('A' + piece);
         }
 
         cout << "\033[2J\033[1;1H";
-        cout << "\n  " << clr::bold << clr::cyan << "🧱 TETRIS" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "  " << clr::dgray << "(AD/←→=move W/↑=rotate S/↓=drop Q=quit)" << clr::reset << "\n\n";
+        cout << "\n  " << clr::bold << clr::cyan << "⬛ TETRIS" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "  " << clr::dgray << "(AD/←→=move W/↑=rotate S/↓=drop Q=quit)" << clr::reset << "\n\n";
         for (int y = 0; y < TETRIS_H; y++) {
             cout << "  " << clr::dgray << "│" << clr::reset;
             for (int x = 0; x < TETRIS_W; x++) {
@@ -1743,6 +1978,7 @@ void play_pong() {
     bool game_over = false;
 
     while (!game_over) {
+        if (g_stdin_eof || g_sigint) break;
         if (kbhit()) {
             int k = getkey();
             if ((k == 'w' || k == KEY_UP) && paddle_l > 0) paddle_l--;
@@ -1814,6 +2050,7 @@ void play_sudoku() {
         fixed_cells[r][c] = (board[r][c] != 0);
 
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         cout << "\033[2J\033[1;1H";
         cout << "\n  " << clr::bold << clr::amber << "🔢 SUDOKU" << clr::reset << "  " << clr::dgray << "(enter: r c value | q=quit)" << clr::reset << "\n\n";
         cout << "     " << clr::dgray << "┌───────┬───────┬───────┐" << clr::reset << "\n";
@@ -1888,6 +2125,7 @@ void play_flappy() {
     vector<pair<int,int>> pipes; // {x, gap_y}
 
     while (!game_over) {
+        if (g_stdin_eof || g_sigint) break;
         if (kbhit()) {
             int k = getkey();
             if (k == KEY_SPACE || k == 'w' || k == KEY_UP) bird_vy = -3;
@@ -2050,7 +2288,7 @@ void cmd_wordcount(const string& args, map<string,FSNode>& fs, const string& cdi
     while (ss2 >> w) {
         // Strip punctuation
         string clean;
-        for (char ch : w) if (isalnum((unsigned char)ch)) clean += tolower(ch);
+        for (char ch : w) if (isalnum((unsigned char)ch)) clean += static_cast<char>(tolower(static_cast<unsigned char>(ch)));
         if (!clean.empty()) freq[clean]++;
     }
     cout << "\n  " << clr::bold << "Word Count:" << clr::reset << " " << clr::cyan << words << clr::reset << "  "
@@ -2085,6 +2323,7 @@ void matrix_rain(int height, const string& chars, const vector<size_t>& offsets)
     while (kbhit()) (void)getchar();
     cout << "\033[2J\033[1;1H";
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         if (kbhit()) { (void)getkey(); break; }
         cout << "\033[H";
         for (int y = 0; y < H; y++) {
@@ -2266,53 +2505,12 @@ void cmd_uptime2() {
 
 void cmd_calc2(const string& args) {
     if (args.empty()) { cout << "Usage: calc2 <expr>\n"; return; }
-    // Convert infix to postfix and evaluate
-    auto precedence = [](char op) -> int {
-        if (op == '+' || op == '-') return 1;
-        if (op == '*' || op == '/') return 2;
-        return 0;
-    };
-    auto apply_op = [](double a, double b, char op) -> double {
-        switch(op) {
-            case '+': return a + b;
-            case '-': return a - b;
-            case '*': return a * b;
-            case '/': { if (b == 0) { cout << "  error: division by zero\n\n"; return NAN; } return a / b; }
-            default: return 0;
-        }
-    };
-
-    vector<double> nums;
-    vector<char> ops;
-    istringstream ss(args);
-    double val;
-    char op;
-    if (ss >> val) {
-        nums.push_back(val);
-        while (ss >> op >> val) {
-            while (!ops.empty() && precedence(ops.back()) >= precedence(op)) {
-                if (nums.size() < 2) { cout << "  error: invalid expression\n\n"; return; }
-                double b = nums.back(); nums.pop_back();
-                double a = nums.back(); nums.pop_back();
-                double r = apply_op(a, b, ops.back());
-                if (isnan(r)) return;
-                nums.push_back(r);
-                ops.pop_back();
-            }
-            ops.push_back(op);
-            nums.push_back(val);
-        }
+    double result;
+    if (expr::evaluate(args, result)) {
+        cout << "  " << clr::cyan << "= " << result << clr::reset << "\n\n";
+    } else {
+        cout << "  " << clr::error << "error: invalid expression" << clr::reset << "\n\n";
     }
-    while (!ops.empty()) {
-        if (nums.size() < 2) { cout << "  error: invalid expression\n\n"; return; }
-        double b = nums.back(); nums.pop_back();
-        double a = nums.back(); nums.pop_back();
-        double r = apply_op(a, b, ops.back());
-        if (isnan(r)) return;
-        nums.push_back(r);
-        ops.pop_back();
-    }
-    if (!nums.empty()) cout << "  " << clr::cyan << "= " << nums.back() << clr::reset << "\n\n";
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2331,7 +2529,7 @@ void play_memory() {
     vector<vector<bool>> matched(ROWS, vector<bool>(COLS, false));
     for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) grid[r][c] = cards[r * COLS + c];
 
-    const string emojis[] = {"🍎","🍊","🍋","🍇","🍉","🍒","🥑","🍑"};
+    const string emojis[] = {"🍎","🍊","🍋","🍇","🍉","🍒","🍌","🍑"};
     int moves = 0, found = 0;
     int sel_r = -1, sel_c = -1;
 
@@ -2406,6 +2604,7 @@ void play_connect4() {
     };
 
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         cout << "\033[2J\033[1;1H";
         cout << "\n  " << clr::bold << clr::red << "🔴 CONNECT FOUR" << clr::reset << "  " << clr::gray << "(1-7 columns, q=quit)" << clr::reset << "\n\n";
         // Column numbers
@@ -2496,6 +2695,7 @@ void play_lightsout() {
 
     int moves = 0;
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         cout << "\033[2J\033[1;1H";
         cout << "\n  " << clr::bold << clr::yellow << "💡 LIGHTS OUT" << clr::reset << "  " << clr::gray << "Moves:" << clr::reset << " " << clr::cyan << moves << clr::reset << "  " << clr::dgray << "(r c to toggle, q=quit)" << clr::reset << "\n\n";
         for (int r = 0; r < N; r++) {
@@ -2546,6 +2746,7 @@ void play_puzzle() {
 
     int moves = 0;
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         cout << "\033[2J\033[1;1H";
         cout << "\n  " << clr::bold << clr::cyan << "🔢 SLIDING PUZZLE" << clr::reset << "  " << clr::gray << "Moves:" << clr::reset << " " << clr::yellow << moves << clr::reset << "  " << clr::dgray << "(WASD/Arrows to slide, q=quit)" << clr::reset << "\n\n";
         for (int r = 0; r < N; r++) {
@@ -2626,7 +2827,7 @@ void play_breakout() {
 
         // Render
         cout << "\033[2J\033[1;1H";
-        cout << "\n  " << clr::bold << clr::orange << "🧱 BREAKOUT" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "  " << clr::dgray << "(AD/←→=move Q=quit)" << clr::reset << "\n\n";
+        cout << "\n  " << clr::bold << clr::orange << "⬛ BREAKOUT" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "  " << clr::dgray << "(AD/←→=move Q=quit)" << clr::reset << "\n\n";
         for (int r = 0; r < H; r++) {
             cout << "  ";
             for (int c = 0; c < W; c++) {
@@ -2668,7 +2869,7 @@ void play_whack() {
             for (int c = 0; c < 3; c++) {
                 int n = r*3+c+1;
                 if (n == hole) cout << "  " << clr::bold << clr::yellow << "🐹" << clr::reset << " ";
-                else cout << "  " << clr::dgray << "🕳️ " << clr::reset << " ";
+                else cout << "  " << clr::dgray << "⬛ " << clr::reset << " ";
             }
             cout << "\n\n";
         }
@@ -2698,7 +2899,7 @@ cooked_readline();
 void cmd_bmi(const string& args) {
     istringstream ss(args);
     double weight, height;
-    if (!(ss >> weight >> height)) { cout << "Usage: bmi <weight_kg> <height_m>\n"; return; }
+    if (!(ss >> weight >> height) || height <= 0 || weight <= 0) { cout << "Usage: bmi <weight_kg> <height_m>\n"; return; }
     double bmi = weight / (height * height);
     string cat;
     if (bmi < 18.5) cat = "Underweight";
@@ -2781,8 +2982,9 @@ void cmd_morse(const string& args) {
     const char* morse[] = {".-","-...","-.-.","-..",".","..-.","--.","....","..",".---","-.-",".-..","--","-.","---",".--.","--.-",".-.","...","-","..-","...-",".--","-..-","-.--","--.."};
     cout << "  ";
     for (char c : args) {
-        if (c == ' ') cout << "   ";
-        else if (isalpha(c)) cout << clr::cyan << morse[tolower(c)-'a'] << clr::reset << " ";
+        unsigned char uc = static_cast<unsigned char>(c);
+        if (uc == ' ') cout << "   ";
+        else if (isalpha(uc)) cout << clr::cyan << morse[tolower(uc)-'a'] << clr::reset << " ";
         else cout << c;
     }
     cout << "\n";
@@ -2935,11 +3137,11 @@ void cmd_encode(const string& args) {
     cout << clr::cyan << out << clr::reset << "\n";
     cout << "  " << clr::gray << "Upper:  " << clr::reset;
     string upper = args;
-    for (char& c : upper) c = toupper(c);
+    for (char& c : upper) c = static_cast<char>(toupper(static_cast<unsigned char>(c)));
     cout << clr::cyan << upper << clr::reset << "\n";
     cout << "  " << clr::gray << "Lower:  " << clr::reset;
     string lower = args;
-    for (char& c : lower) c = tolower(c);
+    for (char& c : lower) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
     cout << clr::cyan << lower << clr::reset << "\n";
 }
 
@@ -2980,16 +3182,14 @@ void cmd_urldecode(const string& args) {
 }
 
 void cmd_reverse_str(const string& args) {
-    string r = args;
-    reverse(r.begin(), r.end());
-    cout << "  " << clr::cyan << r << clr::reset << "\n";
+    cout << "  " << clr::cyan << utf8_reverse(args) << clr::reset << "\n";
 }
 
 void cmd_capitalize(const string& args) {
     bool cap = true;
     for (char c : args) {
         if (isspace((unsigned char)c)) { cap = true; cout << c; }
-        else if (cap) { cout << (char)toupper(c); cap = false; }
+        else if (cap) { cout << (char)toupper((unsigned char)c); cap = false; }
         else cout << c;
     }
     cout << "\n";
@@ -2997,7 +3197,7 @@ void cmd_capitalize(const string& args) {
 
 void cmd_repeat_cmd(const string& args) {
     istringstream ss(args);
-    int n; string text;
+    int n = 0; string text;
     ss >> n >> ws;
     getline(ss, text);
     if (n <= 0 || text.empty()) { cout << "Usage: repeat <n> <text>\n"; return; }
@@ -3007,7 +3207,10 @@ void cmd_repeat_cmd(const string& args) {
 void cmd_scrabble(const string& args) {
     int score = 0;
     map<char,int> pts = {{'a',1},{'b',3},{'c',3},{'d',2},{'e',1},{'f',4},{'g',2},{'h',4},{'i',1},{'j',8},{'k',5},{'l',1},{'m',3},{'n',1},{'o',1},{'p',3},{'q',10},{'r',1},{'s',1},{'t',1},{'u',1},{'v',4},{'w',4},{'x',8},{'y',4},{'z',10}};
-    for (char c : args) if (isalpha(c)) score += pts[tolower(c)];
+    for (char c : args) {
+        unsigned char u = static_cast<unsigned char>(c);
+        if (isalpha(u)) score += pts[static_cast<char>(tolower(u))];
+    }
     cout << "  " << clr::bold << "Scrabble Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "\n";
 }
 
@@ -3033,6 +3236,7 @@ void cmd_random(const string& args) {
     istringstream ss(args);
     int lo, hi;
     if (ss >> lo >> hi) {
+        if (lo > hi) swap(lo, hi);
         cout << "  " << clr::cyan << rng_int(lo, hi) << clr::reset << "\n";
     } else {
         cout << "  " << clr::cyan << rng_int(1, 100) << clr::reset << "\n";
@@ -3057,6 +3261,7 @@ void cmd_dice(const string& args) {
     istringstream ss(args);
     int n = 1;
     if (!(ss >> n) || n < 1) n = 1;
+    if (n > 50) n = 50;
     for (int i = 0; i < n; i++) {
         int val = rng_int(1, 6);
         cout << "  " << clr::cyan << "🎲 " << val << clr::reset;
@@ -3065,7 +3270,7 @@ void cmd_dice(const string& args) {
 }
 
 void cmd_coin() {
-    cout << "  " << clr::cyan << (rng_int(0,1) ? "🪙 Heads" : "🪙 Tails") << clr::reset << "\n";
+    cout << "  " << clr::cyan << (rng_int(0,1) ? "💰 Heads" : "💰 Tails") << clr::reset << "\n";
 }
 
 void cmd_zodiac(const string& args) {
@@ -3120,10 +3325,10 @@ void cmd_wordle() {
         do {
             guess = cooked_readline();
             if (guess == "q" || guess == "Q") { a = attempts; break; }
-        } while (guess.size() != 5 || !all_of(guess.begin(), guess.end(), ::isalpha));
+        } while (guess.size() != 5 || !all_of(guess.begin(), guess.end(), [](char ch) { return isalpha((unsigned char)ch) != 0; }));
 
         if (guess.size() != 5) break;
-        transform(guess.begin(), guess.end(), guess.begin(), ::tolower);
+        transform(guess.begin(), guess.end(), guess.begin(), [](char ch) { return static_cast<char>(tolower((unsigned char)ch)); });
 
         array<int, 26> remaining = {};
         for (int i = 0; i < 5; i++) {
@@ -3131,12 +3336,12 @@ void cmd_wordle() {
         }
 
         for (int i = 0; i < 5; i++) {
-            if (guess[i] == target[i]) cout << clr::green << (char)toupper(guess[i]) << clr::reset;
+            if (guess[i] == target[i]) cout << clr::green << (char)toupper((unsigned char)guess[i]) << clr::reset;
             else if (remaining[guess[i] - 'a'] > 0) {
-                cout << clr::yellow << (char)toupper(guess[i]) << clr::reset;
+                cout << clr::yellow << (char)toupper((unsigned char)guess[i]) << clr::reset;
                 remaining[guess[i] - 'a']--;
             }
-            else cout << clr::dgray << (char)toupper(guess[i]) << clr::reset;
+            else cout << clr::dgray << (char)toupper((unsigned char)guess[i]) << clr::reset;
         }
         cout << "\n";
         if (guess == target) {
@@ -3168,7 +3373,7 @@ void cmd_quiz() {
     for (int i = 0; i < 10; i++) order.push_back(i);
     shuffle(order.begin(), order.end(), rng());
 
-    cout << "\n  " << clr::bold << clr::amber << "🧠 QUIZ" << clr::reset << "\n\n";
+    cout << "\n  " << clr::bold << clr::amber << "🎯 QUIZ" << clr::reset << "\n\n";
     for (int i = 0; i < 5; i++) {
         auto& q = questions[order[i]];
         cout << "  " << clr::bold << "Q" << i+1 << ": " << q.q << clr::reset << "\n";
@@ -3189,25 +3394,45 @@ void cmd_csv(const string& args, map<string,FSNode>& fs, const string& cdir) {
     if (args.empty()) { cout << "Usage: csv <file>\n"; return; }
     auto c = vfs_read(args, fs, cdir);
     if (!c) { cout << "error: file not found.\n"; return; }
+    // Quote-aware CSV: respects "comma,inside fields", "" escapes, and cells
+    // are never split mid-way by a bare comma.
+    auto parse_cell = [](const string& s, size_t& i, vector<string>& out) {
+        string cell;
+        if (s[i] == '"') {
+            i++;
+            while (i < s.size()) {
+                if (s[i] == '"') {
+                    if (i + 1 < s.size() && s[i + 1] == '"') { cell += '"'; i += 2; continue; }
+                    i++; break;
+                }
+                cell += s[i++];
+            }
+            out.push_back(cell);
+        } else {
+            while (i < s.size() && s[i] != ',') cell += s[i++];
+            out.push_back(cell);
+        }
+    };
+
     istringstream ss(*c);
     string line;
     bool header = true;
+    int header_cols = 0;
     while (getline(ss, line)) {
-        istringstream ls(line);
-        string cell;
-        int col = 0;
+        if (line.empty()) continue;
+        vector<string> cells;
+        size_t i = 0;
+        while (i < line.size()) {
+            parse_cell(line, i, cells);
+            if (i < line.size() && line[i] == ',') i++;
+        }
         if (header) {
-            while (getline(ls, cell, ',')) {
-                cout << "  " << clr::bold << clr::cyan << setw(12) << cell << clr::reset;
-                col++;
-            }
-            cout << "\n  " << clr::dgray << repeat(col * 14, "─") << clr::reset << "\n";
+            header_cols = (int)cells.size();
+            for (const auto& cell : cells) cout << "  " << clr::bold << clr::cyan << setw(12) << cell << clr::reset;
+            cout << "\n  " << clr::dgray << repeat(header_cols * 14, "─") << clr::reset << "\n";
             header = false;
         } else {
-            while (getline(ls, cell, ',')) {
-                cout << "  " << clr::gray << setw(12) << cell << clr::reset;
-                col++;
-            }
+            for (const auto& cell : cells) cout << "  " << clr::gray << setw(12) << cell << clr::reset;
             cout << "\n";
         }
     }
@@ -3249,6 +3474,7 @@ void play_othello() {
     };
     int turn = 1;
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         cout << "\033[2J\033[1;1H";
         cout << "\n  " << clr::bold << clr::green << "♟ OTHELLO" << clr::reset << "  "
              << clr::gray << "You=● AI=○ " << clr::dgray << "(r c to place, q=quit)" << clr::reset << "\n\n";
@@ -3330,8 +3556,9 @@ void play_simon() {
     int score = 0;
     vector<int> seq;
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         cout << "\033[2J\033[1;1H";
-        cout << "\n  " << clr::bold << clr::yellow << "🕹 SIMON" << clr::reset << "  " << clr::gray << "Score: " << clr::cyan << score << clr::reset
+        cout << "\n  " << clr::bold << clr::yellow << "🎮 SIMON" << clr::reset << "  " << clr::gray << "Score: " << clr::cyan << score << clr::reset
              << "  " << clr::dgray << "(arrow keys, q/Esc=quit)" << clr::reset << "\n\n";
         seq.push_back(rng_int(0, 3));
         for (int s : seq) {
@@ -3343,8 +3570,12 @@ void play_simon() {
         cout << "  Your turn...\n";
         bool ok = true;
         for (int s : seq) {
+            if (g_stdin_eof || g_sigint) { cout << "  Quit. Final score: " << score << "\n"; return; }
             int k = getkey();
-            while (k != KEY_UP && k != KEY_DOWN && k != KEY_LEFT && k != KEY_RIGHT && k != KEY_Q && k != KEY_ESC) k = getkey();
+            while (k != KEY_UP && k != KEY_DOWN && k != KEY_LEFT && k != KEY_RIGHT && k != KEY_Q && k != KEY_ESC) {
+                if (g_stdin_eof || g_sigint) { cout << "  Quit. Final score: " << score << "\n"; return; }
+                k = getkey();
+            }
             if (k == KEY_Q || k == KEY_ESC) { cout << "  Quit. Final score: " << score << "\n"; return; }
             int want = s == 0 ? KEY_LEFT : s == 1 ? KEY_UP : s == 2 ? KEY_DOWN : KEY_RIGHT;
             if (k != want) { ok = false; break; }
@@ -3397,6 +3628,7 @@ void play_battleship() {
     int lens[3] = {3, 2, 2}, total = 7;
     for (int len : lens) {
         while (true) {
+        if (g_stdin_eof || g_sigint) break;
             int r = rng_int(0, N - 1), c = rng_int(0, N - 1);
             bool h = rng_int(0, 1) == 1;
             if (h && c + len > N) continue;
@@ -3413,6 +3645,7 @@ void play_battleship() {
     }
     int hits = 0, shots = 0;
     while (hits < total) {
+        if (g_stdin_eof || g_sigint) break;
         cout << "\033[2J\033[1;1H";
         cout << "\n  " << clr::bold << clr::blue << "🚢 BATTLESHIP" << clr::reset << "  " << clr::gray << "Hits: " << clr::cyan << hits << "/" << total << clr::reset
              << "  " << clr::dgray << "(r c to fire, q=quit)" << clr::reset << "\n\n";
@@ -3494,8 +3727,9 @@ void play_maze() {
     maze[1][C - 2] = 'E';
     int pr = 1, pc = 1;
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         cout << "\033[2J\033[1;1H";
-        cout << "\n  " << clr::bold << clr::magenta << "🧩 MAZE" << clr::reset << "  " << clr::dgray << "(wasd to move, q=quit)" << clr::reset << "\n\n";
+        cout << "\n  " << clr::bold << clr::magenta << "🚩 MAZE" << clr::reset << "  " << clr::dgray << "(wasd to move, q=quit)" << clr::reset << "\n\n";
         for (int r = 0; r < R; r++) {
             cout << "  ";
             for (int c = 0; c < C; c++) {
@@ -3512,7 +3746,7 @@ void play_maze() {
         if (line == "q" || line == "Q") break;
         int nr = pr, nc = pc;
         if (!line.empty()) {
-            char dir = tolower((unsigned char)line[0]);
+            char dir = static_cast<char>(tolower(static_cast<unsigned char>(line[0])));
             if (dir == 'w') nr--; else if (dir == 's') nr++; else if (dir == 'a') nc--; else if (dir == 'd') nc++;
         }
         if (nr > 0 && nr < R && nc > 0 && nc < C && maze[nr][nc] != '#') { pr = nr; pc = nc; }
@@ -3525,6 +3759,7 @@ void play_nim() {
     vector<int> piles = {3, 5, 7};
     int turn = 1;
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         int left = 0;
         for (int p : piles) left += p;
         cout << "\033[2J\033[1;1H";
@@ -3573,7 +3808,7 @@ void play_buzz() {
         else expect = to_string(n);
         cout << "  " << clr::cyan << "Q" << q + 1 << ": " << clr::bold << n << clr::reset << " → ";
         string a; a = cooked_readline();
-        for (auto& ch : a) ch = tolower((unsigned char)ch);
+        for (auto& ch : a) ch = static_cast<char>(tolower(static_cast<unsigned char>(ch)));
         if (a == expect) { cout << "  " << clr::success << "✓ +1" << clr::reset << "\n"; score++; }
         else cout << "  " << clr::error << "✗ was " << expect << clr::reset << "\n";
     }
@@ -3641,7 +3876,7 @@ void play_jumble() {
         string sc = w;
         while (sc == w) shuffle(sc.begin(), sc.end(), rng());
         cout << "\033[2J\033[1;1H";
-        cout << "\n  " << clr::bold << clr::green << "🧩 JUMBLE" << clr::reset << "  " << clr::gray << round + 1 << "/5 " << clr::dgray << "(q=quit)" << clr::reset << "\n\n";
+        cout << "\n  " << clr::bold << clr::green << "🔤 JUMBLE" << clr::reset << "  " << clr::gray << round + 1 << "/5 " << clr::dgray << "(q=quit)" << clr::reset << "\n\n";
         cout << "  Scrambled: ";
         for (char ch : sc) cout << clr::bold << ch << " " << clr::reset;
         cout << "\n  Your guess: ";
@@ -3658,7 +3893,7 @@ void play_jumble() {
 void play_arith() {
     int score = 0;
     cout << "\033[2J\033[1;1H";
-    cout << "\n  " << clr::bold << clr::header << "🧮 ARITH SPRINT" << clr::reset << "  " << clr::dgray << "q=quit" << clr::reset << "\n\n";
+    cout << "\n  " << clr::bold << clr::header << "➕ ARITH SPRINT" << clr::reset << "  " << clr::dgray << "q=quit" << clr::reset << "\n\n";
     for (int q = 0; q < 10; q++) {
         int a = rng_int(1, 20), b = rng_int(1, 20), ans;
         string op;
@@ -3744,7 +3979,7 @@ void cmd_shutdown() {
     }
     cout << "\n  " << clr::bold << clr::red << "   System halted." << clr::reset << "\n";
     cout << "  " << clr::gray << "  Thanks for using NoNameOS " << VERSION << "!" << clr::reset << "\n\n";
-    exit(0);
+    g_quit = true;
 }
 
 void cmd_netstat() {
@@ -3794,9 +4029,15 @@ void cmd_mount(map<string,FSNode>& fs) {
 }
 
 void cmd_fib(const string& args) {
-    int n = 20;
-    for (char c : args) if (c >= '0' && c <= '9') n = n * 10 + (c - '0');
-    n = max(1, min(n, 90));
+    long long n = 0;
+    bool digits = false;
+    for (char c : args) if (c >= '0' && c <= '9') {
+        if (n > (90 - (c - '0')) / 10) { n = 90; digits = true; break; }
+        n = n * 10 + (c - '0');
+        digits = true;
+    }
+    if (!digits) n = 20; // default
+    n = max<long long>(1, min<long long>(n, 90));
     long long a = 0, b = 1;
     cout << "\n  ";
     for (int i = 0; i < n; i++) {
@@ -3807,31 +4048,44 @@ void cmd_fib(const string& args) {
 }
 
 void cmd_primes(const string& args) {
-    int n = 100;
-    for (char c : args) if (c >= '0' && c <= '9') n = n * 10 + (c - '0');
-    n = max(1, min(n, 2000));
-    vector<bool> sieve(n + 1, true);
-    sieve[0] = sieve[1] = false;
-    for (int i = 2; i * i <= n; i++) if (sieve[i]) for (int j = i * i; j <= n; j += i) sieve[j] = false;
+    long long n = 0;
+    bool digits = false;
+    for (char c : args) if (c >= '0' && c <= '9') {
+        if (n > (20000 - (c - '0')) / 10) { n = 20000; digits = true; break; }
+        n = n * 10 + (c - '0');
+        digits = true;
+    }
+    if (!digits) n = 100; // default
+    n = max<long long>(1, min<long long>(n, 20000));
+    vector<bool> sieve((size_t)n + 1, true);
+    if (n >= 0) sieve[0] = false;
+    if (n >= 1) sieve[1] = false;
+    for (long long i = 2; i * i <= n; i++) if (sieve[(size_t)i]) for (long long j = i * i; j <= n; j += i) sieve[(size_t)j] = false;
     cout << "\n  ";
     int per = 0;
-    for (int i = 2; i <= n; i++)
-        if (sieve[i]) { cout << setw(5) << i << ((++per % 10 == 0) ? "\n  " : " "); }
+    for (long long i = 2; i <= n; i++)
+        if (sieve[(size_t)i]) { cout << setw(5) << i << ((++per % 10 == 0) ? "\n  " : " "); }
     cout << "\n\n";
 }
 
 void cmd_collatz(const string& args) {
-    int n = 0;
-    for (char c : args) if (c >= '0' && c <= '9') n = n * 10 + (c - '0');
+    long long n = 0;
+    for (char c : args) if (c >= '0' && c <= '9') {
+        if (n > (LLONG_MAX - (c - '0')) / 10) { n = LLONG_MAX; break; }
+        n = n * 10 + (c - '0');
+    }
     if (n < 1) { cout << "Usage: collatz <n>\n"; return; }
+    if (n > 1000000) n = 1000000;
     cout << "\n  ";
     int steps = 0;
     while (n != 1) {
         cout << clr::yellow << n << clr::reset << " → ";
+        if (n % 2 && n > (LLONG_MAX - 1) / 3) break; // clamp instead of overflowing
         if (n % 2) n = 3 * n + 1; else n /= 2;
         steps++;
+        if (steps > 10000) { cout << "...(too long)" << clr::reset << "\n"; return; }
     }
-    cout << clr::yellow << "1" << clr::reset << "\n";
+    cout << clr::yellow << n << clr::reset << "\n";
     cout << "  " << clr::dgray << "(" << steps << " steps)" << clr::reset << "\n\n";
 }
 
@@ -3863,6 +4117,7 @@ void cmd_cube() {
 void cmd_shell() {
     cout << "\n  " << clr::cyan << "sub-shell" << clr::reset << " — type " << clr::bold << "exit" << clr::reset << " to return.\n\n";
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         cout << clr::dgray << "sub" << clr::reset << "> ";
         string line; line = cooked_readline();
         if (line == "exit" || line == "quit" || line == "q" || line == "logout") break;
@@ -3940,6 +4195,7 @@ void cmd_llm() {
     };
     int q = 0;
     while (true) {
+        if (g_stdin_eof || g_sigint) break;
         cout << "  " << clr::cyan << "you:   " << clr::reset;
         string line; line = cooked_readline();
         if (line == "exit" || line == "q" || line == "Q") break;
@@ -4087,7 +4343,7 @@ void cmd_stream() {
         cout << "\033[2J\033[1;1H";
         for (int yy = 0; yy < H; yy++) {
             for (int xx = 0; xx < W; xx++) {
-                char k = (rng_int(1, 10) == 10) ? "·+*#"[rng_int(0, 3)] : "0123456789"[rng_int(0, 9)];
+                char k = (rng_int(1, 10) == 10) ? "|+*#"[rng_int(0, 3)] : "0123456789"[rng_int(0, 9)];
                 bool head = (y[xx] == yy);
                 cout << (head ? clr::lgreen : clr::green) << k << clr::reset;
             }
@@ -4109,9 +4365,12 @@ void cmd_type() {
     };
     cout << "\n";
     for (const string& s : t) {
-        for (char c : s) {
-            cout << clr::cyan << c << clr::reset << flush;
+        for (size_t i = 0; i < s.size();) {
+            size_t len = utf8_seq_len((unsigned char)s[i]);
+            if (i + len > s.size()) len = 1;
+            cout << clr::cyan << s.substr(i, len) << clr::reset << flush;
             this_thread::sleep_for(chrono::milliseconds(40 + rng_int(0, 30)));
+            i += len;
         }
         cout << "\n";
     }
@@ -4127,6 +4386,10 @@ void cmd_type() {
 
     int main() {
     signal(SIGINT, sigint_handler);
+    // Handle SIGTSTP/SIGCONT so Ctrl+Z suspends cleanly (terminal restored) instead of
+    // leaving the shell in raw mode, and SIGCONT re-applies raw mode on resume.
+    signal(SIGTSTP, sigtstp_handler);
+    signal(SIGCONT, sigcont_handler);
     // Use RAII to manage terminal state — auto-restores on any exit path
     TerminalGuard tg;
     cout << "\033[2J\033[1;1H";
@@ -4207,6 +4470,8 @@ void cmd_type() {
     aliases["ttt"] = "tictactoe";
 
     while (true) {
+        if (g_quit || g_stdin_eof) break;
+        g_sigint = 0; // consume any SIGINT left by an aborted game; return cleanly to prompt
         {
             auto dur = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - last_cmd_end).count();
             if (cmd_history.size() > 0 && dur > 100)
@@ -4274,8 +4539,10 @@ void cmd_type() {
                 if (path == current_dir) continue;
                 if (path.rfind(current_dir, 0) == 0) {
                     string relative = path.substr(current_dir.length());
+                    while (relative.size() > 1 && relative.back() == '/') relative.pop_back();
+                    if (relative.empty()) continue;
                     size_t slash_pos = relative.find('/');
-                    if (slash_pos == string::npos || (node.is_dir && slash_pos == relative.length() - 1)) {
+                    if (slash_pos == string::npos) { // direct child of current_dir
                         if (long_mode) {
                             string type = node.is_dir ? "d" : "-";
                             cout << "  " << clr::dgray << type << node.mode << "  " << node.size() << "  " << node.created_at << "  " << clr::reset;
@@ -4726,6 +4993,13 @@ void cmd_type() {
                             string dfull = resolve_user_path(dst, current_dir);
                             if (!sfull.empty() && sfull.back() != '/') sfull += "/";
                             if (!dfull.empty() && dfull.back() != '/') dfull += "/";
+                            if (file_system.find(dfull) != file_system.end() && file_system[dfull].is_dir) {
+                                string bname = sfull;
+                                while (!bname.empty() && bname.back() == '/') bname.pop_back();
+                                bname = bname.substr(bname.find_last_of('/') + 1);
+                                dfull += bname;
+                                if (dfull.back() != '/') dfull += "/";
+                            }
                             bool src_exists = false;
                             for (const auto& [path, node] : file_system)
                                 if (path.rfind(sfull, 0) == 0) { src_exists = true; break; }
@@ -4754,6 +5028,14 @@ void cmd_type() {
                         string full_src = resolve_user_path(a, current_dir);
                         string full_dst = resolve_user_path(b, current_dir);
                         if (file_system.find(full_src) != file_system.end() && !file_system[full_src].is_dir) {
+                            // If dst is an existing directory, copy INTO it (don't clobber the dir)
+                            if (file_system.find(full_dst) != file_system.end() && file_system[full_dst].is_dir) {
+                                if (!full_dst.empty() && full_dst.back() != '/') full_dst += "/";
+                                string bname = full_src;
+                                while (!bname.empty() && bname.back() == '/') bname.pop_back();
+                                bname = bname.substr(bname.find_last_of('/') + 1);
+                                full_dst += bname;
+                            }
                             file_system[full_dst] = FSNode(false, file_system[full_src].content);
                             file_system[full_dst].mode = file_system[full_src].mode;
                             cout << "\033[32mCopied " << a << " -> " << b << "\033[0m\n";
@@ -4773,26 +5055,43 @@ void cmd_type() {
                 } else {
                     string full_src = resolve_user_path(src, current_dir);
                     string full_dst = resolve_user_path(dst, current_dir);
-                    if (file_system.find(full_src) != file_system.end()) {
-                        file_system[full_dst] = file_system[full_src];
-                        file_system.erase(full_src);
-                        cout << "\033[32mMoved " << src << " -> " << dst << "\033[0m\n";
+                    string full_src_dir = full_src;
+                    if (!full_src_dir.empty() && full_src_dir.back() != '/') full_src_dir += "/";
+                    if (file_system.find(full_src) != file_system.end() && !file_system[full_src].is_dir) {
+                        // move a file (or symlink) — if dst is an existing dir, move into it
+                        string target = full_dst;
+                        if (file_system.find(full_dst) != file_system.end() && file_system[full_dst].is_dir) {
+                            string basename_src = full_src;
+                            while (!basename_src.empty() && basename_src.back() == '/') basename_src.pop_back();
+                            basename_src = basename_src.substr(basename_src.find_last_of('/') + 1);
+                            target = full_dst + basename_src;
+                        }
+                        if (target != full_src) {
+                            file_system[target] = file_system[full_src];
+                            file_system.erase(full_src);
+                            cout << "\033[32mMoved " << src << " -> " << dst << "\033[0m\n";
+                        } else cout << "\033[31merror:\033[0m source and destination are the same.\n";
                     } else {
-                            string full_src_dir = full_src;
-                            if (!full_src_dir.empty() && full_src_dir.back() != '/') full_src_dir += "/";
-                        if (file_system.find(full_src_dir) != file_system.end()) {
+                        // directory move: bring all descendants along
+                        bool src_dir_exists = false;
+                        for (const auto& [p, _] : file_system)
+                            if (p.rfind(full_src_dir, 0) == 0) { src_dir_exists = true; break; }
+                        if (src_dir_exists) {
                             string full_dst_dir = full_dst;
                             if (!full_dst_dir.empty() && full_dst_dir.back() != '/') full_dst_dir += "/";
-                            // C1 FIX: collect paths first, then modify (avoids iterator invalidation)
-                            vector<string> to_move;
-                            for (const auto& [p, _] : file_system)
-                                if (p.rfind(full_src_dir, 0) == 0) to_move.push_back(p);
-                            for (const auto& p : to_move) {
-                                string rel = p.substr(full_src_dir.length());
-                                file_system[full_dst_dir + rel] = file_system[p];
-                                file_system.erase(p);
+                            if (full_dst_dir == full_src_dir) {
+                                cout << "\033[31merror:\033[0m source and destination are the same.\n";
+                            } else {
+                                vector<string> to_move;
+                                for (const auto& [p, _] : file_system)
+                                    if (p.rfind(full_src_dir, 0) == 0) to_move.push_back(p);
+                                for (const auto& p : to_move) {
+                                    string rel = p.substr(full_src_dir.length());
+                                    file_system[full_dst_dir + rel] = file_system[p];
+                                    file_system.erase(p);
+                                }
+                                cout << "\033[32mMoved directory " << src << " -> " << dst << "\033[0m\n";
                             }
-                            cout << "\033[32mMoved directory " << src << " -> " << dst << "\033[0m\n";
                         } else cout << "\033[31merror:\033[0m source not found.\n";
                     }
                 }
@@ -5044,6 +5343,7 @@ void cmd_type() {
             int target = rng_int(1, 100);
             int attempts = 0;
             while (true) {
+        if (g_stdin_eof || g_sigint) break;
                 cout << "Your guess (or q to quit): ";
                 string line;
                 line = cooked_readline();
@@ -5090,7 +5390,7 @@ void cmd_type() {
                 }
                 cout << "Answer (1-4): ";
                 string line;
-                line = cooked_readline(); if (line.empty() && cin.eof()) break;
+                line = cooked_readline(); if (line.empty() && g_stdin_eof) break;
                 int ans = 0;
                 for (char c : line) {
                     if (c >= '0' && c <= '9') ans = ans * 10 + (c - '0');
@@ -5250,6 +5550,7 @@ void cmd_type() {
                 cout << "Type content line by line. Enter an empty line to save.\n";
                 string content;
                 while (true) {
+        if (g_stdin_eof || g_sigint) break;
                     cout << "> ";
                     string line;
                     line = cooked_readline();
@@ -5263,7 +5564,7 @@ void cmd_type() {
         }
         else if (cmd == "calc") {
             if (args.empty()) {
-                cout << "Usage: calc <expr> (e.g. calc 2+3*4, calc sin(30), calc sqrt(144))\n";
+                cout << "Usage: calc <expr> (e.g. calc 2+3*4, calc (2+3)*4, calc 2^10)\n";
             } else {
                 string a = args;
                 // Check for scientific functions
@@ -5302,58 +5603,13 @@ void cmd_type() {
                     } else cout << "\033[31merror:\033[0m usage: pow(base,exp)\n";
                 }
                 else {
-                    // Original arithmetic parser
-                    vector<double> nums;
-                    vector<char> ops;
-                    istringstream ss(a);
-                    double val;
-                    char op;
-                    if (ss >> val) {
-                        nums.push_back(val);
-                        while (ss >> op >> val) {
-                            if (op == '+' || op == '-' || op == '*' || op == '/') {
-                                ops.push_back(op);
-                                nums.push_back(val);
-                            } else {
-                                cout << "\033[31merror:\033[0m invalid operator '" << op << "'\n";
-                                break;
-                            }
-                        }
+                    // Robust arithmetic parser: parens, unary minus, ^, %
+                    double result;
+                    if (expr::evaluate(a, result)) {
+                        cout << "= " << result << "\n";
+                    } else {
+                        cout << "\033[31merror:\033[0m invalid expression.\n";
                     }
-                    if (nums.size() < 2 || nums.size() != ops.size() + 1) {
-                        if (nums.size() == 1 && ops.empty()) {
-                            cout << "= " << nums[0] << "\n";
-                        } else {
-                            cout << "\033[31merror:\033[0m invalid expression.\n";
-                        }
-                     } else {
-                         vector<double> pn = {nums[0]};
-                         vector<char> po;
-                         bool calc_error = false;
-                         for (size_t i = 0; i < ops.size(); i++) {
-                             if (ops[i] == '*' || ops[i] == '/') {
-                                 double last = pn.back(); pn.pop_back();
-                                 if (ops[i] == '*') pn.push_back(last * nums[i+1]);
-                                 else {
-                                     if (nums[i+1] == 0) { cout << "\033[31merror:\033[0m division by zero.\n"; calc_error = true; break; }
-                                     pn.push_back(last / nums[i+1]);
-                                 }
-                             } else {
-                                 pn.push_back(nums[i+1]);
-                                 po.push_back(ops[i]);
-                             }
-                         }
-                         if (calc_error) {}
-                         else if (pn.empty()) { cout << "\033[31merror:\033[0m invalid expression.\n"; }
-                         else {
-                             double result = pn[0];
-                             for (size_t i = 0; i < po.size(); i++) {
-                                 if (po[i] == '+') result += pn[i+1];
-                                 else result -= pn[i+1];
-                             }
-                             cout << "= " << result << "\n";
-                         }
-                     }
                 }
             }
         }
@@ -5564,6 +5820,7 @@ void cmd_type() {
                 cout << "Enter lines (empty line to save):\n";
                 string content;
                 while (true) {
+        if (g_stdin_eof || g_sigint) break;
                     cout << "> ";
                     string line;
                     line = cooked_readline();
