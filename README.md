@@ -7,13 +7,14 @@
  / /|  / /_/ / /|  / /_/ / / / / / /  __/ /_/ /___/ /
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 </pre>
-
+<i>Screenshot from 2.0.0, Tested in Termux via MyPhone myT10.</i>
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260808-140453.png"/>
-Screenshot from v2.0.0, if new version is released, it will may outdated
+<p align="center"><sub><i>Screenshot from above of this screenshot is v0.3.1, current version (v2.0.0) has 40 games, 251 commands, and full color support not shown here.</i></sub></p>
+
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
 </div>
 
-<p align="center"><sub><i>Screenshot from v0.3.1 — current version (v2.0.0) has 40 games, 251 commands, and full color support not shown here.</i></sub></p>
+
 
 <h1 align="center">NoNameOS</h1>
 
@@ -706,7 +707,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        NoNameOS Architecture                    │
+│                        NoNameOS Architecture                                │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐    │
@@ -718,7 +719,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 │                    ┌────────────────────────────────┼─────┐     │
 │                    │                                │     │     │
 │           ┌────────▼───────┐              ┌─────────▼───┐ │     │
-│           │  Virtual FS    │              │  24 Games   │ │     │
+│           │  Virtual FS    │              │  40 Games   │ │     │
 │           │  map<string,   │              │  Tetris     │ │     │
 │           │    FSNode>     │              │  Snake      │ │     │
 │           │  timestamps    │              │  Pong       │ │     │
