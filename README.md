@@ -8,7 +8,9 @@
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 </pre>
 
-<img scr="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260808-140453.png"/>
+<img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260808-140453.png"/>
+Screenshot from v2.0.0, if new version is released, it will may outdated
+<img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
 </div>
 
 <p align="center"><sub><i>Screenshot from v0.3.1 — current version (v2.0.0) has 40 games, 251 commands, and full color support not shown here.</i></sub></p>
