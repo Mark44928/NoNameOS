@@ -1,6 +1,16 @@
-<p align="center">
-  <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
-</p>
+<div align="center">
+
+<pre>
+    _   __      _   __                     ____  _____
+   / | / /___  / | / /___ _____ ___  ___  / __ \/ ___/
+  /  |/ / __ \/  |/ / __ `/ __ `__ \/ _ \/ / / /\__ \
+ / /|  / /_/ / /|  / /_/ / / / / / /  __/ /_/ /___/ /
+/_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
+</pre>
+
+<img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
+
+</div>
 
 <p align="center"><sub><i>Screenshot from v0.3.1 — current version (v2.0.0) has 40 games, 251 commands, and full color support not shown here.</i></sub></p>
 
