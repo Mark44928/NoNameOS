@@ -594,14 +594,15 @@ static int peek_buf = EOF;
 
 int kbhit() {
     if (peek_buf != EOF) return 1;
-    int ch = getchar();
-    if (ch != EOF) {
-        peek_buf = ch;
+    unsigned char c;
+    ssize_t n = read(STDIN_FILENO, &c, 1);
+    if (n == 1) {
+        peek_buf = c;
         return 1;
     }
     // EOF, or a read error that isn't the benign EAGAIN of O_NONBLOCK
     // (e.g. EIO when the pty master closes), means no more input will come.
-    if (feof(stdin) || (ferror(stdin) && errno != EAGAIN && errno != EWOULDBLOCK)) g_stdin_eof = true;
+    if (n == 0 || (errno != EAGAIN && errno != EWOULDBLOCK)) g_stdin_eof = true;
     return 0;
 }
 
@@ -624,7 +625,14 @@ int getkey() {
     auto read_ch = [&]() -> int {
         if (pb[0] != EOF) { int c = pb[0]; pb[0] = pb[1]; pb[1] = EOF; return c; }
         if (peek_buf != EOF) { int c = peek_buf; peek_buf = EOF; return c; }
-        return getchar();
+        // Read at fd level (not getchar): getchar() pulls bytes into libc's buffer,
+        // which would make poll() on the fd report "not readable" while bytes are
+        // actually waiting in the stdio buffer and stall the escape parser.
+        unsigned char c;
+        ssize_t n = read(STDIN_FILENO, &c, 1);
+        if (n == 1) return c;
+        if (n == 0 || (errno != EAGAIN && errno != EWOULDBLOCK)) g_stdin_eof = true;
+        return EOF;
     };
     auto push_back = [&](int c) {
         if (c == EOF) return;
@@ -687,7 +695,8 @@ int getkey() {
     int b;
     if (pend.size() < 2) {
         b = wait_byte(120);
-        if (b == EOF) { pend.clear(); return KEY_ESC; }            // lone ESC
+        if (b == EOF) return KEY_ESC; // lone ESC so far; KEEP "\x1b" pending —
+                                      // the '[' of an arrow key may still arrive
         pend += (char)b;
     }
     char ch2 = pend[1];
@@ -700,8 +709,9 @@ int getkey() {
             pend += (char)b;
         }
         int k = arrow_of(pend[2]);
+        if (k != KEY_NONE) { pend.clear(); return k; }
+        push_back(pend[2]);                                        // give the byte back
         pend.clear();
-        if (k != KEY_NONE) return k;
         return KEY_ESC;
     }
     if (ch2 != '[') {                                    // ESC plus a normal key
@@ -727,7 +737,8 @@ int getkey() {
         pend.clear();
         return tilde_of(p1);
     }
-    pend.clear();                                        // unknown CSI key: drop, never echo
+    push_back(fin);                                        // torn sequence: return the byte
+    pend.clear();                                        // so no keystroke is ever eaten
     return KEY_NONE;
 }
 
@@ -755,7 +766,7 @@ string readline_global(const vector<string>& history) {
         }
         int k = getkey();
         if (k == KEY_NONE) {
-            if (feof(stdin) || cin.eof()) {
+            if (g_stdin_eof || feof(stdin) || cin.eof()) {
                 g_stdin_eof = true;
                 cout << "\n";
                 return line;
@@ -859,6 +870,10 @@ optional<string> vfs_read(const string& path, map<string,FSNode>& fs, const stri
 // This allows games using getline to echo typed characters properly
 
 string cooked_readline() {
+    // Flush any raw bytes left over from a game loop (e.g. the tail of a
+    // half-received escape sequence) so they can't leak into the cooked read
+    // or be echoed on screen.
+    while (kbhit()) (void)getkey();
     // If we never entered raw mode (non-tty stdin, or TerminalGuard inactive),
     // just read a line normally — never touch termios with a stale/zeroed struct.
     if (g_term_saved == 0) {
@@ -4435,7 +4450,8 @@ void cmd_rain() {
         this_thread::sleep_for(chrono::milliseconds(45));
     }
     cout << "\033[0m\033[2J\033[1;1H";
-    (void)getkey();
+    while (kbhit()) (void)getkey();
+    return;
 }
 
 void cmd_fire() {
@@ -4459,7 +4475,7 @@ void cmd_fire() {
         this_thread::sleep_for(chrono::milliseconds(90));
     }
     cout << "\033[0m\033[2J\033[1;1H";
-    (void)getkey();
+    while (kbhit()) (void)getkey();
 }
 
 void cmd_stream() {
