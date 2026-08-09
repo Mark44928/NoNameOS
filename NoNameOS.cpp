@@ -619,6 +619,8 @@ enum Key { KEY_NONE=0, KEY_UP=1000, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_HOME, KEY
 // swallows the user's next real keystroke.
 int getkey() {
     static int pb[2] = {EOF, EOF}; // pushback buffer for partially-consumed escape bytes
+    static string pend;            // escape sequence in progress, kept across calls so its
+                                   // bytes can never be left behind to be typed as garbage
     auto read_ch = [&]() -> int {
         if (pb[0] != EOF) { int c = pb[0]; pb[0] = pb[1]; pb[1] = EOF; return c; }
         if (peek_buf != EOF) { int c = peek_buf; peek_buf = EOF; return c; }
@@ -657,52 +659,76 @@ int getkey() {
         if (scanner == 6) return KEY_PGDN;                   // Page Down
         return KEY_NONE;
     };
-    int ch = read_ch();
-    if (ch == EOF) {
-        if (feof(stdin) || (ferror(stdin) && errno != EAGAIN && errno != EWOULDBLOCK)) g_stdin_eof = true;
-        return KEY_NONE;
-    }
-    if (ch == 27) { // ESC
-        // Wait briefly for a possible escape sequence. 120ms: slow phones can
-        // deliver the sequence split across several reads, but a lone ESC still
-        // returns before the user notices.
-        if (!available(120)) return KEY_ESC; // lone ESC
-        int ch2 = read_ch();
-        if (ch2 == EOF || ch2 == 27) return KEY_ESC; // bare ESC
-        if (ch2 == 'O') { // SS3: ESC O <key>
-            if (!available(120)) { push_back(ch2); return KEY_ESC; }
-            int ch3 = read_ch();
-            if (ch3 == EOF) { push_back(ch2); return KEY_NONE; }
-            int k = arrow_of(ch3);
-            if (k != KEY_NONE) return k;
-            push_back(ch2);
-            return KEY_ESC; // unknown SS3 key
-        }
-        if (ch2 == '[') { // CSI: ESC [ <params> <final>
-            string digits; // parameter bytes before the final byte
-            for (int i = 0; i < 64; i++) {
-                if (!available(120)) { push_back(ch2); return KEY_ESC; } // partial CSI
-                int b = read_ch();
-                if (b == EOF) { push_back(ch2); return KEY_NONE; }
-                if ((b >= '0' && b <= '9') || b == ';') { digits += (char)b; continue; }
-                int k = arrow_of(b);
-                if (k != KEY_NONE) return k; // plain or modified arrow / Home / End
-                if (b == '~') {
-                    int p1 = 0;
-                    size_t semi = digits.find(';');
-                    string first = digits.substr(0, semi == string::npos ? digits.size() : semi);
-                    if (!first.empty()) p1 = atoi(first.c_str());
-                    return tilde_of(p1);
-                }
-                // Unknown final byte: emit the '[' itself so nothing is silently eaten
-                push_back(ch2);
-                return KEY_NONE;
-            }
+    auto wait_byte = [&](int ms) -> int {
+        if (!available(ms)) return EOF;
+        int b = read_ch();
+        return b;
+    };
+    auto param1_of = [](const string& s) -> int {
+        size_t semi = s.find(';');
+        string first = s.substr(0, semi == string::npos ? s.size() : semi);
+        if (first.empty()) return 0;
+        return atoi(first.c_str());
+    };
+
+    if (pend.empty()) {
+        int ch = read_ch();
+        if (ch == EOF) {
+            if (feof(stdin) || (ferror(stdin) && errno != EAGAIN && errno != EWOULDBLOCK)) g_stdin_eof = true;
             return KEY_NONE;
         }
-        return normalize(ch2);
+        if (ch != 27) return normalize(ch);
+        pend = "\x1b";
     }
-    return normalize(ch);
+
+    // Pend an incomplete sequence: grab the bytes one at a time, waiting
+    // however long it takes. KEY_NONE is returned while stalled (callers keep
+    // retrying), so a slow phone can never split an arrow key apart again.
+    int b;
+    if (pend.size() < 2) {
+        b = wait_byte(120);
+        if (b == EOF) { pend.clear(); return KEY_ESC; }            // lone ESC
+        pend += (char)b;
+    }
+    char ch2 = pend[1];
+    if (ch2 == 27) { pend.clear(); return KEY_ESC; }               // double ESC
+    if (ch2 == 'O') {                                              // SS3: ESC O <key>
+        while (pend.size() < 3) {
+            if (pend.size() > 4) { pend.clear(); return KEY_NONE; }
+            b = wait_byte(120);
+            if (b == EOF) return KEY_NONE;                         // stall; keep pending
+            pend += (char)b;
+        }
+        int k = arrow_of(pend[2]);
+        pend.clear();
+        if (k != KEY_NONE) return k;
+        return KEY_ESC;
+    }
+    if (ch2 != '[') {                                    // ESC plus a normal key
+        int k = normalize(ch2);
+        pend.clear();
+        return k;
+    }
+    // CSI: ESC [ <params> <final>
+    while (true) {
+        if (pend.size() > 32) { pend.clear(); return KEY_NONE; } // runaway sequence
+        char fb = pend.back();
+        bool mid_sequence = (fb >= '0' && fb <= '9') || fb == ';' || fb == '[';
+        if (!mid_sequence) break; // final byte reached
+        b = wait_byte(120);
+        if (b == EOF) return KEY_NONE; // stall; keep pending across calls
+        pend += (char)b;
+    }
+    char fin = pend.back();
+    int k = arrow_of(fin);
+    if (k != KEY_NONE) { pend.clear(); return k; }       // plain or modified arrow / Home / End
+    if (fin == '~') {
+        int p1 = param1_of(pend.substr(2, pend.size() - 3));
+        pend.clear();
+        return tilde_of(p1);
+    }
+    pend.clear();                                        // unknown CSI key: drop, never echo
+    return KEY_NONE;
 }
 
 // Global readline with arrow key support for history navigation
