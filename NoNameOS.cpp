@@ -4623,7 +4623,7 @@ void cmd_type() {
         cout << "\n" << clr::prompt_user << current_user << clr::prompt_host << "@"
              << clr::prompt_host << "nonameos" << clr::prompt_sep << ":"
              << clr::prompt_dir << current_dir << clr::reset << "\n"
-             << clr::prompt_sep << "❯ " << clr::reset;
+             << clr::prompt_sep << "❯ " << clr::reset << flush;
         string ri = readline_global(cmd_history);
         input = ri;
 
