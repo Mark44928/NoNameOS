@@ -606,10 +606,15 @@ int kbhit() {
 }
 
 // Key codes for arrow keys
-enum Key { KEY_NONE=0, KEY_UP=1000, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_ENTER, KEY_SPACE, KEY_Q, KEY_ESC };
+enum Key { KEY_NONE=0, KEY_UP=1000, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_HOME, KEY_END, KEY_PGUP, KEY_PGDN, KEY_DEL, KEY_ENTER, KEY_SPACE, KEY_Q, KEY_ESC };
 
-// Read a key, handling escape sequences for arrow keys
-// Returns the raw char for normal keys, or KEY_UP/DOWN/LEFT/RIGHT for arrows
+// Read a key, handling escape sequences for arrow keys and function keys
+// Recognizes CSI (ESC [ ...) and SS3 (ESC O ...) sequences:
+//   ESC [ A/B/C/D            plain arrows
+//   ESC [ 1 ; m A/B/C/D      arrows with Shift/Alt/Ctrl (m=2..8)
+//   ESC [ H / F              Home / End (xterm)
+//   ESC [ 1~/2~/3~/4~/5~/6~  Home/Insert/Delete/End/PageUp/PageDown
+//   ESC O A/B/C/D            arrow keys (application cursor mode)
 // Uses poll() to wait for the escape-sequence continuation so a lone ESC never
 // swallows the user's next real keystroke.
 int getkey() {
@@ -633,31 +638,67 @@ int getkey() {
         if (c == ' ') return KEY_SPACE;
         return c;
     };
+    auto arrow_of = [](int c) -> int {
+        if (c == 'A') return KEY_UP;
+        if (c == 'B') return KEY_DOWN;
+        if (c == 'C') return KEY_RIGHT;
+        if (c == 'D') return KEY_LEFT;
+        if (c == 'H') return KEY_HOME;
+        if (c == 'F') return KEY_END;
+        return KEY_NONE;
+    };
+    auto tilde_of = [](int scanner) -> int {
+        // parameter m of ESC [ m ~
+        if (scanner == 1 || scanner == 7) return KEY_HOME;   // Home (xterm / rxvt)
+        if (scanner == 2) return KEY_NONE;                   // Insert: unhandled
+        if (scanner == 3) return KEY_DEL;                    // Delete
+        if (scanner == 4 || scanner == 8) return KEY_END;    // End (xterm / rxvt)
+        if (scanner == 5) return KEY_PGUP;                   // Page Up
+        if (scanner == 6) return KEY_PGDN;                   // Page Down
+        return KEY_NONE;
+    };
     int ch = read_ch();
     if (ch == EOF) {
         if (feof(stdin) || (ferror(stdin) && errno != EAGAIN && errno != EWOULDBLOCK)) g_stdin_eof = true;
         return KEY_NONE;
     }
     if (ch == 27) { // ESC
-        // Wait briefly for a possible arrow-key sequence. 120ms: slow phones can
+        // Wait briefly for a possible escape sequence. 120ms: slow phones can
         // deliver the sequence split across several reads, but a lone ESC still
         // returns before the user notices.
         if (!available(120)) return KEY_ESC; // lone ESC
         int ch2 = read_ch();
         if (ch2 == EOF || ch2 == 27) return KEY_ESC; // bare ESC
-        if (ch2 == '[') {
-            // Wait for the final byte of the escape sequence
-            if (!available(120)) { push_back(ch2); return KEY_ESC; } // partial CSI
+        if (ch2 == 'O') { // SS3: ESC O <key>
+            if (!available(120)) { push_back(ch2); return KEY_ESC; }
             int ch3 = read_ch();
-            if (ch3 == 'A') return KEY_UP;
-            if (ch3 == 'B') return KEY_DOWN;
-            if (ch3 == 'C') return KEY_RIGHT;
-            if (ch3 == 'D') return KEY_LEFT;
-            // Unknown/overflowing sequence (Ctrl+arrow, F-keys, etc.): emit the
-            // '[' and its payload as plain characters instead of eating them.
+            if (ch3 == EOF) { push_back(ch2); return KEY_NONE; }
+            int k = arrow_of(ch3);
+            if (k != KEY_NONE) return k;
             push_back(ch2);
-            if (ch3 == EOF) return KEY_NONE;
-            return ch3;
+            return KEY_ESC; // unknown SS3 key
+        }
+        if (ch2 == '[') { // CSI: ESC [ <params> <final>
+            string digits; // parameter bytes before the final byte
+            for (int i = 0; i < 64; i++) {
+                if (!available(120)) { push_back(ch2); return KEY_ESC; } // partial CSI
+                int b = read_ch();
+                if (b == EOF) { push_back(ch2); return KEY_NONE; }
+                if ((b >= '0' && b <= '9') || b == ';') { digits += (char)b; continue; }
+                int k = arrow_of(b);
+                if (k != KEY_NONE) return k; // plain or modified arrow / Home / End
+                if (b == '~') {
+                    int p1 = 0;
+                    size_t semi = digits.find(';');
+                    string first = digits.substr(0, semi == string::npos ? digits.size() : semi);
+                    if (!first.empty()) p1 = atoi(first.c_str());
+                    return tilde_of(p1);
+                }
+                // Unknown final byte: emit the '[' itself so nothing is silently eaten
+                push_back(ch2);
+                return KEY_NONE;
+            }
+            return KEY_NONE;
         }
         return normalize(ch2);
     }
@@ -727,6 +768,40 @@ string readline_global(const vector<string>& history) {
             if (cursor < line.size()) {
                 cursor++;
                 cout << "\033[C" << flush;
+            }
+        }
+        else if (k == KEY_HOME) {
+            if (cursor > 0) {
+                cursor = 0;
+                redraw_from();
+            }
+        }
+        else if (k == KEY_END) {
+            if (cursor < line.size()) {
+                cursor = line.size();
+                redraw_from();
+            }
+        }
+        else if (k == KEY_PGUP) {
+            if (hist_idx > 0) {
+                hist_idx = 0;
+                line = history[hist_idx];
+                cursor = line.size();
+                redraw_from();
+            }
+        }
+        else if (k == KEY_PGDN) {
+            if (hist_idx < (int)history.size()) {
+                hist_idx = (int)history.size();
+                line = saved;
+                cursor = line.size();
+                redraw_from();
+            }
+        }
+        else if (k == KEY_DEL) {
+            if (cursor < line.size()) {
+                line.erase(cursor, 1);
+                redraw_from();
             }
         }
         else if (k == 127 || k == 8) { // Backspace
