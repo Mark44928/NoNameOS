@@ -613,9 +613,16 @@ enum Key { KEY_NONE=0, KEY_UP=1000, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_ENTER, KE
 // Uses poll() to wait for the escape-sequence continuation so a lone ESC never
 // swallows the user's next real keystroke.
 int getkey() {
-    auto read_ch = []() -> int {
-        if (peek_buf != EOF) { int ch = peek_buf; peek_buf = EOF; return ch; }
+    static int pb[2] = {EOF, EOF}; // pushback buffer for partially-consumed escape bytes
+    auto read_ch = [&]() -> int {
+        if (pb[0] != EOF) { int c = pb[0]; pb[0] = pb[1]; pb[1] = EOF; return c; }
+        if (peek_buf != EOF) { int c = peek_buf; peek_buf = EOF; return c; }
         return getchar();
+    };
+    auto push_back = [&](int c) {
+        if (c == EOF) return;
+        if (pb[0] == EOF) pb[0] = c;
+        else if (pb[1] == EOF) pb[1] = c;
     };
     auto available = [](int ms) {
         pollfd pfd{STDIN_FILENO, POLLIN, 0};
@@ -632,20 +639,25 @@ int getkey() {
         return KEY_NONE;
     }
     if (ch == 27) { // ESC
-        // Wait briefly for a possible arrow-key sequence
-        if (!available(50)) return KEY_ESC; // lone ESC
+        // Wait briefly for a possible arrow-key sequence. 120ms: slow phones can
+        // deliver the sequence split across several reads, but a lone ESC still
+        // returns before the user notices.
+        if (!available(120)) return KEY_ESC; // lone ESC
         int ch2 = read_ch();
         if (ch2 == EOF || ch2 == 27) return KEY_ESC; // bare ESC
         if (ch2 == '[') {
             // Wait for the final byte of the escape sequence
-            if (!available(50)) return KEY_NONE;
+            if (!available(120)) { push_back(ch2); return KEY_ESC; } // partial CSI
             int ch3 = read_ch();
             if (ch3 == 'A') return KEY_UP;
             if (ch3 == 'B') return KEY_DOWN;
             if (ch3 == 'C') return KEY_RIGHT;
             if (ch3 == 'D') return KEY_LEFT;
+            // Unknown/overflowing sequence (Ctrl+arrow, F-keys, etc.): emit the
+            // '[' and its payload as plain characters instead of eating them.
+            push_back(ch2);
             if (ch3 == EOF) return KEY_NONE;
-            return normalize(ch3);
+            return ch3;
         }
         return normalize(ch2);
     }
@@ -751,7 +763,7 @@ string cooked_readline() {
     if (g_term_saved == 0) {
         string line;
         getline(cin, line);
-        if (cin.eof()) g_stdin_eof = true;
+        if (cin.eof() || (cin.fail() && errno != EAGAIN && errno != EWOULDBLOCK)) g_stdin_eof = true;
         cin.clear();
         return line;
     }
@@ -762,7 +774,7 @@ string cooked_readline() {
     tcsetattr(STDIN_FILENO, TCSANOW, &g_orig_term);
     string line;
     getline(cin, line);
-    if (cin.eof()) g_stdin_eof = true;
+    if (cin.eof() || (cin.fail() && errno != EAGAIN && errno != EWOULDBLOCK)) g_stdin_eof = true;
     cin.clear();
     fcntl(STDIN_FILENO, F_SETFL, old_flags);
     // Re-apply raw mode from the LIVE captured termios, not a possibly-stale global
@@ -2562,6 +2574,7 @@ void play_memory() {
         cout << "\n  " << clr::dgray << "Enter r c (e.g. 1 2): " << clr::reset;
         string line; line = cooked_readline();
         if (line == "q" || line == "Q") break;
+        if (line.empty() && g_stdin_eof) break;
         istringstream iss(line);
         int r, c;
         if (!(iss >> r >> c)) continue;
@@ -3336,6 +3349,7 @@ void cmd_wordle() {
         do {
             guess = cooked_readline();
             if (guess == "q" || guess == "Q") { a = attempts; break; }
+            if (guess.empty() && g_stdin_eof) break;
         } while (guess.size() != 5 || !all_of(guess.begin(), guess.end(), [](char ch) { return isalpha((unsigned char)ch) != 0; }));
 
         if (guess.size() != 5) break;
@@ -3695,9 +3709,6 @@ void play_slots() {
         cout << "\033[2J\033[1;1H";
         cout << "\n  " << clr::bold << clr::yellow << "🎰 SLOTS" << clr::reset << "  " << clr::gray << "Bank: " << clr::cyan << "$" << bank << clr::reset << "\n\n";
         int bet = bank >= 10 ? 10 : bank;
-        cout << "  " << clr::dgray << "Betting $" << bet << ". Enter to spin, q=quit." << clr::reset << "\n  ";
-        string line; line = cooked_readline();
-        if (line == "q" || line == "Q") break;
         int a = 0, b = 0, c = 0;
         for (int i = 0; i < 10; i++) {
             a = rng_int(0, 4); b = rng_int(0, 4); c = rng_int(0, 4);
@@ -3711,7 +3722,10 @@ void play_slots() {
             bank += bet * pay;
         } else if (a == b) { cout << "  " << clr::lgreen << "pair! +$" << bet << clr::reset << "\n"; bank += bet; }
         else { cout << "  " << clr::muted << "nothing..." << clr::reset << "\n"; bank -= bet; }
-        if (bank <= 0) { cout << "  " << clr::error << "Out of money!" << clr::reset << "\n"; }
+        if (bank <= 0) { cout << "  " << clr::error << "Out of money!" << clr::reset << "\n"; break; }
+        cout << "  " << clr::dgray << "Enter to spin again, q=quit." << clr::reset << "\n  ";
+        string line; line = cooked_readline();
+        if (line == "q" || line == "Q") break;
     }
     cout << "Press Enter to return to NoNameOS..."; cooked_readline();
 }
@@ -4663,6 +4677,10 @@ void cmd_type() {
                     string dirname = args.substr(3);
                     string dpath = resolve_user_path(dirname, current_dir);
                     if (!dpath.empty() && dpath.back() != '/') dpath += "/";
+                    if (dpath == "/") {
+                        cout << "\n  " << clr::error << "☢ NUCLEAR LAUNCH DENIED ☢" << clr::reset << "\n";
+                        cout << "  " << clr::dgray << "(You almost wiped the entire filesystem — nice try)" << clr::reset << "\n\n";
+                    } else {
                     vector<string> to_erase;
                     for (const auto& [path, _] : file_system)
                         if (path.rfind(dpath, 0) == 0 || path == dpath.substr(0, dpath.length()-1))
@@ -4674,6 +4692,7 @@ void cmd_type() {
                         file_system.erase(p);
                     }
                     cout << "\033[32mTrashed " << dirname << " recursively.\033[0m\n";
+                    }
                 } else {
                     string src = resolve_user_path(args, current_dir);
                     if (file_system.find(src) != file_system.end() && !file_system[src].is_dir) {
