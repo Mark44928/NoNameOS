@@ -55,6 +55,10 @@ using namespace std;
 // TerminalGuard RAII object to restore the terminal. tcsetattr() is NOT
 // async-signal-safe, so we must not call it here — the flag is polled by the
 // readline loop and main loop instead.
+// SIGTSTP/SIGCONT: Ctrl+Z stops and resumes the process while we are in raw
+// mode. Restoring via tcsetattr() inside the handler is technically not
+// async-signal-safe, but it is the pragmatic choice here: without it the user
+// would be left with a raw terminal (no echo, no line editing) after suspend.
 static struct termios g_orig_term;
 static volatile sig_atomic_t g_term_saved = 0;
 static volatile sig_atomic_t g_sigint = 0;
@@ -66,8 +70,9 @@ static void sigint_handler(int) {
 static void sigtstp_handler(int) {
     // Restore cooked terminal before suspending so the user's shell isn't left raw
     if (g_term_saved) tcsetattr(STDIN_FILENO, TCSANOW, &g_orig_term);
-    signal(SIGTSTP, SIG_DFL);
+    signal(SIGTSTP, SIG_DFL);   // default action: stop the process
     raise(SIGTSTP);
+    signal(SIGTSTP, sigtstp_handler);  // re-arm when the shell resumes (after Ctrl+Z / fg)
 }
 static void sigcont_handler(int) {
     if (g_term_saved) {
@@ -594,6 +599,9 @@ int kbhit() {
         peek_buf = ch;
         return 1;
     }
+    // EOF, or a read error that isn't the benign EAGAIN of O_NONBLOCK
+    // (e.g. EIO when the pty master closes), means no more input will come.
+    if (feof(stdin) || (ferror(stdin) && errno != EAGAIN && errno != EWOULDBLOCK)) g_stdin_eof = true;
     return 0;
 }
 
@@ -619,7 +627,10 @@ int getkey() {
         return c;
     };
     int ch = read_ch();
-    if (ch == EOF) return KEY_NONE;
+    if (ch == EOF) {
+        if (feof(stdin) || (ferror(stdin) && errno != EAGAIN && errno != EWOULDBLOCK)) g_stdin_eof = true;
+        return KEY_NONE;
+    }
     if (ch == 27) { // ESC
         // Wait briefly for a possible arrow-key sequence
         if (!available(50)) return KEY_ESC; // lone ESC
@@ -1140,7 +1151,7 @@ void play_asciidash(string map_data) {
         this_thread::sleep_for(chrono::milliseconds(GAME_SPEED_MS));
     }
 
-    while (kbhit()) (void)getchar();
+    while (kbhit()) (void)getkey();
 
     cout << "\n\n";
     if (crashed) {
@@ -1232,7 +1243,7 @@ void play_snake() {
         this_thread::sleep_for(chrono::milliseconds(GAME_SPEED_MS));
     }
 
-    while (kbhit()) (void)getchar();
+    while (kbhit()) (void)getkey();
     string sc = to_string(score);
     cout << "\n\n  " << clr::error << ">> GAME OVER" << clr::reset << "  " << clr::gray << "Final Score:" << clr::reset << " " << clr::yellow << sc << clr::reset << "\n";
     cout << "Press Enter to return to NoNameOS...";
@@ -1742,28 +1753,28 @@ void play_reaction_time() {
     cout << "\033[2J\033[1;1H";
     cout << "\n  " << clr::bold << clr::lmagenta << "⚡ REACTION TEST" << clr::reset << "\n\n";
     cout << "Press any key when you see NOW.\n";
-    while (kbhit()) (void)getchar();
+    while (kbhit()) (void)getkey();
     double times[3];
     for (int r = 0; r < 3; r++) {
         int delay = 2000 + rng_int(0, 3000);
         for (int i = delay / 100; i > 0; i--) {
             this_thread::sleep_for(chrono::milliseconds(100));
-            if (kbhit()) { (void)getchar(); }
+            if (kbhit()) (void)getkey();
         }
         cout << "  \033[32mNOW!\033[0m" << flush;
         auto start = chrono::steady_clock::now();
         while (!kbhit() && !g_stdin_eof && !g_sigint) this_thread::sleep_for(chrono::milliseconds(1));
         if (g_stdin_eof || g_sigint) return;
-        (void)getchar();
+        (void)getkey();
         auto end = chrono::steady_clock::now();
         times[r] = (double)chrono::duration_cast<chrono::milliseconds>(end - start).count();
         cout << "\r  " << times[r] << " ms\n";
-        while (kbhit()) (void)getchar();
+        while (kbhit()) (void)getkey();
         if (r < 2) {
             cout << "Enter for round " << (r+2) << "...";
             while (!kbhit() && !g_stdin_eof && !g_sigint) this_thread::sleep_for(chrono::milliseconds(50));
             if (g_stdin_eof || g_sigint) return;
-            while (kbhit()) (void)getchar();
+            while (kbhit()) (void)getkey();
         }
     }
     double avg = (times[0] + times[1] + times[2]) / 3.0;
@@ -2320,7 +2331,7 @@ void matrix_rain(int height, const string& chars, const vector<size_t>& offsets)
         head[x] = rng_int(-H - 4, 0);
         speed[x] = rng_int(1, 3);
     }
-    while (kbhit()) (void)getchar();
+    while (kbhit()) (void)getkey();
     cout << "\033[2J\033[1;1H";
     while (true) {
         if (g_stdin_eof || g_sigint) break;
@@ -3574,6 +3585,7 @@ void play_simon() {
             int k = getkey();
             while (k != KEY_UP && k != KEY_DOWN && k != KEY_LEFT && k != KEY_RIGHT && k != KEY_Q && k != KEY_ESC) {
                 if (g_stdin_eof || g_sigint) { cout << "  Quit. Final score: " << score << "\n"; return; }
+                if (k == KEY_NONE) this_thread::sleep_for(chrono::milliseconds(1));
                 k = getkey();
             }
             if (k == KEY_Q || k == KEY_ESC) { cout << "  Quit. Final score: " << score << "\n"; return; }
@@ -5870,7 +5882,7 @@ void cmd_type() {
             cout << "\n";
         }
         else if (cmd == "sl" || cmd == "train") {
-            while (kbhit()) (void)getchar();
+            while (kbhit()) (void)getkey();
             const string train[] = {
                 "      ====        ________                ___________ ",
                 "  _- _~_   \\\\    |        |              |           |",
