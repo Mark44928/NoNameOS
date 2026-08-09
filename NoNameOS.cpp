@@ -3677,7 +3677,7 @@ void play_battleship() {
 
 // Slot machine
 void play_slots() {
-    const string syms = "🍒🔔💎7🍋";
+    const vector<string> syms = {"🍒","🔔","💎","7","🍋"};
     int bank = 100;
     while (bank > 0) {
         cout << "\033[2J\033[1;1H";
