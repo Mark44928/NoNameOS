@@ -13,11 +13,18 @@
 //   - 135+ commands (text tools, converters, math, productivity, fun)
 //   - 256-color ANSI visuals with animated boot logo
 //   - 25+ hidden easter eggs
+//   - Cross-platform (Linux, macOS, Windows WSL, Cygwin, etc.)
+//   - No external dependencies (single C++ file, standard library only)
+//   - 100% hobbyist project for educational purposes
+//   - 100% free and open-source (GPLv3)
 //
 // Build: g++ -O3 NoNameOS.cpp -o nonameos
 // Run:   ./nonameos
 // License: GPLv3
-// ══════════════════════════════════════════════════════════════════════════════
+// Disclaimer: This is a hobbyist project for educational purposes. It is not a real OS and should not be used in production. Use at your own ᖇIᔕK.
+// Well, enjoy the code, and if you like it, consider giving it a star on GitHub!
+// Talk is cheap, show me the code. - Linus Torvalds
+//══════════════════════════════════════════════════════════════════════════════
 // SECTION 1: Includes, Constants, and Utility Functions
 // ══════════════════════════════════════════════════════════════════════════════
 #include <iostream>
