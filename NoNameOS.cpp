@@ -624,7 +624,7 @@ string help_text(const string& cmd) {
         {"prompt","customize prompt template"},{"news","NoNameOS Daily headlines"},
         {"crunch","column math over file data"},{"pack","bundle files into .npk archive"},
         {"packlist","list .npk contents"},{"unpack","extract an .npk archive"},
-        {"pkg","package manager (bonus toys)"},{"figlet","big block letters (pkg)"},
+        {"pkg","package manager (bonus toys)"},{"joke","random joke"},
         {"nyancat","rainbow cat (pkg)"},{"starwars","ASCII crawl (pkg)"},
         {"sheep","fluffy cowsay (pkg)"},
         {"unicode","toggle Unicode rendering (on|off|auto|test)"}
@@ -1169,7 +1169,7 @@ const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","c
     "chess","clicker","pet","fishing",
     "run","set","save","load","persist","theme","prompt","news",
     "crunch","pack","packlist","unpack","pkg",
-    "figlet","nyancat","starwars","sheep",
+    "nyancat","starwars","sheep",
     "unicode"};
 
 size_t edit_dist(const string& a, const string& b) {
@@ -4762,7 +4762,6 @@ void cmd_type() {
 // --- Package registry: bonus commands gated behind `pkg install` ---
 struct PkgEntry { string pkg; string desc; string cmd; };
 static const vector<PkgEntry> PKG_DB = {
-    {"figlet",   "giant block-letter banners", "figlet"},
     {"nyancat",  "rainbow trail animation",    "nyancat"},
     {"starwars", "ASCII Episode IV crawl",     "starwars"},
     {"sheep",    "a very fluffy cowsay",       "sheep"},
@@ -5371,60 +5370,6 @@ static void play_fishing(map<string,FSNode>& fs) {
 }
 
 // ---------- TOYS: pkg-gated bonus commands ----------
-static const struct { char ch; const char* rows[6]; } FIG_FONT[] = {
-    {'A',{"  _   "," / | ","/  | ","/ /| |","/_/ |_|","       "}},
-    {'B',{"____  ","| __ ) ","|  _ \\ ","| |_) |","|____/ ","       "}},
-    {'C',{"  ___ "," / ___|","| |    ","| |___ "," \\____|","       "}},
-    {'D',{"____  ","|  _ \\ ","| | | |","| |_| |","|____/ ","       "}},
-    {'E',{" _____","| ____|","|  _|  ","| |___ ","|_____|","       "}},
-    {'F',{" _____","|  ___|","| |_   ","|  _|  ","|_|    ","       "}},
-    {'G',{"  ___ "," / ___|","| |  _ ","| |_| |"," \\____|","       "}},
-    {'H',{" _   _","| | | |","| |_| |","|  _  |","|_| |_|","       "}},
-    {'I',{" _____","|_   _|","  | |  ","  | |  "," |___| ","       "}},
-    {'J',{"   ___","    | |"," _  | |","| |_| |"," \\___/ ","       "}},
-    {'K',{" _  __","| |/ /","| ' / ","| . \\ ","|_|\\_\\","       "}},
-    {'L',{" _    ","| |   ","| |   ","| |___","|_____|","       "}},
-    {'M',{" _   _","| \\ | |","|  \\| |","| |\\  |","|_| \\_|","       "}},
-    {'N',{" _   _","| \\ | |","|  \\| |","| |\\  |","|_| \\_|","       "}},
-    {'O',{"  ___ "," / _ \\","| (_) |"," \\___/ ","       ","       "}},
-    {'P',{" ____ ","| __ ) ","|  _ \\ ","| |_) |","|____/ ","       "}},
-    {'Q',{"  ___ "," / _ \\","| (_) |"," \\___/ ","  (_)  ","       "}},
-    {'R',{" ____ ","| __ ) ","|  _ \\ ","| |_) |","|_\\_\\ ","       "}},
-    {'S',{"  ___ "," / __|","| (__ "," \\___|","      ","       "}},
-    {'T',{" _____","|_   _|","  | |  ","  | |  ","  |_|  ","       "}},
-    {'U',{" _   _","| | | |","| | | |","| |_| |"," \\___/ ","       "}},
-    {'V',{"__   __","\\ \\ / /"," \\ V / ","  | |  ","  |_|  ","       "}},
-    {'W',{"__   __","\\ \\ / /"," \\ V / "," |  |  "," |_|   ","       "}},
-    {'X',{"__  __","\\ \\/ / "," \\  /  "," /  \\  ","/_/\\_\\ ","       "}},
-    {'Y',{"__  __","\\ \\/ / "," \\  /  "," | |   "," |_|   ","       "}},
-    {'Z',{" _____","|__  / ","  / /  "," / /_  ","/____| ","       "}},
-    {'0',{"  ___ "," / _ \\","| (_) |"," \\___/ ","       ","       "}},
-    {'1',{" _ ","| |","| |","|_|","   ","   "}},
-    {'2',{" ____ ","|  _ \\ ","| |_) |","|  __/ ","|_|    ","       "}},
-    {'3',{" _____","|__  / ","  / /  "," / /_  ","/____| ","       "}},
-    {'4',{" _  _","| |/ /","| ' / ","| . \\ ","|_|\\_\\","       "}},
-    {'5',{" _____","| ____|","|  _|  ","| |___ ","|_____|","       "}},
-    {'6',{"  __ "," / /_","| '__|","| |   ","|_|   ","      "}},
-    {'7',{" _____","|__  / ","  / /  "," / /   ","/_/    ","       "}},
-    {'8',{" ____ ","(  _ \\ "," ) (_) ","(____/ ","       ","       "}},
-    {'9',{" ____ ","(  _ \\ "," ) (_) "," (___/ ","       ","       "}},
-    {' ',{"    ","    ","    ","    ","    ","    "}},
-};
-static void cmd_figlet(const string& args) {
-    string text = args.empty() ? "NONAME OS" : args;
-    for (char& c : text) c = (char)toupper((unsigned char)c);
-    cout << "\n";
-    for (int row = 0; row < 6; row++) {
-        cout << "  " << clr::success;
-        for (char c : text) {
-            const char* art = "      ";
-            for (const auto& f : FIG_FONT) if (f.ch == c) { art = f.rows[row]; break; }
-            cout << art;
-        }
-        cout << clr::reset << "\n";
-    }
-    cout << "\n";
-}
 static void cmd_nyancat() {
     const int W = 46;
     for (int frame = 0; frame < 70 && !kbhit(); frame++) {
@@ -5486,13 +5431,13 @@ static void cmd_sheep(const string& args) {
     cout << "  " << clr::dgray << vsep(w) << clr::reset << "\n";
     cout << "       " << clr::white << "           __  _                    " << clr::reset << "\n";
     cout << "       " << clr::white << "      .-.'  `; `-._  __  _         " << clr::reset << "\n";
-    cout << "       " << clr::white << "     (_,         .-:'  `; `-._     " << clr::reset << "\n";
+    cout << "       " << clr::white << "     (_,         .-:'  `; `-.__,    " << clr::reset << "\n";
     cout << "       " << clr::gray  << "    ,'o\"(        (_,           )    " << clr::reset << "\n";
     cout << "       " << clr::gray  << "   (__,-'      ,'o\"(            )>  " << clr::reset << "\n";
     cout << "       " << clr::gray  << "      (       (__,-'            )    " << clr::reset << "\n";
     cout << "       " << clr::gray  << "       `-'._.--._(             )    " << clr::reset << "\n";
     cout << "       " << clr::gray  << "          |||  |||`-'._.--._.-'    " << clr::reset << "\n";
-    cout << "       " << clr::gray  << "          |||  |||                 " << clr::reset << "\n\n";
+    cout << "       " << clr::gray  << "          |||  |||   |||  |||           " << clr::reset << "\n\n";
 }
 
 // ---------- NEWS / MOTD ----------
@@ -6581,7 +6526,7 @@ static void cmd_news() {
                     {"cfetch", "CFETCH(1)\t\tUser Commands\n\nNAME\n\tcfetch - system info display\n\nSYNOPSIS\n\tcfetch\n\nDESCRIPTION\n\tDisplay system information similar to neofetch."},
                     {"ps", "PS(1)\t\t\tUser Commands\n\nNAME\n\tps - list running processes\n\nSYNOPSIS\n\tps\n\nDESCRIPTION\n\tDisplay a snapshot of current simulated processes."},
                     {"run", "RUN(1)\t\t\tNoNameOS Shell\n\nNAME\n\trun - execute a .nnsh script from the VFS\n\nSYNOPSIS\n\trun <script.nnsh> [args...]\n\nDESCRIPTION\n\tRuns each line through the shell. Supports # comments,\n\tset name=value variables, $name/$1..$9/$@ substitution,\n\tand single-line: if A == B then <command>."},
-                     {"pkg", "PKG(8)\t\t\tNoNameOS System\n\nNAME\n\tpkg - package manager for bonus toys\n\nSYNOPSIS\n\tpkg list | install <pkg> | remove <pkg> | search <term>\n\nDESCRIPTION\n\tInstall gated commands (figlet, nyancat, starwars, sheep).\n\tInstalled set persists across sessions."},
+                     {"pkg", "PKG(8)\t\t\tNoNameOS System\n\nNAME\n\tpkg - package manager for bonus toys\n\nSYNOPSIS\n\tpkg list | install <pkg> | remove <pkg> | search <term>\n\nDESCRIPTION\n\tInstall gated commands (joke, nyancat, starwars, sheep).\n\tInstalled set persists across sessions."},
                      {"unicode", "UNICODE(1)\t\tUser Commands\n\nNAME\n\tunicode - toggle Unicode rendering\n\nSYNOPSIS\n\tunicode on | off | auto | test\n\nDESCRIPTION\n\tControl Unicode rendering globally.\n\ton: force Unicode ornamental characters.\n\toff: use ASCII fallbacks (no tofu boxes).\n\tauto: detect from locale/terminal.\n\ttest: show sample characters and current state.\n\tSetting persists across sessions."},
                     {"uname", "UNAME(1)\t\tUser Commands\n\nNAME\n\tuname - system information\n\nSYNOPSIS\n\tuname [-a | -r | -s | -m]\n\nDESCRIPTION\n\tPrint system information. -a for all, -r for release, -s for OS on Name, -m for architecture."},
                     {"uptime", "UPTIME(1)\t\tUser Commands\n\nNAME\n\tuptime - system uptime\n\nSYNOPSIS\n\tuptime\n\nDESCRIPTION\n\tDisplay how long the system has been running."},
@@ -7787,10 +7732,6 @@ static void cmd_news() {
                     if (e.pkg.find(nm) != string::npos || e.desc.find(nm) != string::npos)
                         cout << "  " << e.pkg << " — " << e.desc << "\n";
             } else cout << "Usage: pkg list|install|remove|search [name]\n";
-        }
-        else if (cmd == "figlet") {
-            if (!g_installed_pkgs.count("figlet")) cout << "  \033[33mnot installed.\033[0m Try: pkg install figlet\n";
-            else cmd_figlet(args);
         }
         else if (cmd == "nyancat") {
             if (!g_installed_pkgs.count("nyancat")) cout << "  \033[33mnot installed.\033[0m Try: pkg install nyancat\n";
