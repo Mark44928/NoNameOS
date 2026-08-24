@@ -9,7 +9,7 @@
 </pre>
 <i>Screenshot from 2.0.0, Tested in Termux via MyPhone myT10.</i>
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260808-140453.png"/>
-<p align="center"><sub><i>Screenshot from above of this screenshot is v0.3.1, current version (v2.0.0) has 40 games, 251 commands, and full color support not shown here.</i></sub></p>
+<p align="center"><sub><i>Screenshot from above of this screenshot is v0.3.1, current version (v3.0.0) has 44 games, 269 commands, and full color support not shown here.</i></sub></p>
 
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
 </div>
@@ -19,12 +19,12 @@
 <h1 align="center">NoNameOS</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.0.0-green?style=for-the-badge" alt="Version"/>
+  <img src="https://img.shields.io/badge/version-v3.0.0-green?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/language-C%2B%2B17-blue?style=for-the-badge" alt="C++17"/>
   <img src="https://img.shields.io/badge/license-GPLv3-purple?style=for-the-badge" alt="License"/>
-  <img src="https://img.shields.io/badge/5962-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
-  <img src="https://img.shields.io/badge/40_games-red?style=for-the-badge" alt="Games"/>
-  <img src="https://img.shields.io/badge/251_max_commands-cyan?style=for-the-badge" alt="Commands"/>
+  <img src="https://img.shields.io/badge/7837-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
+  <img src="https://img.shields.io/badge/44_games-red?style=for-the-badge" alt="Games"/>
+  <img src="https://img.shields.io/badge/269_commands-cyan?style=for-the-badge" alt="Commands"/>
   <img src="https://img.shields.io/badge/49_bugs_fixed-2ea44f?style=for-the-badge" alt="Bugs Fixed"/>
   <img src="https://img.shields.io/badge/dependencies-zero-brightgreen?style=for-the-badge" alt="Zero Dependencies"/>
   <img src="https://img.shields.io/badge/platform-linux-lightgrey?style=for-the-badge" alt="Linux"/>
@@ -33,12 +33,12 @@
 </p>
 
 <blockquote align="center">
-  <b>One file. Zero dependencies. 40 games. 251 commands. One terminal.</b>
+  <b>One file. Zero dependencies. 44 games. 269 commands. One terminal.</b>
   <br/><sub><i>Simulated OS meets sandbox playground — all in a single .cpp</i></sub>
 </blockquote>
 
 <p align="center">
-  <b>A pure C++ terminal operating-system simulation featuring an interactive shell, virtual filesystem with metadata, 40 built-in games, and 251 developer tools — all contained in a single source file.</b><br/>
+  <b>A pure C++ terminal operating-system simulation featuring an interactive shell with pipes, scripts and persistence, a virtual filesystem, 44 built-in games, and 269 commands — all contained in a single source file.</b><br/>
   <sub>No external dependencies. No framework. No build system headaches. Just compile and run.</sub>
 </p>
 
@@ -61,7 +61,7 @@
 | | |
 |---|---|
 | **Single File** | Entire project is one `.cpp` — no build system, no `#include` hell, no headaches |
-| **Fun to Use** | 40 games, easter eggs, colored output, animated boot — it's genuinely enjoyable |
+| **Fun to Use** | 44 games, easter eggs, color themes, animated boot — it's genuinely enjoyable |
 | **Learn C++** | See real-world STL, OOP, RAII, ANSI escape codes, and POSIX I/O in action |
 | **Hackable** | Every feature in one file — read it, mod it, break it, fix it |
 | **Portable** | Compiles everywhere — Linux, Termux, WSL, even your toaster if it runs g++ |
@@ -102,7 +102,7 @@
 
 | Category | What You Get | Highlights |
 |----------|-------------|------------|
-| **Interactive Shell** | Color-coded prompt, command duration, 251 commands | Arrow keys, history, fuzzy suggestions |
+| **Interactive Shell** | Pipes, redirects, chains, globs, TAB-complete, scripts, persistence, themes, 269 commands | Arrows, history, Ctrl+R search, fuzzy suggestions |
 | **Virtual Filesystem** | Files, directories, symlinks, permissions, trash | Timestamps, sizes, `ls -l`, `chmod` |
 | **40 Games** | Arcade, puzzle, strategy, word, reflex games | Tetris, Othello, Blackjack, Wordle, Battleship |
 | **System Tools** | Text editor, calculators, system info | `kernel`, `netstat`, `traceroute`, `report` |
@@ -115,7 +115,34 @@
 
 ---
 
-## What's New in v2.0.0
+## What's New in v3.0.0
+
+### Shell power-ups
+- **Pipelines** — `cat file | grep x | sort | wc` (stdout→stdin between commands)
+- **Redirections** — `ls > out.txt`, `cat a >> b`, and `< input` redirection
+- **Chaining** — `cmd1 && cmd2` (short-circuit), `cmd1 ; cmd2`
+- **Glob wildcards** — `cat /docs/*.txt`, `rm test_*` (matched against the VFS)
+- **TAB completion** — completes commands, aliases, and VFS paths at the prompt
+- **Ctrl+R** — reverse-i-search through command history
+
+### Scripting & persistence
+- `.nnsh` scripts: `run script.nnsh args…` with `set k=v`, `$var $1-$9 $@`, and one-line `if A == B then cmd`
+- Session persistence: VFS, aliases, users, packages auto-saved to `~/.nonameos.vfs` on exit and restored on boot
+- `save` / `load` / `persist on|off` for manual control
+
+### 4 new games
+- `chess` — full-rules chess vs greedy-2-ply AI: castling, promotion, check/checkmate detection
+- `clicker` — idle coin clicker with 5 upgrades; progress persists (offline earnings up to 8h)
+- `pet` — tamagotchi that decays in real time between sessions (`pet feed/play/sleep/clean/name`)
+- `fishing` — cast, wait for the bite, react fast; rarity table + catch log (`fishing stats`)
+
+### Personalization & tools
+- **Color themes** — `theme set matrix|dracula|ocean|sunset|mono` swaps the whole palette (saved)
+- **Custom prompt** — `prompt set "[%t] %u@%d > "` with `%u %h %d %t %%` tokens (saved)
+- **Package manager** — `pkg install figlet|nyancat|starwars|sheep` unlocks bonus toys
+- `news` MOTD headlines, `crunch` column math, `pack/packlist/unpack` archiver, laps-capable `stopwatch`
+
+### New in v2.0.0
 
 ### 14 new games (+25% more games!)
 - `othello` — classic Reversi vs. AI (2-player hotseat too)
@@ -713,7 +740,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 │  ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐    │
 │  │ Terminal I/O │───▶│  Shell (REPL)   │───▶│  Dispatcher  │    │
 │  │ termios.h    │    │ cooked_readline │    │  if/else map │    │
-│  │  fcntl.h      │    │ history, arrows │    │  251 cmds    │    │
+│  │  fcntl.h      │    │ history, arrows │    │  269 cmds    │    │
 │  └──────────────┘    └─────────────────┘    └───────┬──────┘    │
 │                                                     │           │
 │                    ┌────────────────────────────────┼─────┐     │
@@ -747,7 +774,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 | **STL Containers** | `map<string, FSNode>` | Virtual filesystem backed by associative containers |
 | **MT19937 RNG** | `mt19937 rng{random_device{}()}` | Modern C++ random number generation |
 | **ANSI Colors** | `namespace color` | 256-color and truecolor RGB terminal rendering |
-| **Single Dispatch** | Line 3153+ | One massive if/else chain routes all 251 commands |
+| **Single Dispatch** | exec_segment in main() | One massive if/else chain routes all 269 commands (plus pipes/chains engine around it) |
 
 ## Fun Facts
 
@@ -765,6 +792,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 
 | Version | Lines | Games | Commands | Key Changes |
 |---------|-------|-------|----------|-------------|
+| **v3.0.0** | 7,837 | 44 | 269 | pipes · redirects · && ; · globs · TAB · Ctrl+R · .nnsh scripts · persistence · themes · prompt · pkg · chess clicker pet fishing · crunch pack news stopwatch-laps |
 | **v2.0.0** | 5,962 | 40 | 251 | 14 games, 20 tools, 10 eggs, 7 effects |
 | **v1.0.2** | 4,928 | 24 | 149 | 43 audit bug fixes |
 | **v1.0.1** | 4,561 | 24 | 135 | Arrow keys, cursor movement, easter eggs |

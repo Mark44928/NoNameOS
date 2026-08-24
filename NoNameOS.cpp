@@ -6,11 +6,11 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // NoNameOS - A pure C++ hobbyist operating-system simulation
 // ══════════════════════════════════════════════════════════════════════════════
-// Single-file C++ project (~4900 lines) featuring:
+// Single-file C++ project (~7837 lines) featuring:
 //   - Interactive shell with color-coded prompt, arrow key support, history
 //   - Virtual filesystem (VFS) with files, directories, symlinks, permissions
-//   - 40 built-in games (Snake, Tetris, Sudoku, Pong, 2048, Othello, etc.)
-//   - 135+ commands (text tools, converters, math, productivity, fun)
+//   - 44 built-in games (Snake, Tetris, Sudoku, Pong, 2048, Othello, Chess, etc.)
+//   - 269 commands (text tools, converters, math, productivity, fun)
 //   - 256-color ANSI visuals with animated boot logo
 //   - 25+ hidden easter eggs
 //   - Cross-platform (Linux, macOS, Windows WSL, Cygwin, etc.)
@@ -18,7 +18,7 @@
 //   - 100% hobbyist project for educational purposes
 //   - 100% free and open-source (GPLv3)
 //
-// Build: g++ -O3 NoNameOS.cpp -o nonameos
+// Build: g++ -std=c++17 -O2 NoNameOS.cpp -o nonameos -lpthread
 // Run:   ./nonameos
 // License: GPLv3
 // Disclaimer: This is a hobbyist project for educational purposes. It is not a real OS and should not be used in production. Use at your own ᖇIᔕK.
@@ -91,7 +91,7 @@ static void sigcont_handler(int) {
 }
 
 static const auto program_start = chrono::steady_clock::now();
-const string VERSION = "v2.0.0";
+const string VERSION = "v3.0.0";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SECTION 3: ANSI Color System and Visual Helpers
@@ -129,19 +129,67 @@ namespace clr {
     const string gray    = fg256(245);
     const string dgray   = fg256(240);
     const string black   = fg256(16);
-    // Semantic
-    const string success = bold + fg256(46);
-    const string error   = bold + fg256(196);
-    const string warning = bold + fg256(226);
-    const string info    = bold + fg256(39);
-    const string accent  = bold + fg256(213);
-    const string muted   = fg256(245);
-    const string header  = bold + fg256(75);
-    const string prompt_user = bold + fg256(46);
-    const string prompt_host = fg256(231);
-    const string prompt_dir  = fg256(39);
-    const string prompt_sep  = fg256(240);
+    // Semantic — v3.0: defined AFTER namespace close as mutable globals bound
+    // below, so `theme set` can swap palettes at runtime without touching
+    // any call site (everything still says clr::success etc).
 }
+
+// v3.0 THEMES: semantic palette lives as mutable globals; named 256-colors
+// above stay fixed while semantic + prompt colors follow the active theme.
+namespace clr {
+    string _sem_success, _sem_error, _sem_warning, _sem_info,
+           _sem_accent, _sem_muted, _sem_header,
+           _sem_puser, _sem_phost, _sem_pdir, _sem_psep;
+
+    // References keep every existing call site working unchanged
+    string &success = _sem_success;
+    string &error   = _sem_error;
+    string &warning = _sem_warning;
+    string &info    = _sem_info;
+    string &accent  = _sem_accent;
+    string &muted   = _sem_muted;
+    string &header  = _sem_header;
+    string &prompt_user = _sem_puser;
+    string &prompt_host = _sem_phost;
+    string &prompt_dir  = _sem_pdir;
+    string &prompt_sep  = _sem_psep;
+}
+
+// Theme table: name -> 11 semantic slots (success,error,warning,info,accent,muted,header,puser,phost,pdir,psep)
+struct ThemeSpec {
+    const char* name;
+    const char* desc;
+    int ok, err, warn, inf, acc, mut, hdr, pu, ph, pd, ps; // 256-color indexes
+};
+const vector<ThemeSpec> THEME_DB = {
+    {"nonameos", "classic green/blue defaults",        46,196,226, 39,213,245, 75, 46,231, 39,240},
+    {"matrix",   "all-green hacker terminal",          46, 46, 70, 34, 48, 28, 40, 46, 34, 34, 22},
+    {"dracula",  "purple/pink pastel dark",            120,210, 51,141,213,245,176,176,252,141, 61},
+    {"ocean",    "deep blues and cyans",               120,203,226, 39, 75,244, 33, 44,231, 39, 17},
+    {"sunset",   "warm orange/red gradient",           154,196,214,208,201,180,209,208,255,209, 94},
+    {"mono",     "grayscale, zero color",              255,250,255,255,255,245,255,255,231,245,240},
+};
+static string g_theme_name = "nonameos";
+
+static void apply_theme(const string& name) {
+    const ThemeSpec* t = nullptr;
+    for (const auto& x : THEME_DB) if (name == x.name) t = &x;
+    if (!t) t = &THEME_DB[0];
+    g_theme_name = t->name;
+    clr::_sem_success = clr::bold + clr::fg256(t->ok);
+    clr::_sem_error   = clr::bold + clr::fg256(t->err);
+    clr::_sem_warning = clr::bold + clr::fg256(t->warn);
+    clr::_sem_info    = clr::bold + clr::fg256(t->inf);
+    clr::_sem_accent  = clr::bold + clr::fg256(t->acc);
+    clr::_sem_muted   = clr::fg256(t->mut);
+    clr::_sem_header  = clr::bold + clr::fg256(t->hdr);
+    clr::_sem_puser   = clr::bold + clr::fg256(t->pu);
+    clr::_sem_phost   = clr::fg256(t->ph);
+    clr::_sem_pdir    = clr::fg256(t->pd);
+    clr::_sem_psep    = clr::fg256(t->ps);
+}
+// Initialize default palette immediately (before any output happens)
+static const bool g_theme_boot = [] { apply_theme("nonameos"); return true; }();
 
 // --- Visual helpers ---
 // Simple line separator
@@ -526,7 +574,19 @@ string help_text(const string& cmd) {
         {"spinner","terminal spinner"},{"progress","progress bar"},
         {"gauge","system load gauge"},{"rain","rain effect"},
         {"fire","fire effect"},{"stream","matrix stream"},
-        {"type","typewriter text"}
+        {"type","typewriter text"},
+        // v3.0.0
+        {"chess","full-rules chess vs AI"},{"clicker","idle coin clicker (saves)"},
+        {"pet","tamagotchi pet (persists)"},{"fishing","cast, wait, reel it in"},
+        {"run","execute a .nnsh script"},{"set","define a script variable"},
+        {"save","save session now"},{"load","load saved session"},
+        {"persist","toggle session persistence"},{"theme","list/set color themes"},
+        {"prompt","customize prompt template"},{"news","NoNameOS Daily headlines"},
+        {"crunch","column math over file data"},{"pack","bundle files into .npk archive"},
+        {"packlist","list .npk contents"},{"unpack","extract an .npk archive"},
+        {"pkg","package manager (bonus toys)"},{"figlet","big block letters (pkg)"},
+        {"nyancat","rainbow cat (pkg)"},{"starwars","ASCII crawl (pkg)"},
+        {"sheep","fluffy cowsay (pkg)"}
     };
     auto it = ht.find(cmd);
     return it != ht.end() ? it->second : "no description";
@@ -589,6 +649,25 @@ bool has_traversal(const string& path) {
     }
     return false;
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECTION 5.8: v3.0 Shell Engine Globals (pipes, globs, scripts, prompt)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Pipe plumbing: stdout of the previous pipeline stage, fed as stdin to the next
+static string g_stdin_buf;
+static bool   g_stdin_live = false;
+
+// Script variables (`set x=1` in .nnsh scripts, $x substitution)
+static map<string,string> g_script_vars;
+
+// Prompt template (tokens %u %h %d %t %% ; set via `prompt set`)
+static string g_prompt_fmt = "\n%u@nonameos:%d\n❯ ";
+
+// TAB-completion data, refreshed by main before every prompt
+static vector<string> g_tab_cmds;    // ALL_COMMANDS + alias names
+static vector<string> g_tab_paths;   // absolute VFS keys
+static string g_tab_cwd = "/";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SECTION 6: Input Handling (kbhit, getkey, readline_global)
@@ -758,9 +837,76 @@ string readline_global(const vector<string>& history) {
     int hist_idx = (int)history.size();
     string saved;
 
+    // v3 Ctrl+R reverse-i-search state
+    bool rsearch = false;
+    string rs_q;
+    string rs_backup = line;
+
     auto redraw_from = [&]() {
         cout << "\033[2K\r❯ " << line << flush;
         cout << "\r\033[" << (cursor + 2) << "C" << flush;
+    };
+    auto redraw_rsearch = [&]() {
+        // show latest match
+        string match;
+        for (int i = hist_idx - 1; i >= 0; i--) {
+            if (history[i].find(rs_q) != string::npos) { match = history[i]; hist_idx = i; break; }
+        }
+        if (!match.empty()) { line = match; }
+        cursor = line.size();
+        cout << "\033[2K\r" << clr::muted << "(rsearch)`" << rs_q << "'  ↑↓ cycle · Enter accept · Esc cancel" << clr::reset << "\n";
+        redraw_from();
+    };
+
+    // v3 TAB completion over commands + VFS paths
+    auto tab_complete = [&]() {
+        string prefix = line.substr(0, cursor);
+        size_t sp = prefix.find_last_of(' ');
+        string tok = sp == string::npos ? prefix : prefix.substr(sp + 1);
+        vector<string> cands;
+        if (sp == string::npos) {                       // completing the command word
+            for (const auto& c : g_tab_cmds)
+                if (c.rfind(tok, 0) == 0 && c != tok) cands.push_back(c);
+            sort(cands.begin(), cands.end());
+        } else {                                        // completing a path token
+            string full = tok;
+            if (!full.empty() && full[0] != '/') {
+                string cdir = g_tab_cwd;
+                if (cdir.empty() || cdir.back() != '/') cdir += "/";
+                full = cdir + tok;
+            }
+            for (const auto& p : g_tab_paths)
+                if (p.rfind(full, 0) == 0 && p != full) cands.push_back(p);
+            sort(cands.begin(), cands.end());
+        }
+        if (cands.empty()) return;
+        if (cands.size() == 1) {
+            string ins = cands[0].substr(tok.size());
+            line.insert(cursor, ins); cursor += ins.size();
+            if (!line.empty() && line.back() != '/') { line.insert(line.begin() + cursor, ' '); cursor++; }
+            redraw_from();
+            return;
+        }
+        // common prefix completion
+        string common = cands[0];
+        for (const auto& c : cands) {
+            size_t k = 0;
+            while (k < common.size() && k < c.size() && common[k] == c[k]) k++;
+            common.resize(k);
+        }
+        if (common.size() > tok.size()) {
+            string ins = common.substr(tok.size());
+            line.insert(cursor, ins); cursor += ins.size();
+            redraw_from();
+            tok = common;
+        }
+        cout << "\n";
+        int shown = 0;
+        for (const auto& c : cands) {
+            if (++shown > 20) { cout << "  …\n"; break; }
+            cout << "  " << clr::lcyan << (c.back() == '/' ? c.substr(tok.size()) : c.substr(tok.size()) + "/") << clr::reset << "\n";
+        }
+        redraw_from();
     };
 
     while (true) {
@@ -779,6 +925,23 @@ string readline_global(const vector<string>& history) {
                 return line;
             }
             this_thread::sleep_for(chrono::milliseconds(1));
+            continue;
+        }
+        if (k == '\t') { tab_complete(); continue; }
+        if (k == 18 && !rsearch) {                     // Ctrl+R enters reverse search
+            rsearch = true; rs_q.clear(); rs_backup = line;
+            hist_idx = (int)history.size();
+            redraw_rsearch();
+            continue;
+        }
+        if (rsearch) {
+            if (k == KEY_ENTER) { rsearch = false; cout << "\n"; return line; }
+            else if (k == KEY_ESC) { rsearch = false; line = rs_backup; cursor = line.size(); redraw_from(); }
+            else if (k == 127 || k == 8) { if (!rs_q.empty()) rs_q.pop_back(); redraw_rsearch(); }
+            else if (k >= 32 && k < 256 && k != KEY_SPACE) { rs_q += (char)k; redraw_rsearch(); }
+            else if (k == KEY_SPACE) { rs_q += ' '; redraw_rsearch(); }
+            else if (k == KEY_UP) { while (hist_idx > 0) { hist_idx--; if (history[hist_idx].find(rs_q) != string::npos) break; } line = history[hist_idx]; cursor = line.size(); redraw_from(); }
+            else if (k == KEY_DOWN) { while (hist_idx + 1 < (int)history.size()) { hist_idx++; if (history[hist_idx].find(rs_q) != string::npos) break; } line = history[(size_t)hist_idx < history.size() ? hist_idx : (int)history.size()-1]; cursor = line.size(); redraw_from(); }
             continue;
         }
         if (k == KEY_ENTER) {
@@ -946,7 +1109,11 @@ const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","c
     "fib","primes","collatz","sine","cube","shell","logout","report",
     "mac","geoip","dict","log","llm","gpt","blockchain","mine","neo",
     "rabbit","dlc","kitchen","toaster","canon","spinner","progress",
-    "gauge","rain","fire","stream","type","up"};
+    "gauge","rain","fire","stream","type","up",
+    "chess","clicker","pet","fishing",
+    "run","set","save","load","persist","theme","prompt","news",
+    "crunch","pack","packlist","unpack","pkg",
+    "figlet","nyancat","starwars","sheep"};
 
 size_t edit_dist(const string& a, const string& b) {
     size_t n = a.size(), m = b.size();
@@ -972,9 +1139,9 @@ string closest_cmd(const string& cmd) {
 
 // --- TEXT PROCESSING TOOLS ---
 void cmd_rev(const string& args, map<string,FSNode>& fs, const string& cdir) {
-    if (args.empty()) { cout << "Usage: rev <file>\n"; return; }
-    auto c = vfs_read(args, fs, cdir);
-    if (!c) { cout << "error: file not found.\n"; return; }
+    optional<string> c;
+    if (args.empty()) { if (!g_stdin_live) { cout << "Usage: rev <file>\n"; return; } c = g_stdin_buf; }
+    else { c = vfs_read(args, fs, cdir); if (!c) { cout << "error: file not found.\n"; return; } }
     istringstream ss(*c); string line;
     while (getline(ss, line)) { cout << utf8_reverse(line) << "\n"; }
 }
@@ -1042,9 +1209,9 @@ void cmd_paste(const string& args, map<string,FSNode>& fs, const string& cdir) {
 }
 
 void cmd_uniq(const string& args, map<string,FSNode>& fs, const string& cdir) {
-    if (args.empty()) { cout << "Usage: uniq <file>\n"; return; }
-    auto c = vfs_read(args, fs, cdir);
-    if (!c) { cout << "error: file not found.\n"; return; }
+    optional<string> c;
+    if (args.empty()) { if (!g_stdin_live) { cout << "Usage: uniq <file>\n"; return; } c = g_stdin_buf; }
+    else { c = vfs_read(args, fs, cdir); if (!c) { cout << "error: file not found.\n"; return; } }
     istringstream ss(*c); string line, prev; bool first = true;
     while (getline(ss, line)) {
         if (first || line != prev) cout << line << "\n";
@@ -1054,15 +1221,19 @@ void cmd_uniq(const string& args, map<string,FSNode>& fs, const string& cdir) {
 }
 
 void cmd_nl(const string& args, map<string,FSNode>& fs, const string& cdir) {
-    if (args.empty()) { cout << "Usage: nl <file>\n"; return; }
-    auto c = vfs_read(args, fs, cdir);
-    if (!c) { cout << "error: file not found.\n"; return; }
+    optional<string> c;
+    if (args.empty()) { if (!g_stdin_live) { cout << "Usage: nl <file>\n"; return; } c = g_stdin_buf; }
+    else { c = vfs_read(args, fs, cdir); if (!c) { cout << "error: file not found.\n"; return; } }
     istringstream ss(*c); string line; int n = 1;
     while (getline(ss, line)) { cout << "  " << n << "\t" << line << "\n"; n++; }
 }
 
 void cmd_fold(const string& args, map<string,FSNode>& fs, const string& cdir) {
     istringstream ss(args); string fn; int n = 80;
+    if (args.empty() && g_stdin_live) {
+        for (const auto& line : utf8_fold(g_stdin_buf, 80)) cout << line << "\n";
+        return;
+    }
     ss >> fn >> n;
     if (fn.empty()) { cout << "Usage: fold <file> [width]\n"; return; }
     if (n <= 0) { cout << "error: width must be > 0.\n"; return; }
@@ -4528,6 +4699,755 @@ void cmd_type() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// SECTION 11.7: v3.0.0 — Persistence, Pipes, Globs, Scripts, Pkgs
+// ═══════════════════════════════════════════════════════════════
+
+// --- Package registry: bonus commands gated behind `pkg install` ---
+struct PkgEntry { string pkg; string desc; string cmd; };
+static const vector<PkgEntry> PKG_DB = {
+    {"figlet",   "giant block-letter banners", "figlet"},
+    {"nyancat",  "rainbow trail animation",    "nyancat"},
+    {"starwars", "ASCII Episode IV crawl",     "starwars"},
+    {"sheep",    "a very fluffy cowsay",       "sheep"},
+};
+static set<string> g_installed_pkgs;
+
+// ---------- escape helpers (single-line safe content for save files) ----------
+static string vfs_escape(const string& s) {
+    string o; o.reserve(s.size() + 8);
+    for (char c : s) {
+        if (c == '\\') o += "\\\\";
+        else if (c == '\n') o += "\\n";
+        else if (c == '\t') o += "\\t";
+        else o += c;
+    }
+    return o;
+}
+static string vfs_unescape(const string& s) {
+    string o; o.reserve(s.size());
+    for (size_t i = 0; i < s.size(); i++) {
+        if (s[i] == '\\' && i + 1 < s.size()) {
+            i++;
+            if (s[i] == 'n') o += '\n';
+            else if (s[i] == 't') o += '\t';
+            else if (s[i] == '\\') o += '\\';
+            else { o += '\\'; o += s[i]; }
+        } else o += s[i];
+    }
+    return o;
+}
+
+// ---------- persistence (~/.nonameos.vfs) ----------
+static string persist_path() {
+    const char* home = getenv("HOME");
+    return string(home && *home ? home : ".") + "/.nonameos.vfs";
+}
+static bool persist_enabled = true;
+
+static void persist_save(const map<string,FSNode>& fs,
+                         const map<string,string>& aliases,
+                         const vector<string>& users) {
+    if (!persist_enabled) return;
+    FILE* f = fopen(persist_path().c_str(), "w");
+    if (!f) return;
+    fprintf(f, "NNOS3\n");
+    fprintf(f, "T %s\n", g_theme_name.c_str());
+    fprintf(f, "P %s\n", vfs_escape(g_prompt_fmt).c_str());
+    for (const auto& [n, v] : aliases)
+        fprintf(f, "A %s=%s\n", n.c_str(), vfs_escape(v).c_str());
+    for (const string& u : users) fprintf(f, "U %s\n", u.c_str());
+    for (const auto& p : g_installed_pkgs) fprintf(f, "K %s\n", p.c_str());
+    // Save everything except root and transient trash
+    for (const auto& [path, node] : fs) {
+        if (path == "/") continue;
+        if (node.is_link) fprintf(f, "L %s\t%s\n", path.c_str(), node.link_target.c_str());
+        else if (node.is_dir) fprintf(f, "D %s\n", path.c_str());
+        else fprintf(f, "F %s\t%s\t%s\n", path.c_str(), node.mode.c_str(), vfs_escape(node.content).c_str());
+    }
+    fclose(f);
+}
+
+static bool persist_load(map<string,FSNode>& fs,
+                         map<string,string>& aliases,
+                         vector<string>& users) {
+    FILE* f = fopen(persist_path().c_str(), "r");
+    if (!f) return false;
+    char linebuf[8192];
+    bool ok = fgets(linebuf, sizeof(linebuf), f) && string(linebuf).rfind("NNOS3", 0) == 0;
+    if (!ok) { fclose(f); return false; }
+    fs.clear();
+    fs["/"] = FSNode(true, "");
+    while (fgets(linebuf, sizeof(linebuf), f)) {
+        string ln(linebuf);
+        while (!ln.empty() && (ln.back() == '\n' || ln.back() == '\r')) ln.pop_back();
+        if (ln.empty() || ln[0] == '#') continue;
+        if (ln.rfind("T ", 0) == 0) { apply_theme(ln.substr(2)); }
+        else if (ln.rfind("P ", 0) == 0) { g_prompt_fmt = vfs_unescape(ln.substr(2)); }
+        else if (ln.rfind("A ", 0) == 0) {
+            size_t eq = ln.find('=', 2);
+            if (eq != string::npos) aliases[ln.substr(2, eq - 2)] = vfs_unescape(ln.substr(eq + 1));
+        }
+        else if (ln.rfind("U ", 0) == 0) {
+            string u = ln.substr(2);
+            if (find(users.begin(), users.end(), u) == users.end()) users.push_back(u);
+        }
+        else if (ln.rfind("K ", 0) == 0) g_installed_pkgs.insert(ln.substr(2));
+        else if (ln[0] == 'D') { string p = ln.substr(2); fs[p] = FSNode(true, ""); }
+        else if (ln[0] == 'L') {
+            size_t tb = ln.find('\t', 2);
+            if (tb != string::npos) {
+                FSNode n(false, ""); n.is_link = true; n.link_target = ln.substr(tb + 1);
+                fs[ln.substr(2, tb - 2)] = n;
+            }
+        }
+        else if (ln[0] == 'F') {
+            size_t t1 = ln.find('\t', 2);
+            size_t t2 = (t1 == string::npos) ? string::npos : ln.find('\t', t1 + 1);
+            if (t1 != string::npos && t2 != string::npos) {
+                FSNode n(false, vfs_unescape(ln.substr(t2 + 1)));
+                n.mode = ln.substr(t1 + 1, t2 - t1 - 1);
+                if (n.mode.size() != 9) n.mode = "rw-r--r--";
+                fs[ln.substr(2, t1 - 2)] = n;
+            }
+        }
+    }
+    fclose(f);
+    return !fs.empty();
+}
+
+// ---------- glob wildcard expansion (* and ?) against VFS keys ----------
+static bool glob_match(const string& pat, const string& s) {
+    size_t p = 0, i = 0, star = string::npos, mark = 0;
+    while (i < s.size()) {
+        if (p < pat.size() && (pat[p] == '?' || pat[p] == s[i])) { p++; i++; }
+        else if (p < pat.size() && pat[p] == '*') { star = p++; mark = i; }
+        else if (star != string::npos) { p = star + 1; i = ++mark; }
+        else return false;
+    }
+    while (p < pat.size() && pat[p] == '*') p++;
+    return p == pat.size();
+}
+
+// Expand any */? tokens in `args` against the VFS; returns args unchanged when
+// nothing matches (so typos degrade gracefully instead of vanishing).
+static string expand_globs(const string& args, map<string,FSNode>& fs, const string& cdir) {
+    if (args.find('*') == string::npos && args.find('?') == string::npos) return args;
+    istringstream ss(args);
+    string tok, out;
+    bool first = true;
+    while (ss >> tok) {
+        if (tok.find('*') == string::npos && tok.find('?') == string::npos) {
+            if (!first) out += " ";
+            out += tok; first = false; continue;
+        }
+        // split dir/base
+        string dir = "/", base = tok;
+        size_t slash = tok.rfind('/');
+        if (slash != string::npos) {
+            dir = tok.substr(0, slash + 1);
+            if (dir.empty()) dir = "/";
+            base = tok.substr(slash + 1);
+        }
+        dir = resolve_user_path(dir, cdir);
+        vector<string> hits;
+        for (const auto& [path, node] : fs) {
+            if (path.rfind(dir, 0) != 0 || path == dir) continue;
+            string rel = path.substr(dir.size());
+            while (!rel.empty() && rel.back() == '/') rel.pop_back();
+            if (rel.empty() || rel.find('/') != string::npos) continue; // direct children only
+            if (glob_match(base, rel)) hits.push_back(tok.substr(0, slash != string::npos ? slash + 1 : 0) + rel);
+        }
+        sort(hits.begin(), hits.end());
+        for (const auto& h : hits) { if (!first) out += " "; out += h; first = false; }
+    }
+    return out;
+}
+
+// ---------- stdin source helper for filters ----------
+// Returns piped content if no file arg given during a pipeline; otherwise reads
+// the named file. nullopt on failure with an error already printed.
+static optional<string> filter_source(const string& file_arg, map<string,FSNode>& fs, const string& cdir) {
+    if ((file_arg.empty() || file_arg == "-")) {
+        if (g_stdin_live) return g_stdin_buf;
+        cout << "error: no input (pipe data or file required).\n";
+        return nullopt;
+    }
+    return vfs_read(file_arg, fs, cdir);
+}
+
+// ---------- .nnsh script substitution ----------
+// Replaces $name / $1..$9 / $@ from g_script_vars and positional args.
+static string script_subst(const string& line, const vector<string>& argv) {
+    string out; out.reserve(line.size());
+    for (size_t i = 0; i < line.size(); i++) {
+        if (line[i] == '$' && i + 1 < line.size()) {
+            if (line[i+1] >= '1' && line[i+1] <= '9') {
+                int idx = line[i+1] - '1';
+                if (idx < (int)argv.size()) out += argv[idx];
+                i++; continue;
+            }
+            if (line[i+1] == '@') {
+                for (size_t a = 0; a < argv.size(); a++) { if (a) out += " "; out += argv[a]; }
+                i++; continue;
+            }
+            // longest variable name match
+            string best; size_t bestlen = 0;
+            for (const auto& [k, v] : g_script_vars) {
+                if (line.compare(i + 1, k.size(), k) == 0 && k.size() > bestlen) { best = v; bestlen = k.size(); }
+            }
+            if (bestlen) { out += best; i += bestlen; continue; }
+        }
+        out += line[i];
+    }
+    return out;
+}
+
+// ---------- v3 games & toys live in SECTION 11.8 below ----------
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 11.8: v3.0.0 — Chess, Clicker, Pet, Fishing, Toys
+// ═══════════════════════════════════════════════════════════════
+
+// ---------- CHESS: full legality, castling, promotion, greedy 2-ply AI ----------
+namespace chess {
+    struct St { int b[8][8]; bool wk=false, wq=false, bk=false, bq=false; };
+    struct Mv { int fr, fc, tr, tc; };
+
+    static void init(St& s) {
+        const int back[] = {4,2,3,5,6,3,2,4};
+        memset(s.b, 0, sizeof(s.b));
+        for (int c = 0; c < 8; c++) { s.b[0][c] = -back[c]; s.b[1][c] = -1; s.b[6][c] = 1; s.b[7][c] = back[c]; }
+        s.wk = s.wq = s.bk = s.bq = true;
+    }
+    static bool inside(int r, int c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }
+
+    static bool attacked(const St& s, int r, int c, int by /*1 white, -1 black*/) {
+        // pawns
+        int pd = by == 1 ? 1 : -1; // attacker sits "below" for white attack
+        for (int dc : {-1, 1}) if (inside(r + pd, c + dc) && s.b[r + pd][c + dc] == 1 * by) return true;
+        // knights
+        const int N[8][2] = {{1,2},{2,1},{-1,2},{-2,1},{1,-2},{2,-1},{-1,-2},{-2,-1}};
+        for (auto& d : N) if (inside(r+d[0], c+d[1]) && s.b[r+d[0]][c+d[1]] == 2*by) return true;
+        // king
+        for (int dr = -1; dr <= 1; dr++) for (int dc = -1; dc <= 1; dc++)
+            if ((dr || dc) && inside(r+dr, c+dc) && s.b[r+dr][c+dc] == 6*by) return true;
+        // sliders
+        const int R[4][2] = {{1,0},{-1,0},{0,1},{0,-1}}, Bp[4][2] = {{1,1},{1,-1},{-1,1},{-1,-1}};
+        for (auto& d : R) { int rr=r+d[0], cc=c+d[1]; while (inside(rr,cc)) { int v=s.b[rr][cc]; if (v) { if (v*by==4||v*by==5) return true; break; } rr+=d[0]; cc+=d[1]; } }
+        for (auto& d : Bp) { int rr=r+d[0], cc=c+d[1]; while (inside(rr,cc)) { int v=s.b[rr][cc]; if (v) { if (v*by==3||v*by==5) return true; break; } rr+=d[0]; cc+=d[1]; } }
+        return false;
+    }
+    static void find_king(const St& s, int side, int& kr, int& kc) {
+        for (int r = 0; r < 8; r++) for (int c = 0; c < 8; c++) if (s.b[r][c] == 6*side) { kr = r; kc = c; return; }
+        kr = kc = -1;
+    }
+    static void make(St& s, const Mv& m, int side) {
+        int pc = s.b[m.fr][m.fc];
+        int tgt = s.b[m.tr][m.tc]; // pre-move occupant (piece being captured, if any)
+        s.b[m.tr][m.tc] = pc;
+        s.b[m.fr][m.fc] = 0;
+        if (pc == 6 * side) { // king move (maybe castle)
+            if (m.tc - m.fc == 2) { s.b[m.fr][5] = s.b[m.fr][7]; s.b[m.fr][7] = 0; }
+            if (m.fc - m.tc == 2) { s.b[m.fr][3] = s.b[m.fr][0]; s.b[m.fr][0] = 0; }
+            if (side == 1) s.wk = s.wq = false; else s.bk = s.bq = false;
+        }
+        if (pc == 4 * side) { // own rook left its home square
+            int hr = side == 1 ? 7 : 0;
+            if (m.fr == hr && m.fc == 0) { if (side == 1) s.wq = false; else s.bq = false; }
+            if (m.fr == hr && m.fc == 7) { if (side == 1) s.wk = false; else s.bk = false; }
+        }
+        if (tgt == 4)  { int dst = m.tr*8+m.tc; if (dst == 63) s.wk = false; if (dst == 56) s.wq = false; } // white rook captured (h1/a1)
+        if (tgt == -4) { int dst = m.tr*8+m.tc; if (dst == 7) s.bk = false; if (dst == 0) s.bq = false; } // black rook captured (h8/a8)
+        if (abs(pc) == 1 && (m.tr == 0 || m.tr == 7)) s.b[m.tr][m.tc] = 5 * side; // auto-queen
+    }
+    static void pseudo(const St& s, int side, vector<Mv>& out) {
+        for (int r = 0; r < 8; r++) for (int c = 0; c < 8; c++) {
+            int pc = s.b[r][c];
+            if (pc == 0 || pc * side < 0) continue;
+            switch (abs(pc)) {
+                case 1: { // pawn
+                    int d = -side; int sr = side == 1 ? 6 : 1;
+                    if (inside(r+d, c) && s.b[r+d][c] == 0) {
+                        out.push_back({r, c, r+d, c});
+                        if (r == sr && s.b[r+2*d][c] == 0) out.push_back({r, c, r+2*d, c});
+                    }
+                    for (int dc : {-1, 1}) if (inside(r+d, c+dc) && s.b[r+d][c+dc]*side < 0) out.push_back({r, c, r+d, c+dc});
+                    break; }
+                case 2: { const int N[8][2]={{1,2},{2,1},{-1,2},{-2,1},{1,-2},{2,-1},{-1,-2},{-2,-1}};
+                    for (auto& dd : N) if (inside(r+dd[0], c+dd[1]) && s.b[r+dd[0]][c+dd[1]]*side <= 0) out.push_back({r, c, r+dd[0], c+dd[1]});
+                    break; }
+                case 4: case 5: case 3: {
+                    auto ray = [&](const int dd[2]) { int rr=r+dd[0], cc=c+dd[1]; while (inside(rr,cc)) { int v=s.b[rr][cc]; if (v*side>0) break; out.push_back({r,c,rr,cc}); if (v) break; rr+=dd[0]; cc+=dd[1]; } };
+                    const int R[4][2]={{1,0},{-1,0},{0,1},{0,-1}}, Bp[4][2]={{1,1},{1,-1},{-1,1},{-1,-1}};
+                    if (abs(pc) != 3) for (auto& dd : R) ray(dd);
+                    if (abs(pc) != 4) for (auto& dd : Bp) ray(dd);
+                    break; }
+                case 6: {
+                    for (int dr = -1; dr <= 1; dr++) for (int dc = -1; dc <= 1; dc++)
+                        if ((dr || dc) && inside(r+dr, c+dc) && s.b[r+dr][c+dc]*side <= 0) out.push_back({r, c, r+dr, c+dc});
+                    // castling
+                    int hr = side == 1 ? 7 : 0;
+                    if (r == hr && c == 4) {
+                        bool kSide = side==1 ? s.wk : s.bk, qSide = side==1 ? s.wq : s.bq;
+                        int rook = 4*side;
+                        if (kSide && s.b[hr][7]==rook && s.b[hr][5]==0 && s.b[hr][6]==0 &&
+                            !attacked(s,hr,4,-side) && !attacked(s,hr,5,-side) && !attacked(s,hr,6,-side))
+                            out.push_back({r, 4, hr, 6});
+                        if (qSide && s.b[hr][0]==rook && s.b[hr][1]==0 && s.b[hr][2]==0 && s.b[hr][3]==0 &&
+                            !attacked(s,hr,4,-side) && !attacked(s,hr,3,-side) && !attacked(s,hr,2,-side))
+                            out.push_back({r, 4, hr, 2});
+                    }
+                    break; }
+            }
+        }
+    }
+    static vector<Mv> legal(const St& s, int side) {
+        vector<Mv> ps, ok;
+        pseudo(s, side, ps);
+        for (const auto& m : ps) {
+            St t = s; make(t, m, side);
+            int kr, kc; find_king(t, side, kr, kc);
+            if (kr < 0 || !attacked(t, kr, kc, -side)) ok.push_back(m);
+        }
+        return ok;
+    }
+    static bool in_check(const St& s, int side) {
+        int kr, kc; find_king(s, side, kr, kc);
+        return kr >= 0 && attacked(s, kr, kc, -side);
+    }
+    static int material_of(int pc) { switch (abs(pc)) { case 1: return 1; case 2: return 3; case 3: return 3; case 4: return 5; default: return 9; } }
+
+    static void render(const St& s) {
+        cout << "\n     " << clr::gray << "a b c d e f g h" << clr::reset << "\n";
+        cout << "   " << clr::dgray << "+" << repeat(16, "-") << "+" << clr::reset << "\n";
+        for (int r = 0; r < 8; r++) {
+            cout << " " << (8 - r) << " " << clr::dgray << "|" << clr::reset;
+            for (int c = 0; c < 8; c++) {
+                int v = s.b[r][c];
+                const char* glyph = " ";
+                if (v != 0) { const char* W[] = {"", "♟","♞","♝","♜","♛","♚"}; glyph = W[abs(v)]; }
+                string col;
+                if (v > 0) col = clr::rgb(245,245,245);
+                else if (v < 0) col = clr::rgb(205,133,63);
+                else col = clr::gray;
+                cout << (((r+c)%2) ? clr::rgbbg(60,60,90) : "") << col << glyph << " " << clr::reset;
+            }
+            cout << clr::dgray << "|" << clr::reset << "\n";
+        }
+        cout << "   " << clr::dgray << "+" << repeat(16, "-") << "+" << clr::reset << "\n";
+    }
+    static bool parse_sq(const string& t, int& r, int& c) {
+        if (t.size() != 2) return false;
+        c = tolower((unsigned char)t[0]) - 'a';
+        r = 8 - (t[1] - '0');
+        return r >= 0 && r < 8 && c >= 0 && c < 8;
+    }
+}
+
+static void play_chess() {
+    using namespace chess;
+    St s; init(s);
+    int side = 1; // player = white
+    while (true) {
+        if (g_stdin_eof || g_sigint) break;
+        render(s);
+        auto myLegal = legal(s, side);
+        if (myLegal.empty()) {
+            cout << "  " << (in_check(s, side) ? clr::error : clr::warning)
+                 << (in_check(s, side) ? ">> Checkmate — you lose!" : ">> Stalemate — draw.") << clr::reset << "\n";
+            break;
+        }
+        cout << "  " << clr::info << "You are White." << clr::reset << clr::dgray << "  Move like e2 e4 · q quit" << clr::reset << "\n";
+        if (in_check(s, side)) cout << "  " << clr::warning << "⚠ You are in check!" << clr::reset << "\n";
+        cout << "  Your move: " << flush;
+        string ln = cooked_readline();
+        if (ln == "q" || ln == "Q") break;
+        istringstream is(ln);
+        string a, bs; is >> a >> bs;
+        int fr, fc, tr, tc;
+        if (!parse_sq(a, fr, fc) || !parse_sq(bs, tr, tc)) { continue; }
+        bool found = false;
+        for (const auto& m : myLegal)
+            if (m.fr==fr && m.fc==fc && m.tr==tr && m.tc==tc) { make(s, m, side); found = true; break; }
+        if (!found) { cout << "  " << clr::error << "Illegal move." << clr::reset << "\n"; this_thread::sleep_for(chrono::milliseconds(500)); continue; }
+
+        auto aiMoves = legal(s, -side);
+        if (aiMoves.empty()) {
+            render(s);
+            cout << "  " << (in_check(s, -side) ? clr::success : clr::warning)
+                 << (in_check(s, -side) ? ">> Checkmate — you win!!" : ">> Stalemate — draw.") << clr::reset << "\n";
+            break;
+        }
+        // greedy 2-ply: maximize immediate material minus opponent's best capture reply
+        int bi = 0; long long bs2 = LLONG_MIN;
+        for (size_t i = 0; i < aiMoves.size(); i++) {
+            St t = s; make(t, aiMoves[i], -side);
+            long long sc = 0;
+            if (s.b[aiMoves[i].tr][aiMoves[i].tc] != 0) sc += 10 * material_of(s.b[aiMoves[i].tr][aiMoves[i].tc]);
+            long long worst = 0;
+            for (const auto& om : legal(t, side))
+                if (t.b[om.tr][om.tc] != 0) worst = max(worst, (long long)material_of(t.b[om.tr][om.tc]));
+            sc -= 10 * worst;
+            int cr = aiMoves[i].tr, cc = aiMoves[i].tc;
+            sc -= (abs(cr-3) + abs(cc-4)); // mild center pull
+            if (sc > bs2) { bs2 = sc; bi = (int)i; }
+        }
+        make(s, aiMoves[bi], -side);
+    }
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// ---------- IDLE CLICKER (persistent progress in VFS /home/clicker.sav) ----------
+struct ClickerState { double coins = 0; long clicks = 0; array<int,5> lvl = {{0,0,0,0,0}}; long long last_epoch = 0; };
+static const struct { const char* name; double base; double rate; } CLICK_ITEMS[5] = {
+    {"Auto-Cursor", 15, 0.1}, {"Grandma", 100, 1}, {"Farm", 1100, 8},
+    {"Factory", 12000, 47}, {"Portal", 130000, 260},
+};
+static double click_cost(int i, const ClickerState& st) {
+    return CLICK_ITEMS[i].base * pow(1.15, st.lvl[i]);
+}
+static double click_cps(const ClickerState& st) {
+    double r = 0; for (int i = 0; i < 5; i++) r += st.lvl[i] * CLICK_ITEMS[i].rate; return r;
+}
+static void clicker_write(map<string,FSNode>& fs, const ClickerState& st) {
+    time_t now = time(nullptr);
+    ostringstream body; body << fixed << setprecision(2) << st.coins << "\n" << st.clicks;
+    for (int l : st.lvl) body << " " << l;
+    body << "\n" << (long long)now << "\n";
+    fs["/home/clicker.sav/"] = FSNode(false, body.str());
+}
+static bool clicker_read(map<string,FSNode>& fs, ClickerState& st) {
+    auto c = vfs_read("/home/clicker.sav", fs, "/");
+    if (!c) return false;
+    istringstream is(*c);
+    if (!(is >> st.coins >> st.clicks)) return false;
+    for (int i = 0; i < 5; i++) if (!(is >> st.lvl[i])) st.lvl[i] = 0;
+    is >> st.last_epoch;
+    // passive offline income, capped at 8h
+    long long now = (long long)time(nullptr);
+    long long dt = now - st.last_epoch;
+    if (dt > 0 && st.last_epoch > 0) {
+        dt = min<long long>(dt, 8 * 3600);
+        st.coins += click_cps(st) * (double)dt;
+    }
+    return true;
+}
+
+static void play_clicker(map<string,FSNode>& fs) {
+    ClickerState st;
+    bool loaded = clicker_read(fs, st);
+    auto fmt = [](double v) {
+        ostringstream o; o << fixed << setprecision(v < 100 ? 1 : 0) << v;
+        string s = o.str(); return s;
+    };
+    while (true) {
+        if (g_stdin_eof || g_sigint) break;
+        cout << "\033[2J\033[1;1H";
+        double cps = click_cps(st);
+        cout << "\n  " << clr::bold << clr::yellow << "🍪 NOCOIN CLICKER" << clr::reset;
+        if (loaded && st.last_epoch) cout << clr::dgray << "  (progress restored)" << clr::reset;
+        cout << "\n\n";
+        cout << "  " << clr::gray << "Coins: " << clr::reset << clr::bold << clr::amber << fmt(st.coins) << clr::reset
+             << clr::gray << "   +" << fmt(cps) << "/s   click power " << fmt(1.0 + floor(cps / 10.0)) << clr::reset << "\n";
+        cout << "  " << clr::dgray << repeat(44, "─") << clr::reset << "\n";
+        for (int i = 0; i < 5; i++) {
+            double cost = click_cost(i, st);
+            bool afford = st.coins >= cost;
+            cout << "  " << (afford ? clr::lcyan : clr::dgray) << "[" << (i+1) << "] "
+                 << setw(11) << left << CLICK_ITEMS[i].name << " x" << st.lvl[i]
+                 << "   cost " << setw(9) << fmt(cost)
+                 << "   +" << CLICK_ITEMS[i].rate << "/s" << clr::reset << "\n";
+        }
+        cout << "  " << clr::dgray << repeat(44, "─") << clr::reset << "\n";
+        cout << "  " << clr::gray << "SPACE=click  1-5=buy  q=save&quit" << clr::reset << "\n";
+
+        auto tick_start = chrono::steady_clock::now();
+        while (!kbhit()) {
+            this_thread::sleep_for(chrono::milliseconds(60));
+            double dt = chrono::duration<double>(chrono::steady_clock::now() - tick_start).count();
+            st.coins += cps * dt;
+            if (g_stdin_eof || g_sigint) break;
+        }
+        int k = getkey();
+        if (k == 'q' || k == 'Q' || k == KEY_ESC || g_stdin_eof || g_sigint) break;
+        else if (k == KEY_SPACE) { st.coins += 1.0 + floor(cps / 10.0); st.clicks++; }
+        else if (k >= '1' && k <= '5') {
+            int i = k - '1';
+            double cost = click_cost(i, st);
+            if (st.coins >= cost) { st.coins -= cost; st.lvl[i]++; }
+        }
+    }
+    while (kbhit()) (void)getkey();
+    clicker_write(fs, st);
+    cout << "\n  " << clr::success << "Saved " << fixed << setprecision(0) << st.coins
+         << " coins to /home/clicker.sav" << clr::reset << "\n\n";
+}
+
+// ---------- TAMAGOTCHI PET (persistent in VFS /home/pet.save) ----------
+struct PetState { string name = "Pixel"; int hunger=80, happy=80, energy=80, clean=80; long long last = 0; };
+static void pet_load(map<string,FSNode>& fs, PetState& p) {
+    auto c = vfs_read("/home/pet.save", fs, "/");
+    if (!c) return;
+    istringstream is(*c);
+    getline(is, p.name, '|');
+    string f;
+    if (getline(is, f, '|')) p.hunger = atoi(f.c_str());
+    if (getline(is, f, '|')) p.happy = atoi(f.c_str());
+    if (getline(is, f, '|')) p.energy = atoi(f.c_str());
+    if (getline(is, f, '|')) p.clean = atoi(f.c_str());
+    if (getline(is, f, '|')) p.last = atoll(f.c_str());
+    long long now = (long long)time(nullptr);
+    long long hrs = p.last ? (now - p.last) / 3600 : 0;
+    hrs = min<long long>(hrs, 72);
+    p.hunger = max(0, p.hunger - (int)(8*hrs));
+    p.happy  = max(0, p.happy  - (int)(6*hrs));
+    p.energy = max(0, p.energy - (int)(5*hrs));
+    p.clean  = max(0, p.clean  - (int)(4*hrs));
+}
+static void pet_save(map<string,FSNode>& fs, const PetState& p) {
+    ostringstream b; b << p.name << "|" << p.hunger << "|" << p.happy << "|" << p.energy << "|" << p.clean << "|" << (long long)time(nullptr) << "\n";
+    fs["/home/pet.save/"] = FSNode(false, b.str());
+}
+static void cmd_pet(const string& args, map<string,FSNode>& fs) {
+    PetState p; pet_load(fs, p);
+    string action = args.substr(0, args.find(' '));
+    string rest = args.empty() ? "" : (args.find(' ') == string::npos ? "" : args.substr(args.find(' ') + 1));
+    if (action == "name") {
+        if (!rest.empty()) { p.name = rest; cout << "  " << clr::success << "Pet named " << p.name << "." << clr::reset << "\n"; }
+        else cout << "Usage: pet name <newname>\n";
+        pet_save(fs, p); return;
+    }
+    auto clamp100 = [](int v){ return max(0, min(100, v)); };
+    if (action == "feed")       { p.hunger = clamp100(p.hunger + 30); p.clean = clamp100(p.clean - 5);  cout << "  🍪 " << p.name << " munches happily.\n"; }
+    else if (action == "play")  { p.happy = clamp100(p.happy + 25); p.energy = clamp100(p.energy - 15); p.hunger = clamp100(p.hunger - 10); cout << "  🎾 " << p.name << " chases the ball!\n"; }
+    else if (action == "sleep") { p.energy = clamp100(p.energy + 40); p.hunger = clamp100(p.hunger - 5); cout << "  💤 " << p.name << " naps peacefully.\n"; }
+    else if (action == "clean") { p.clean = clamp100(p.clean + 40); p.happy = clamp100(p.happy - 3); cout << "  🛁 " << p.name << " is sparkling clean.\n"; }
+    else {
+        int mood = (p.hunger + p.happy + p.energy + p.clean) / 4;
+        const char* face = mood > 70 ? "(◕‿◕)" : mood > 40 ? "(•_•)" : mood > 20 ? "(╥_╥)" : "(✖﹏✖)";
+        const char* moodtxt = mood > 70 ? "thriving" : mood > 40 ? "okay" : mood > 20 ? "sad" : "critical!";
+        cout << "\n  " << clr::bold << clr::accent << face << " " << p.name << clr::reset
+             << "  " << clr::muted << "(" << moodtxt << ", age " << ((p.last ? (time(nullptr)-p.last)/3600 : 0)) << "h)" << clr::reset << "\n";
+        auto bar = [](const char* label, int v) {
+            cout << "  " << clr::gray << setw(7) << left << label
+                 << clr::cyan << repeat(v/10, "█") << clr::reset << clr::dgray << repeat(10 - v/10, "░") << clr::reset
+                 << " " << v << "%\n";
+        };
+        bar("hunger", p.hunger); bar("happy", p.happy); bar("energy", p.energy); bar("clean", p.clean);
+        cout << "  " << clr::dgray << "actions: pet feed|play|sleep|clean|name X" << clr::reset << "\n";
+        pet_save(fs, p); // decay checkpoint even on plain status view
+        return;
+    }
+    pet_save(fs, p);
+    cout << "  " << clr::muted << "Status saved to /home/pet.save — come back soon!" << clr::reset << "\n";
+}
+
+// ---------- FISHING SIM (catch log in VFS /home/fishing.log) ----------
+static const struct { const char* name; double lo, hi; int w; } FISH_DB[] = {
+    {"Old Boot", 0.2, 1.5, 12}, {"Carp", 0.5, 6, 30}, {"Perch", 0.4, 3, 25},
+    {"Trout", 0.8, 8, 18}, {"Catfish", 2, 22, 9}, {"Salmon", 2, 14, 8},
+    {"Pike", 3, 18, 5}, {"Golden Koi", 0.5, 4, 1},
+};
+static void play_fishing(map<string,FSNode>& fs) {
+    while (true) {
+        if (g_stdin_eof || g_sigint) break;
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::lcyan << "🎣 GONE FISHING" << clr::reset << clr::dgray << "  (ENTER=cast · s=stats · q=quit)" << clr::reset << "\n";
+        cout << "  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        cout << "  Command: " << flush;
+        string ln = cooked_readline();
+        if (ln == "q" || ln == "Q") break;
+        if (ln == "s" || ln == "stats") {
+            auto logc = vfs_read("/home/fishing.log", fs, "/");
+            if (!logc) { cout << "  " << clr::muted << "No catches yet." << clr::reset << "\n"; continue; }
+            map<string,int> counts; double best = 0; string bestName; int total = 0;
+            istringstream ls(*logc); string row;
+            while (getline(ls, row)) {
+                size_t t1 = row.find('\t'); if (t1 == string::npos) continue;
+                size_t t2 = row.find('\t', t1 + 1); if (t2 == string::npos) continue;
+                string nm = row.substr(t1 + 1, t2 - t1 - 1);
+                double w = atof(row.substr(t2 + 1).c_str());
+                counts[nm]++; total++;
+                if (w > best) { best = w; bestName = nm; }
+            }
+            cout << "  " << clr::info << "Total catches: " << total << clr::reset << "\n";
+            for (auto& [nm, cnt] : counts) cout << "   " << clr::gray << setw(12) << left << nm << cnt << "\n";
+            if (best > 0) cout << "  " << clr::warning << "🏆 Best: " << bestName << " (" << best << " kg)" << clr::reset << "\n";
+            continue;
+        }
+        // cast!
+        cout << "  Casting";
+        int wait_ms = rng_int(1200, 3500);
+        int slept = 0;
+        bool bit = false;
+        while (slept < wait_ms) {
+            this_thread::sleep_for(chrono::milliseconds(150)); slept += 150;
+            cout << clr::cyan << "." << clr::reset << flush;
+            if (g_stdin_eof || g_sigint) break;
+        }
+        if (!bit && !(g_stdin_eof || g_sigint)) {
+            cout << clr::warning << " !!! BITE !!! press ENTER fast!" << clr::reset << flush;
+            auto deadline = chrono::steady_clock::now() + chrono::milliseconds(900);
+            bool caught = false;
+            while (chrono::steady_clock::now() < deadline) {
+                if (kbhit()) { int k = getkey(); if (k == '\n' || k == '\r' || k == 'f' || k == 'F') { caught = true; break; } }
+                this_thread::sleep_for(chrono::milliseconds(10));
+            }
+            if (caught) {
+                int roll = rng_int(1, 108), acc = 0, pick = 0;
+                for (int i = 0; i < 8; i++) { acc += FISH_DB[i].w; if (roll <= acc) { pick = i; break; } }
+                double w = FISH_DB[pick].lo + (FISH_DB[pick].hi - FISH_DB[pick].lo) * (rng_int(0, 100) / 100.0);
+                cout << "\n  " << (pick == 0 ? clr::error : clr::success) << " Caught a " << FISH_DB[pick].name
+                     << "! (" << fixed << setprecision(1) << w << " kg)" << clr::reset << "\n";
+                string entry = get_timestamp() + "\t" + FISH_DB[pick].name + "\t" + to_string(w).substr(0, 4) + "\n";
+                string oldlog = vfs_read("/home/fishing.log", fs, "/").value_or("");
+                fs["/home/fishing.log/"] = FSNode(false, oldlog + entry);
+            } else {
+                cout << "\n  " << clr::muted << "It got away..." << clr::reset << "\n";
+            }
+        }
+        cout << "\n";
+    }
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// ---------- TOYS: pkg-gated bonus commands ----------
+static const struct { char ch; const char* rows[5]; } FIG_FONT[] = {
+    {'A',{"███▌ ","█▐█▌ ","█████","█▐█▌ ","▐▒ █"}},
+    {'B',{"████ ","█▐▐▌ ","███▌ ","█▐▐▌ ","████ "}},
+    {'C',{"█████","█▄▄▄ ","█    ","█▄▄▄ ","█████"}},
+    {'D',{"███▌ ","█▐▐▌ ","█▐▐▌ ","█▐▐▌ ","███▌ "}},
+    {'E',{"█████","█▄▄▄ ","███  ","█▄▄▄ ","█████"}},
+    {'F',{"█████","█▄▄▄ ","███  ","█    ","█    "}},
+    {'G',{"█████","█▄▄▄▄","█ ███","█▄▄██","█████"}},
+    {'H',{"█▐█▌ ","█▐█▌ ","█████","█▐█▌ ","█▐█▌ "}},
+    {'I',{"█████","  █  ","  █  ","  █  ","█████"}},
+    {'J',{"  ███","   ▐ ","   ▐ ","█  ▐ "," ██  "}},
+    {'K',{"█▐▐▌ ","█▐█  ","██   ","█▐█  ","█▐▐▌ "}},
+    {'L',{"█    ","█    ","█    ","█▄▄▄ ","█████"}},
+    {'M',{"█▐█▌ ","█████","█ █ █","█   █","█   █"}},
+    {'N',{"█▐▐▌ ","██▐▌ ","█▐██ ","▐▌██ ","▐▌▐▌ "}},
+    {'O',{"███▌ ","█▐▐▌ ","█▐▐▌ ","█▐▐▌ ","███▌ "}},
+    {'P',{"████ ","█▐▐▌ ","████ ","█    ","█    "}},
+    {'Q',{"███▌ ","█▐▐▌ ","█▐▐▌ ","█▄█▌ ","█████"}},
+    {'R',{"████ ","█▐▐▌ ","████ ","█▐█  ","█▐▐▌ "}},
+    {'S',{"█████","█▄▄▄ ","█████"," ▄▄▄█","█████"}},
+    {'T',{"█████","  █  ","  █  ","  █  ","  █  "}},
+    {'U',{"█▐▐▌ ","█▐▐▌ ","█▐▐▌ ","█▐▐▌ ","█████"}},
+    {'V',{"█▐▐▌ ","█▐▐▌ ","█▐▐▌ "," █▐█ ","  █  "}},
+    {'W',{"█   █","█ █ █","█████","█▐█▌ ","█   █"}},
+    {'X',{"█▐▐▌ "," ██  "," ██  "," ██  ","█▐▐▌ "}},
+    {'Y',{"█▐▐▌ "," ██  ","  █  ","  █  ","  █  "}},
+    {'Z',{"█████","  ▐█ "," ▐█  ","█▌   ","█████"}},
+    {'0',{"███▌ ","█▐██ ","█▐██ ","██▐▌ ","███▌ "}},
+    {'1',{" ▐█  ","███  "," ▐█  "," ▐█  ","█████"}},
+    {'2',{"████ ","   ▐ "," ██  ","█    ","█████"}},
+    {'3',{"████ ","   ▐ "," ██▌ ","   ▐ ","████ "}},
+    {'4',{"█▐█▌ ","█▐█▌ ","█████","  ▐█ ","  ▐█ "}},
+    {'5',{"█████","█▄▄▄ ","████ ","   ▐ ","████ "}},
+    {'6',{"████ ","█    ","████ ","█▐▐▌ ","████ "}},
+    {'7',{"█████","   ▐ ","  ██ "," ▐█  "," ▐   "}},
+    {'8',{"████ ","█▐▐▌ ","████ ","█▐▐▌ ","████ "}},
+    {'9',{"████ ","█▐▐▌ ","█████","   ▐ ","████ "}},
+    {' ',{"   ","   ","   ","   ","   "}},
+};
+static void cmd_figlet(const string& args) {
+    string text = args.empty() ? "NONAME OS" : args;
+    for (char& c : text) c = (char)toupper((unsigned char)c);
+    cout << "\n";
+    for (int row = 0; row < 5; row++) {
+        cout << "  " << clr::success;
+        for (char c : text) {
+            const char* art = "     ";
+            for (const auto& f : FIG_FONT) if (f.ch == c) { art = f.rows[row]; break; }
+            cout << art;
+        }
+        cout << clr::reset << "\n";
+    }
+    cout << "\n";
+}
+static void cmd_nyancat() {
+    const int W = 46;
+    for (int frame = 0; frame < 70 && !kbhit(); frame++) {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n" << repeat(12, " ");
+        for (int x = 0; x < W; x++)
+            cout << clr::rgb((x*11+frame*13)%256, (100+x*3)%256, (200-x*4+frame*7+256)%256) << "=" << clr::reset;
+        cout << "\n" << repeat(10, " ") << clr::white << "♪♪ ";
+        for (int x = 0; x < (frame % W); x++) cout << " ";
+        cout << clr::yellow << ",-----," << clr::reset << "\n";
+        cout << repeat(14, " ") << "|  o o  |" << "\n";
+        cout << repeat(14, " ") << "'--___--'" << clr::magenta << " ~ nyan ~" << clr::reset << "\n\n";
+        cout << clr::dgray << "  any key exits" << clr::reset << flush;
+        this_thread::sleep_for(chrono::milliseconds(80));
+    }
+    while (kbhit()) (void)getkey();
+    cout << "\033[0m\033[2J\033[1;1H";
+}
+static void cmd_starwars() {
+    vector<string> crawl = {
+        "", "   Episode IV", "   A NEW HOPE", "",
+        " It is a period of civil war. Rebel", " spaceships, striking from a hidden",
+        " base, have won their first victory", " against the evil Galactic Empire.",
+        "", " During the battle, Rebel spies man-", " aged to steal secret plans to the",
+        " Empire's ultimate weapon: the DEATH", " STAR. Pursued by the Empire's sinister",
+        " agents, Princess Leia races home", " aboard her starship, custodian of the",
+        " stolen plans that can save her people", " and restore freedom to the galaxy...",
+        "", " (ok it's actually just NoNameOS v3)", ""
+    };
+    for (size_t i = 0; i + 8 <= crawl.size() && !kbhit(); i += 1) {
+        cout << "\033[2J\033[1;1H";
+        for (int row = 8; row >= 1; row--) {
+            size_t idx = i + (size_t)(8 - row);
+            if (idx < crawl.size())
+                cout << "\033[" << row << ";14H" << clr::amber << crawl[idx] << clr::reset;
+        }
+        cout << flush;
+        this_thread::sleep_for(chrono::milliseconds(420));
+    }
+    while (kbhit()) (void)getkey();
+    cout << "\033[0m\033[2J\033[1;1H";
+}
+static void cmd_sheep(const string& args) {
+    string text = args.empty() ? "Baaah." : args;
+    if (text.length() >= 2 && text.front() == '"' && text.back() == '"') text = text.substr(1, text.length() - 2);
+    int w = (int)text.length() + 4;
+    cout << "\n  " << clr::dgray << vsep(w) << clr::reset << "\n";
+    cout << "  " << clr::white << "  " << text << "  " << clr::reset << "\n";
+    cout << "  " << clr::dgray << vsep(w) << clr::reset << "\n";
+    cout << "       " << clr::white << " __     " << clr::reset << "\n";
+    cout << "    " << clr::white << "u" << clr::reset << clr::gray << "..ssssss.." << clr::reset << clr::white << "__" << clr::reset << "\n";
+    cout << "      " << clr::gray << "(())" << clr::reset << clr::white << "((((((()))" << clr::reset << "\n";
+    cout << "         " << clr::gray << "^ ^" << clr::reset << "    ||\n\n";
+}
+
+// ---------- NEWS / MOTD ----------
+static const vector<string> NEWS_DB = {
+    "Kernel hacker replaces sleep with coffee; compiler approves.",
+    "Local VFS file wins 'Most Persisted' award third year running.",
+    "Snake high score beaten by player with arrow keys held down.",
+    "Study: 9 of 10 terminals prefer being raw-mode'd by NoNameOS.",
+    "Trash directory declared 'coziest place in the filesystem'.",
+    "Chess AI admits it only knows how to grab shiny pieces.",
+    "Golden Koi still at large in /home/fishing.log.",
+    "Tamagotchi union demands shorter decay rates between sessions.",
+    "Idle clicker players collectively click 42 million times.",
+    "Pipes reported working; plumbers everywhere relieved.",
+};
+static string news_headline(size_t i) { return NEWS_DB[i % NEWS_DB.size()]; }
+static void cmd_news() {
+    time_t now = time(nullptr);
+    tm tb; localtime_r(&now, &tb);
+    int day = tb.tm_yday;
+    cout << "\n  " << clr::bold << clr::header << "📰 NoNameOS Daily — " << VERSION << clr::reset << "\n";
+    cout << "  " << clr::dgray << vsep(48) << clr::reset << "\n";
+    for (int i = 0; i < 3; i++)
+        cout << "  " << clr::warning << "• " << clr::reset << clr::white << news_headline((size_t)(day + i)) << clr::reset << "\n";
+    cout << "  " << clr::dgray << vsep(48) << clr::reset << "\n";
+    cout << "  " << clr::muted << "weather: simulated · markets: vibes · sports: snake won" << clr::reset << "\n\n";
+}
+
+// ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
 // SECTION 12: Main Entry Point
 // ═══════════════════════════════════════════════════════════════
@@ -4543,6 +5463,23 @@ void cmd_type() {
     // Use RAII to manage terminal state — auto-restores on any exit path
     TerminalGuard tg;
     cout << "\033[2J\033[1;1H";
+
+    // v3.0: peek saved theme/prompt from the persistence file BEFORE the logo
+    // so the whole boot renders in the user's chosen palette.
+    {
+        FILE* cf = fopen(persist_path().c_str(), "r");
+        if (cf) {
+            char lb[4096];
+            if (fgets(lb, sizeof(lb), cf) && string(lb).rfind("NNOS3", 0) == 0) {
+                while (fgets(lb, sizeof(lb), cf)) {
+                    string l(lb); while (!l.empty() && (l.back()=='\n'||l.back()=='\r')) l.pop_back();
+                    if (l.rfind("T ", 0) == 0) apply_theme(l.substr(2));
+                    else if (l.rfind("P ", 0) == 0) g_prompt_fmt = vfs_unescape(l.substr(2));
+                }
+            }
+            fclose(cf);
+        }
+    }
 
     // --- Boot Logo ---
     const vector<string> logo = {
@@ -4611,7 +5548,6 @@ void cmd_type() {
 
     string current_user = "root";
     string current_dir = "/";
-    string input;
     vector<string> cmd_history;
     map<string, string> aliases;
     auto last_cmd_end = chrono::steady_clock::now();
@@ -4619,38 +5555,117 @@ void cmd_type() {
     aliases[".."] = "cd ..";
     aliases["ttt"] = "tictactoe";
 
-    while (true) {
-        if (g_quit || g_stdin_eof) break;
-        g_sigint = 0; // consume any SIGINT left by an aborted game; return cleanly to prompt
-        {
-            auto dur = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - last_cmd_end).count();
-            if (cmd_history.size() > 0 && dur > 100)
-                cout << clr::dgray << " " << dur << "ms" << clr::reset;
+    // v3.0: restore persisted session (VFS, aliases, users, packages)
+    {
+        int restored_nodes = (int)file_system.size();
+        if (persist_load(file_system, aliases, SYSTEM_USERS)) {
+            restored_nodes = (int)file_system.size();
+            cout << "  " << clr::success << "✓ Session restored — " << restored_nodes << " VFS nodes" << clr::reset << "\n";
+            if (!g_installed_pkgs.empty())
+                cout << "  " << clr::muted << "packages: ";
+            for (const auto& p : g_installed_pkgs) cout << p << " ";
+            if (!g_installed_pkgs.empty()) cout << clr::reset << "\n";
         }
-        cout << "\n" << clr::prompt_user << current_user << clr::prompt_host << "@"
-             << clr::prompt_host << "nonameos" << clr::prompt_sep << ":"
-             << clr::prompt_dir << current_dir << clr::reset << "\n"
-             << clr::prompt_sep << "❯ " << clr::reset << flush;
-        string ri = readline_global(cmd_history);
-        input = ri;
+    }
 
-        if (input.empty()) continue;
-        cmd_history.push_back(input);
-        auto [cmd, args] = parse_command(input);
+    // v3.0 MOTD headline under the boot banner
+    {
+        time_t now = time(nullptr); tm tb; localtime_r(&now, &tb);
+        cout << "  " << clr::dgray << "📰 " << news_headline((size_t)tb.tm_yday) << clr::reset << "\n\n";
+    }
 
-        // Resolve aliases
+    // ═════════════════════════════════════════════════════════════
+    // v3.0 SHELL ENGINE: chains (; &&), pipelines (|), redirects (> >> <),
+    // glob expansion, and the recursive-capable line runner used by scripts.
+    // exec_segment runs one command with optional stdout capture.
+    // Returns true = success (used by &&).
+    // ═════════════════════════════════════════════════════════════
+    function<bool(const string&)> run_one;   // assigned after exec_segment
+    auto split_unquoted = [](const string& s, const string& sep) {
+        vector<string> parts; string cur; bool dq = false;
+        for (size_t i = 0; i < s.size(); i++) {
+            char c = s[i];
+            if (c == '"') { dq = !dq; cur += c; continue; }
+            if (!dq) {
+                bool hit = false;
+                for (char sc : sep) if (c == sc) hit = true;
+                if (hit) { parts.push_back(cur); cur.clear(); continue; }
+                if (c == '&' && i + 1 < s.size() && s[i+1] == '&') { parts.push_back(cur); parts.push_back("&&"); cur.clear(); i++; continue; }
+            }
+            cur += c;
+        }
+        parts.push_back(cur);
+        return parts;
+    };
+
+    auto exec_segment = [&](const string& raw_seg, bool capture_out, string& captured) -> bool {
+        string seg = raw_seg;
+        // strip leading/trailing whitespace
+        size_t b = seg.find_first_not_of(" \t");
+        size_t e = seg.find_last_not_of(" \t");
+        seg = (b == string::npos) ? "" : seg.substr(b, e - b + 1);
+        if (seg.empty()) return true;
+
+        // input redirect < file (overrides piped stdin when present)
+        {
+            size_t lt = seg.find('<');
+            bool prev_lt = lt != string::npos && lt > 0 && seg[lt-1] == '<';
+            if (lt != string::npos && !prev_lt) {
+                string after;
+                istringstream is(seg.substr(lt + 1)); is >> after;
+                if (!after.empty()) {
+                    g_stdin_live = false; g_stdin_buf.clear();
+                    if (!has_traversal(after)) {
+                        auto data = vfs_read(after, file_system, current_dir);
+                        if (data) { g_stdin_buf = *data; g_stdin_live = true; }
+                    }
+                    seg = seg.substr(0, lt);
+                    while (!seg.empty() && (seg.back() == ' ' || seg.back() == '\t')) seg.pop_back();
+                }
+            }
+        }
+
+        // output redirects > >> (only meaningful when not capturing for a pipe)
+        string redir_file; bool append_mode = false;
+        {
+            size_t pos = string::npos;
+            for (size_t i = 0; i + 1 < seg.size(); i++) {
+                if ((seg[i] == '>' ) && seg.find('>', i+1) != i+1 && pos == string::npos) { pos = i; append_mode = false; }
+                if (seg[i] == '>' && i + 1 < seg.size() && seg[i+1] == '>') { pos = i; append_mode = true; break; }
+            }
+            if (pos != string::npos) {
+                istringstream is(seg.substr(pos + (append_mode ? 2 : 1)));
+                is >> redir_file;
+                seg = seg.substr(0, pos);
+                while (!seg.empty() && seg.back() == ' ') seg.pop_back();
+            }
+        }
+
+        // glob expansion against the VFS
+        seg = expand_globs(seg, file_system, current_dir);
+
+        auto [cmd, args] = parse_command(seg);
+        if (cmd.empty()) return true;
+
+        // alias resolution (single hop, like v2)
         if (aliases.find(cmd) != aliases.end()) {
             string alias_cmd = aliases[cmd];
             if (!args.empty()) alias_cmd += " " + args;
-            auto [resolved_cmd, resolved_args] = parse_command(alias_cmd);
-            cmd = resolved_cmd;
-            args = resolved_args;
+            auto [rc, ra] = parse_command(alias_cmd);
+            cmd = rc; args = ra;
         }
+
+        ostringstream sink;
+        streambuf* oldbuf = nullptr;
+        if (capture_out || !redir_file.empty()) { oldbuf = cout.rdbuf(sink.rdbuf()); }
+
+        // ───────── dispatch chain (moved from v2 main loop) ─────────
+        bool ok = true;
 
         if (cmd == "help") {
             if (!args.empty()) {
                 cout << "\n  " << clr::accent << clr::bold << args << clr::reset << " — " << clr::gray << help_text(args) << clr::reset << "\n\n";
-                continue;
+                return true;
             }
             cout << "\n  " << clr::bold << clr::cyan << "NoNameOS " << VERSION << clr::reset << "\n  " << clr::dgray << vsep(42) << clr::reset << "\n";
 
@@ -4676,6 +5691,9 @@ void cmd_type() {
             section("v2.0 Tools", "fib, primes, collatz, sine, cube, shell\nlogout, mac, geoip, dict");
             section("v2.0 Easter Eggs", "llm, gpt, blockchain, mine, neo, rabbit\ndlc, kitchen, toaster, canon");
             section("v2.0 Effects", "spinner, progress, gauge, rain, fire, stream, type");
+            section("v3.0 Games", "chess, clicker, pet, fishing");
+            section("v3.0 Shell", "run, set, save, load, persist\ntheme, prompt, news · pipes | · redirects > >> <\nchains && ; · globs * ? · TAB complete · Ctrl+R search");
+            section("v3.0 Tools", "crunch, pack, packlist, unpack, pkg");
 
             cout << "\n  " << clr::dgray << vsep(42) << clr::reset << "\n";
             cout << "  " << clr::dim << "Tip: " << clr::muted << "type " << clr::lcyan << "help <cmd>" << clr::muted << " or " << clr::lcyan << "man <cmd>" << clr::muted << " for details" << clr::reset << "\n\n";
@@ -4773,16 +5791,23 @@ void cmd_type() {
             }
         }
         else if (cmd == "cat") {
-            if (args.empty()) { cout << "Usage: cat <file>\n"; }
+            if (args.empty() && g_stdin_live) { cout << g_stdin_buf; }
+            else if (args.empty()) { cout << "Usage: cat <file> [file...]\n"; }
             else if (args == "/dev/brain") {
                 cout << "\n  " << clr::gray << "Error: device not found. You're already using it." << clr::reset << "\n\n";
             }
             else if (has_traversal(args)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
-                string fullpath = resolve_user_path(args, current_dir);
-                fullpath = resolved_path(file_system, fullpath);
-                if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir) cout << file_system[fullpath].content << "\n";
-                else cout << "\033[31merror:\033[0m file not found.\n";
+                // v3: multiple files supported (also what glob expansion produces)
+                istringstream cs(args);
+                string one;
+                while (cs >> one) {
+                    string fullpath = resolve_user_path(one, current_dir);
+                    fullpath = resolved_path(file_system, fullpath);
+                    if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir)
+                        cout << file_system[fullpath].content << "\n";
+                    else cout << "\033[31merror:\033[0m file not found: " << one << "\n";
+                }
             }
         }
         else if (cmd == "rm") {
@@ -4818,21 +5843,27 @@ void cmd_type() {
                     cout << "\033[32mTrashed " << dirname << " recursively.\033[0m\n";
                     }
                 } else {
-                    string src = resolve_user_path(args, current_dir);
-                    if (file_system.find(src) != file_system.end() && !file_system[src].is_dir) {
-                        string name = args.substr(args.find_last_of('/') + 1);
-                        if (name.empty()) name = src;
-                        file_system[trash_dir + ts + "_" + name] = file_system[src];
-                        file_system.erase(src);
-                        cout << "\033[32mTrashed " << args << ".\033[0m\n";
-                    } else {
-                        cout << "\033[31merror:\033[0m file not found (use rm -r for directories).\n";
+                    // v3: multiple files (also what glob expansion produces)
+                    istringstream rs(args);
+                    string one;
+                    int trashed = 0, missing = 0;
+                    while (rs >> one) {
+                        string src = resolve_user_path(one, current_dir);
+                        if (file_system.find(src) != file_system.end() && !file_system[src].is_dir) {
+                            string name = one.substr(one.find_last_of('/') + 1);
+                            if (name.empty()) name = src;
+                            file_system[trash_dir + ts + "_" + name] = file_system[src];
+                            file_system.erase(src);
+                            trashed++;
+                        } else missing++;
                     }
+                    if (trashed) cout << "\033[32mTrashed " << trashed << " file(s).\033[0m\n";
+                    if (missing) cout << "\033[31merror:\033[0m " << missing << " not found (use rm -r for directories).\n";
                 }
             }
         }
         else if (cmd == "clear") cout << "\033[2J\033[1;1H";
-        else if (cmd == "exit") break;
+        else if (cmd == "exit") { g_quit = true; return true; }
         else if (cmd == "play") {
             // Launch the AsciiDash obstacle runner; optionally load a custom map from VFS
             if (args.empty()) {
@@ -4897,8 +5928,16 @@ void cmd_type() {
         }
         else if (cmd == "grep") {
             size_t sp = args.find(' ');
-            if (sp == string::npos) {
-                cout << "Usage: grep <pattern> <filename>\n";
+            if (sp == string::npos && !g_stdin_live) {
+                cout << "Usage: grep <pattern> [file]  (or pipe into grep)\n";
+            } else if (g_stdin_live && sp == string::npos) {
+                string pattern = args;
+                bool found = false;
+                istringstream ss(g_stdin_buf); string line;
+                while (getline(ss, line)) {
+                    if (line.find(pattern) != string::npos) { cout << line << "\n"; found = true; }
+                }
+                if (!found) cout << "(no matches)\n";
             } else {
                 string pattern = args.substr(0, sp);
                 string filename = args.substr(sp + 1);
@@ -5326,7 +6365,11 @@ void cmd_type() {
         }
         else if (cmd == "head") {
             string fn = args;
-            if (fn.empty()) { cout << "Usage: head <file>\n"; }
+            if (fn.empty() && g_stdin_live) {
+                istringstream ss(g_stdin_buf); string line;
+                for (int i = 0; i < HEAD_TAIL_LINES && getline(ss, line); i++) cout << line << "\n";
+            }
+            else if (fn.empty()) { cout << "Usage: head <file>\n"; }
             else if (has_traversal(fn)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(fn, current_dir);
@@ -5340,7 +6383,13 @@ void cmd_type() {
         }
         else if (cmd == "tail") {
             string fn = args;
-            if (fn.empty()) { cout << "Usage: tail <file>\n"; }
+            if (fn.empty() && g_stdin_live) {
+                vector<string> lines; istringstream ss(g_stdin_buf); string line;
+                while (getline(ss, line)) lines.push_back(line);
+                int start = max(0, (int)lines.size() - HEAD_TAIL_LINES);
+                for (int i = start; i < (int)lines.size(); i++) cout << lines[i] << "\n";
+            }
+            else if (fn.empty()) { cout << "Usage: tail <file>\n"; }
             else if (has_traversal(fn)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(fn, current_dir);
@@ -5357,7 +6406,13 @@ void cmd_type() {
         }
         else if (cmd == "sort") {
             string fn = args;
-            if (fn.empty()) { cout << "Usage: sort <file>\n"; }
+            if (fn.empty() && g_stdin_live) {
+                vector<string> lines; istringstream ss(g_stdin_buf); string line;
+                while (getline(ss, line)) lines.push_back(line);
+                sort(lines.begin(), lines.end());
+                for (const auto& l : lines) cout << l << "\n";
+            }
+            else if (fn.empty()) { cout << "Usage: sort <file>\n"; }
             else if (has_traversal(fn)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(fn, current_dir);
@@ -5374,7 +6429,19 @@ void cmd_type() {
         }
         else if (cmd == "wc") {
             string fn = args;
-            if (fn.empty()) { cout << "Usage: wc <file>\n"; }
+            if (fn.empty() && g_stdin_live) {
+                string content = g_stdin_buf;
+                int lines = 0, words = 0;
+                bool in_word = false;
+                for (char c : content) {
+                    if (c == '\n') lines++;
+                    if (c == ' ' || c == '\n' || c == '\t') in_word = false;
+                    else if (!in_word) { words++; in_word = true; }
+                }
+                if (!content.empty() && content.back() != '\n') lines++;
+                cout << "  " << lines << "  " << words << "  " << content.size() << "\n";
+            }
+            else if (fn.empty()) { cout << "Usage: wc <file>\n"; }
             else if (has_traversal(fn)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; }
             else {
                 string fullpath = resolve_user_path(fn, current_dir);
@@ -5435,6 +6502,8 @@ void cmd_type() {
                     {"minesweeper", "MINESWEEPER(1)\t\tGame Commands\n\nNAME\n\tminesweeper - terminal minesweeper\n\nSYNOPSIS\n\tminesweeper\n\nDESCRIPTION\n\tReveal cells by entering coordinates (x y). Avoid mines. Flag with 'f x y'."},
                     {"cfetch", "CFETCH(1)\t\tUser Commands\n\nNAME\n\tcfetch - system info display\n\nSYNOPSIS\n\tcfetch\n\nDESCRIPTION\n\tDisplay system information similar to neofetch."},
                     {"ps", "PS(1)\t\t\tUser Commands\n\nNAME\n\tps - list running processes\n\nSYNOPSIS\n\tps\n\nDESCRIPTION\n\tDisplay a snapshot of current simulated processes."},
+                    {"run", "RUN(1)\t\t\tNoNameOS Shell\n\nNAME\n\trun - execute a .nnsh script from the VFS\n\nSYNOPSIS\n\trun <script.nnsh> [args...]\n\nDESCRIPTION\n\tRuns each line through the shell. Supports # comments,\n\tset name=value variables, $name/$1..$9/$@ substitution,\n\tand single-line: if A == B then <command>."},
+                    {"pkg", "PKG(8)\t\t\tNoNameOS System\n\nNAME\n\tpkg - package manager for bonus toys\n\nSYNOPSIS\n\tpkg list | install <pkg> | remove <pkg> | search <term>\n\nDESCRIPTION\n\tInstall gated commands (figlet, nyancat, starwars, sheep).\n\tInstalled set persists across sessions."},
                     {"uname", "UNAME(1)\t\tUser Commands\n\nNAME\n\tuname - system information\n\nSYNOPSIS\n\tuname [-a | -r | -s | -m]\n\nDESCRIPTION\n\tPrint system information. -a for all, -r for release, -s for OS on Name, -m for architecture."},
                     {"uptime", "UPTIME(1)\t\tUser Commands\n\nNAME\n\tuptime - system uptime\n\nSYNOPSIS\n\tuptime\n\nDESCRIPTION\n\tDisplay how long the system has been running."},
                     {"cal", "CAL(1)\t\t\tUser Commands\n\nNAME\n\tcal - display calendar\n\nSYNOPSIS\n\tcal\n\nDESCRIPTION\n\tDisplay the current month's calendar with today highlighted."},
@@ -5988,15 +7057,40 @@ void cmd_type() {
             }
         }
         else if (cmd == "stopwatch") {
-            cout << "--- Stopwatch ---\n";
-            cout << "Press Enter to start...";
-            cooked_readline();
-            auto start = chrono::steady_clock::now();
-            cout << "Press Enter to stop...";
-            cooked_readline();
-            auto end = chrono::steady_clock::now();
-            auto elapsed_ms = chrono::duration_cast<chrono::milliseconds>(end - start).count();
-            cout << "Elapsed: " << (elapsed_ms / 1000) << "." << (elapsed_ms % 1000) << "s\n";
+            // v3: SPACE start/lap · ENTER stop · q cancel — live elapsed readout
+            cout << "\n  " << clr::info << "STOPWATCH" << clr::reset << clr::dgray << "  SPACE=start/lap · ENTER=stop · q=cancel" << clr::reset << "\n";
+            vector<double> laps;
+            auto t0 = chrono::steady_clock::now();
+            auto lapT = t0;
+            bool running = false, done = false;
+            while (!done) {
+                if (g_stdin_eof || g_sigint) break;
+                if (kbhit()) {
+                    int k = getkey();
+                    if (k == 'q' || k == 'Q') { running = false; done = true; break; }
+                    if (k == KEY_SPACE && !running) { running = true; t0 = chrono::steady_clock::now(); lapT = t0; }
+                    else if (k == KEY_SPACE && running) {
+                        double l = chrono::duration<double>(chrono::steady_clock::now() - lapT).count();
+                        lapT = chrono::steady_clock::now();
+                        laps.push_back(l);
+                        cout << "\n  " << clr::cyan << "lap " << laps.size() << ": " << fixed << setprecision(2) << l << "s" << clr::reset;
+                    }
+                    else if ((k == '\n' || k == '\r' || k == KEY_ENTER) && running) done = true;
+                } else if (running) {
+                    double el = chrono::duration<double>(chrono::steady_clock::now() - t0).count();
+                    cout << "\r  " << clr::bold << fixed << setprecision(2) << el << "s " << clr::reset << flush;
+                }
+                this_thread::sleep_for(chrono::milliseconds(40));
+            }
+            while (kbhit()) (void)getkey();
+            if (running) {
+                double total = chrono::duration<double>(chrono::steady_clock::now() - t0).count();
+                cout << "\r  " << clr::success << fixed << setprecision(2) << "TOTAL " << total << "s"
+                     << "   (" << laps.size() << " laps)" << clr::reset << "\n";
+                for (size_t i = 0; i < laps.size(); i++)
+                    cout << "    lap " << (i+1) << ": " << fixed << setprecision(2) << laps[i] << "s\n";
+                cout << "\n";
+            }
         }
         else if (cmd == "timer") {
             int sec = 0;
@@ -6350,14 +7444,388 @@ void cmd_type() {
         else if (cmd == "fire") { cmd_fire(); }
         else if (cmd == "stream") { cmd_stream(); }
         else if (cmd == "type") { cmd_type(); }
+        // ═══════════════════════════════════════════════════════════
+        //  v3.0.0 — GAMES & SIMS
+        // ═══════════════════════════════════════════════════════════
+        else if (cmd == "chess") { play_chess(); }
+        else if (cmd == "clicker") { play_clicker(file_system); }
+        else if (cmd == "pet") { cmd_pet(args, file_system); }
+        else if (cmd == "fishing") { play_fishing(file_system); }
+        // ═══════════════════════════════════════════════════════════
+        //  v3.0.0 — SHELL / SYSTEM / TOOLS
+        // ═══════════════════════════════════════════════════════════
+        else if (cmd == "run") {
+            if (args.empty()) cout << "Usage: run <script.nnsh> [args...]\n";
+            else {
+                istringstream ws(args);
+                string script; ws >> script;
+                vector<string> sargv; string w;
+                while (ws >> w) sargv.push_back(w);
+                if (has_traversal(script)) cout << "\033[31merror:\033[0m path traversal not allowed.\n";
+                else {
+                    auto content = vfs_read(script, file_system, current_dir);
+                    if (!content) cout << "\033[31merror:\033[0m script not found.\n";
+                    else {
+                        istringstream ls(*content);
+                        string ln; int lineno = 0; int failures = 0;
+                        while (getline(ls, ln) && !g_quit && !g_stdin_eof) {
+                            lineno++;
+                            size_t hsh = ln.find('#');
+                            if (hsh != string::npos) ln = ln.substr(0, hsh);
+                            size_t b2 = ln.find_first_not_of(" \t");
+                            if (b2 == string::npos) continue;
+                            ln = script_subst(ln, sargv);
+                            if (ln.rfind("set ", 0) == 0) {
+                                string def = ln.substr(4);
+                                size_t eq = def.find('=');
+                                auto trimm = [](string s){ size_t a=s.find_first_not_of(" \t"); size_t z=s.find_last_not_of(" \t"); return a==string::npos?string():s.substr(a,z-a+1); };
+                                if (eq != string::npos) g_script_vars[trimm(def.substr(0, eq))] = trimm(def.substr(eq+1));
+                                else { istringstream ds(def); string k, v; ds >> k >> v; if (!k.empty()) g_script_vars[k] = v; }
+                                continue;
+                            }
+                            if (ln.rfind("if ", 0) == 0) {
+                                // form: if <a> == <b> then <command...>
+                                istringstream is2(ln);
+                                string kw, aa, op, bb, th;
+                                is2 >> kw >> aa >> op >> bb >> th;
+                                if (op != "==" || th != "then") { cout << "  script:" << lineno << " bad if (want: if A == B then cmd)\n"; failures++; continue; }
+                                string rest; getline(is2, rest);
+                                if (aa == bb) run_one(rest);
+                                continue;
+                            }
+                            if (!run_one(ln)) failures++;
+                        }
+                        if (failures) cout << "  " << clr::warning << failures << " step(s) reported failure" << clr::reset << "\n";
+                    }
+                }
+            }
+        }
+        else if (cmd == "set") {
+            // expose script variables at the prompt too: set greeting=hello
+            size_t eq = args.find('=');
+            if (eq == string::npos) { cout << "Usage: set name=value\n"; }
+            else {
+                string k = args.substr(0, eq), v = args.substr(eq + 1);
+                auto trimm = [](string s){ size_t a=s.find_first_not_of(" \t"); size_t z=s.find_last_not_of(" \t"); return a==string::npos?string():s.substr(a,z-a+1); };
+                g_script_vars[trimm(k)] = trimm(v);
+                cout << "  $" << trimm(k) << " = " << trimm(v) << "\n";
+            }
+        }
+        else if (cmd == "save")   { persist_save(file_system, aliases, SYSTEM_USERS); cout << "  " << clr::success << "Session saved to " << persist_path() << clr::reset << "\n"; }
+        else if (cmd == "load")   {
+            if (persist_load(file_system, aliases, SYSTEM_USERS))
+                cout << "  " << clr::success << "Session loaded (" << file_system.size() << " nodes)" << clr::reset << "\n";
+            else cout << "  " << clr::error << "No save file found." << clr::reset << "\n";
+        }
+        else if (cmd == "persist") {
+            if (args == "off")      { persist_enabled = false; cout << "  Persistence OFF.\n"; }
+            else if (args == "on")  { persist_enabled = true; cout << "  Persistence ON.\n"; }
+            else cout << "  Persistence is " << (persist_enabled ? "ON" : "OFF")
+                      << " · file: " << persist_path() << "\n";
+        }
+        else if (cmd == "theme") {
+            if (args.empty() || args == "list") {
+                cout << "\n  " << clr::header << "Themes" << clr::reset << "  " << clr::muted << "(theme set <name>)" << clr::reset << "\n";
+                for (const auto& t : THEME_DB)
+                    cout << "   " << (t.name == g_theme_name ? clr::success + "▸ " : "  ")
+                         << setw(9) << t.name
+                         << " " << clr::fg256(t.acc) << "█████" << clr::fg256(t.ok) << "███" << clr::fg256(t.inf) << "██" << clr::reset
+                         << "  " << clr::gray << t.desc << clr::reset << "\n";
+                cout << "\n";
+            } else {
+                istringstream ts(args); string sub, nm;
+                ts >> sub >> nm;
+                bool valid = false;
+                for (const auto& t : THEME_DB) if (t.name == nm) valid = true;
+                if (sub == "set" && valid) {
+                    apply_theme(nm);
+                    persist_save(file_system, aliases, SYSTEM_USERS);
+                    cout << "  " << clr::success << "Theme '" << nm << "' active (saved)." << clr::reset << "\n";
+                } else cout << "Usage: theme set <nonameos|matrix|dracula|ocean|sunset|mono>\n";
+            }
+        }
+        else if (cmd == "prompt") {
+            if (args.rfind("set ", 0) == 0) {
+                string fmtv = args.substr(4);
+                if (!fmtv.empty() && fmtv.front() == '"' && fmtv.back() == '"' && fmtv.size() >= 2) fmtv = fmtv.substr(1, fmtv.size()-2);
+                if (fmtv.size() > 200) { cout << "Prompt too long (max 200).\n"; }
+                else { g_prompt_fmt = fmtv; persist_save(file_system, aliases, SYSTEM_USERS);
+                       cout << "  " << clr::success << "Prompt updated." << clr::reset << " Tokens: %u %h %d %t %%\n"; }
+            }
+            else if (args == "reset") { g_prompt_fmt = "\n%u@nonameos:%d\n❯ "; persist_save(file_system, aliases, SYSTEM_USERS); cout << "  Prompt reset.\n"; }
+            else cout << "  Current template: \"" << g_prompt_fmt << "\"\n  Usage: prompt set \"\\n%u@%h:%d\\n❯ \"  (tokens %u %h %d %t %%)\n";
+        }
+        else if (cmd == "news") { cmd_news(); }
+        else if (cmd == "crunch") {
+            // crunch <file> <column> sum|avg|min|max|count
+            istringstream cs(args);
+            string fn, colS, op; cs >> fn >> colS >> op;
+            if (fn.empty() || colS.empty() || op.empty()) { cout << "Usage: crunch <file> <col> sum|avg|min|max|count\n"; }
+            else {
+                auto data = filter_source(fn, file_system, current_dir);
+                if (data) {
+                    int col = atoi(colS.c_str());
+                    double acc = 0, mn = 1e300, mx = -1e300; long n = 0, rows = 0;
+                    istringstream ds(*data); string row;
+                    while (getline(ds, row)) {
+                        if (row.empty()) continue;
+                        rows++;
+                        vector<string> cells;
+                        if (row.find(',') != string::npos) { string c2; istringstream rs(row); while (getline(rs, c2, ',')) cells.push_back(c2); }
+                        else { istringstream rs(row); string c2; while (rs >> c2) cells.push_back(c2); }
+                        if (col < 1 || col > (int)cells.size()) continue;
+                        char* endp = nullptr;
+                        double v = strtod(cells[col-1].c_str(), &endp);
+                        if (endp == cells[col-1].c_str()) continue; // not numeric
+                        acc += v; n++;
+                        mn = min(mn, v); mx = max(mx, v);
+                    }
+                    cout << "  " << clr::gray << "rows=" << rows << " numeric=" << n << clr::reset << "\n";
+                    if (n == 0 && op != "count") cout << "  no numeric values in column " << col << "\n";
+                    else {
+                        double res = op == "sum" ? acc : op == "avg" ? acc/max(1L,n) : op == "min" ? mn : op == "max" ? mx : (double)n;
+                        if (op != "sum" && op != "avg" && op != "min" && op != "max" && op != "count") { cout << "  unknown op\n"; }
+                        else cout << "  " << clr::info << op << " = " << fixed << setprecision(2) << res << clr::reset << "\n";
+                    }
+                }
+            }
+        }
+        else if (cmd == "pack") {
+            istringstream ps(args);
+            string out; ps >> out;
+            if (out.empty()) cout << "Usage: pack <out.npk> <dir|file> [...]\n";
+            else if (has_traversal(out)) cout << "\033[31merror:\033[0m path traversal not allowed.\n";
+            else {
+                string body = "NPK1\n"; int count = 0;
+                string pth;
+                while (ps >> pth) {
+                    if (has_traversal(pth)) continue;
+                    string full = resolve_user_path(pth, current_dir);
+                    full = resolved_path(file_system, full);
+                    if (full.back() != '/') full += "/";
+                    for (const auto& [kp, kn] : file_system) {
+                        if (kp.rfind(full, 0) != 0 && kp != full.substr(0, full.size()-1)) continue;
+                        if (kn.is_dir) continue;
+                        if (kn.is_link) continue;
+                        body += "=== " + kp + "\t" + kn.mode + "\n" + vfs_escape(kn.content) + "\n";
+                        count++;
+                    }
+                }
+                file_system[resolve_user_path(out, current_dir)] = FSNode(false, body);
+                cout << "  " << clr::success << "Packed " << count << " file(s) into " << out << clr::reset << "\n";
+            }
+        }
+        else if (cmd == "packlist") {
+            auto c = vfs_read(args, file_system, current_dir);
+            if (!c || c->rfind("NPK1", 0) != 0) cout << "Usage: packlist <archive.npk>\n";
+            else {
+                istringstream ls(*c); string l;
+                cout << "\n";
+                while (getline(ls, l))
+                    if (l.rfind("=== ", 0) == 0) {
+                        string p = l.substr(4, l.find('\t') - 4);
+                        while (!p.empty() && p.back() == '/') p.pop_back();
+                        cout << "  " << p << "\n";
+                    }
+                cout << "\n";
+            }
+        }
+        else if (cmd == "unpack") {
+            istringstream us(args);
+            string arc, dst; us >> arc >> dst;
+            auto c = vfs_read(arc, file_system, current_dir);
+            if (!c || c->rfind("NPK1", 0) != 0) cout << "Usage: unpack <archive.npk> [destdir]\n";
+            else if ((!dst.empty() && has_traversal(dst))) cout << "\033[31merror:\033[0m path traversal not allowed.\n";
+            else {
+                istringstream ls(*c); string l;
+                string curp, curm; int restored = 0; bool want_content = false; string escacc;
+                auto flush_one = [&]() {
+                    if (curp.empty()) return;
+                    string rel = curp;
+                    while (!rel.empty() && rel.front() == '/') rel = rel.substr(1);
+                    if (rel.empty() || has_traversal("/" + rel)) { curp.clear(); return; } // safety: never unpack .. paths
+                    string key;
+                    if (dst.empty()) {
+                        key = "/" + rel;                       // restore original absolute tree
+                    } else {
+                        string dirp = resolve_user_path(dst, current_dir);
+                        if (dirp.back() != '/') dirp += "/";
+                        size_t sl = rel.rfind('/');
+                        key = dirp + (sl == string::npos ? rel : rel.substr(sl + 1));
+                    }
+                    FSNode n(false, vfs_unescape(escacc));
+                    n.mode = curm.size() == 9 ? curm : "rw-r--r--";
+                    file_system[key] = n;
+                    restored++;
+                    curp.clear();
+                };
+                while (getline(ls, l)) {
+                    if (l.rfind("=== ", 0) == 0) { flush_one();
+                        size_t tb = l.find('\t', 4);
+                        curp = l.substr(4, tb == string::npos ? string::npos : tb - 4);
+                        curm = tb == string::npos ? "rw-r--r--" : l.substr(tb + 1);
+                        want_content = true; escacc.clear();
+                    } else if (want_content) { escacc = l; want_content = false; flush_one(); }
+                }
+                flush_one();
+                cout << "  " << clr::success << "Unpacked " << restored << " file(s)" << (dst.empty() ? "" : " into " + dst) << clr::reset << "\n";
+            }
+        }
+        else if (cmd == "pkg") {
+            istringstream ks(args);
+            string sub, nm; ks >> sub >> nm;
+            if (sub.empty() || sub == "list") {
+                cout << "\n  " << clr::header << "Packages" << clr::reset << clr::muted << "  (pkg install <name>)" << clr::reset << "\n";
+                for (const auto& e : PKG_DB) {
+                    bool inst = g_installed_pkgs.count(e.pkg) > 0;
+                    cout << "   " << (inst ? clr::success : clr::dgray) << (inst ? "[x] " : "[ ] ") << e.pkg << clr::reset
+                         << "  " << clr::gray << e.desc << clr::reset << "\n";
+                }
+                cout << "\n";
+            } else if (sub == "install") {
+                bool known = false;
+                for (const auto& e : PKG_DB) if (e.pkg == nm) known = true;
+                if (!known) cout << "  " << clr::error << "no package named " << nm << clr::reset << "\n";
+                else if (g_installed_pkgs.insert(nm).second) {
+                    persist_save(file_system, aliases, SYSTEM_USERS);
+                    cout << "  " << clr::success << "Installed " << nm << ". Try it!" << clr::reset << "\n";
+                } else cout << "  already installed.\n";
+            } else if (sub == "remove") {
+                if (g_installed_pkgs.erase(nm)) { persist_save(file_system, aliases, SYSTEM_USERS); cout << "  removed " << nm << "\n"; }
+                else cout << "  not installed.\n";
+            } else if (sub == "search") {
+                for (const auto& e : PKG_DB)
+                    if (e.pkg.find(nm) != string::npos || e.desc.find(nm) != string::npos)
+                        cout << "  " << e.pkg << " — " << e.desc << "\n";
+            } else cout << "Usage: pkg list|install|remove|search [name]\n";
+        }
+        else if (cmd == "figlet") {
+            if (!g_installed_pkgs.count("figlet")) cout << "  \033[33mnot installed.\033[0m Try: pkg install figlet\n";
+            else cmd_figlet(args);
+        }
+        else if (cmd == "nyancat") {
+            if (!g_installed_pkgs.count("nyancat")) cout << "  \033[33mnot installed.\033[0m Try: pkg install nyancat\n";
+            else cmd_nyancat();
+        }
+        else if (cmd == "starwars") {
+            if (!g_installed_pkgs.count("starwars")) cout << "  \033[33mnot installed.\033[0m Try: pkg install starwars\n";
+            else cmd_starwars();
+        }
+        else if (cmd == "sheep") {
+            if (!g_installed_pkgs.count("sheep")) cout << "  \033[33mnot installed.\033[0m Try: pkg install sheep\n";
+            else cmd_sheep(args);
+        }
         else {
+            ok = false;
             cout << "\n  " << clr::error << "✗ " << clr::bold << "command not found: " << clr::reset << clr::error << cmd << clr::reset << "\n";
             string sug = closest_cmd(cmd);
             if (!sug.empty()) cout << "  " << clr::muted << "Did you mean " << clr::lcyan << clr::bold << sug << clr::reset << clr::muted << "?" << clr::reset << "\n";
             cout << "\n";
         }
+
+        if (oldbuf) cout.rdbuf(oldbuf);
+        string outp = sink.str();
+        if (!redir_file.empty()) {
+            if (has_traversal(redir_file)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; return false; }
+            string fullp = resolve_user_path(redir_file, current_dir);
+            string body = outp;
+            if (append_mode) {
+                auto prev = vfs_read(redir_file, file_system, current_dir);
+                if (prev) body = *prev + outp;
+            }
+            file_system[fullp] = FSNode(false, body);
+        } else if (capture_out) {
+            captured = outp;
+        }
+        return ok;
+    };
+
+    // run_one: splits on `;` and `&&` (quote-aware), then pipelines each part
+    // through exec_segment stages, feeding stdout→stdin between stages.
+    run_one = [&](const string& input_line) -> bool {
+        vector<string> parts = split_unquoted(input_line, ";");
+        bool all_ok = true;
+        for (size_t i = 0; i < parts.size(); ) {
+            string part = parts[i];
+            bool cond_next = false;
+            if (i + 1 < parts.size() && parts[i+1] == "&&") cond_next = true;
+            // pipeline split on unquoted |
+            vector<string> stages;
+            { bool dq=false; string cur;
+              for (size_t p = 0; p < part.size(); p++) {
+                  char c = part[p];
+                  if (c == '"') { dq = !dq; cur += c; continue; }
+                  if (c == '|' && !dq) { stages.push_back(cur); cur.clear(); continue; }
+                  cur += c;
+              }
+              stages.push_back(cur); }
+            string carry;
+            bool ok = true;
+            for (size_t st = 0; st < stages.size() && ok; st++) {
+                g_stdin_buf = carry;
+                g_stdin_live = (st > 0);
+                string got;
+                ok = exec_segment(stages[st], st + 1 < stages.size(), got);
+                carry = got;
+            }
+            g_stdin_live = false; g_stdin_buf.clear();
+            if (!ok) all_ok = false;
+            if (!ok && cond_next) { i += 3; continue; }   // && short-circuit: skip marker AND its target
+            i += cond_next ? 2 : 1;
+        }
         last_cmd_end = chrono::steady_clock::now();
+        return all_ok;
+    };
+
+    // ─────────────── v3 REPL loop ───────────────
+    while (true) {
+        if (g_quit || g_stdin_eof) break;
+        g_sigint = 0; // consume any SIGINT left by an aborted game; return cleanly to prompt
+        {
+            auto dur = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - last_cmd_end).count();
+            if (cmd_history.size() > 0 && dur > 100)
+                cout << clr::dgray << " " << dur << "ms" << clr::reset;
+        }
+
+        // refresh TAB-completion data every prompt
+        g_tab_cmds.assign(ALL_COMMANDS.begin(), ALL_COMMANDS.end());
+        for (const auto& [n, _v] : aliases) g_tab_cmds.push_back(n);
+        g_tab_paths.clear();
+        for (const auto& [p, _n] : file_system) g_tab_paths.push_back(p);
+        g_tab_cwd = current_dir;
+
+        // render prompt template (%u %h %d %t %%)
+        {
+            time_t now = time(nullptr); tm tb; localtime_r(&now, &tb);
+            char tbuf[8]; strftime(tbuf, sizeof(tbuf), "%H:%M", &tb);
+            string host = "nonameos";
+            cout << "\n";
+            for (size_t i = 0; i < g_prompt_fmt.size(); i++) {
+                if (g_prompt_fmt[i] == '%' && i + 1 < g_prompt_fmt.size()) {
+                    char t = g_prompt_fmt[i+1]; i++;
+                    if (t == 'u') { cout << clr::prompt_user << current_user << clr::reset; continue; }
+                    if (t == 'd') { cout << clr::prompt_dir << current_dir << clr::reset; continue; }
+                    if (t == 'h') { cout << clr::prompt_host << host << clr::reset; continue; }
+                    if (t == 't') { cout << clr::prompt_sep << tbuf << clr::reset; continue; }
+                    if (t == '%') { cout << '%'; continue; }
+                    cout << '%' << t;
+                    continue;
+                }
+                cout << clr::prompt_sep << g_prompt_fmt[i] << clr::reset;
+            }
+            cout << flush;
+        }
+
+        string ri = readline_global(cmd_history);
+        if (ri.empty()) continue;
+        if (ri.find('$') != string::npos) ri = script_subst(ri, {});
+        cmd_history.push_back(ri);
+        run_one(ri);
     }
+
+    // v3.0: persist session state on any exit path (exit, shutdown, Ctrl+C, EOF)
+    persist_save(file_system, aliases, SYSTEM_USERS);
+
     // TerminalGuard tg destructor auto-restores terminal state
     return 0;
 }
