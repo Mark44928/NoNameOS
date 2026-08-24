@@ -1750,8 +1750,12 @@ cooked_readline();
 string rainbow(const string& text) {
     string result;
     const char* colors[] = {"\033[31m", "\033[33m", "\033[32m", "\033[36m", "\033[34m", "\033[35m"};
-    for (size_t i = 0; i < text.length(); i++) {
-        result += colors[i % 6] + text[i] + string("\033[0m");
+    size_t ci = 0;
+    for (size_t i = 0; i < text.length(); ) {
+        int len = utf8_seq_len((unsigned char)text[i]);
+        result += colors[ci % 6] + text.substr(i, len) + string("\033[0m");
+        ci++;
+        i += len;
     }
     return result;
 }
@@ -3254,6 +3258,7 @@ void play_whack() {
         while (chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() < time_ms) {
             if (kbhit()) {
                 int k = getkey();
+                while (kbhit()) (void)getkey();
                 int n = k - '0';
                 if (n == hole) { score += 10; whacked = true; break; }
                 else if (n >= 0 && n <= 9) { misses++; whacked = true; break; }
@@ -3873,7 +3878,10 @@ void play_othello() {
             cout << "  " << clr::success << (p1 >= p2 ? ">> You win " : ">> AI wins ") << p1 << " vs " << p2 << "!" << clr::reset << "\n";
             break;
         }
-        if ((turn == 1 && !has1) || (turn == 2 && !has2)) { turn = 3 - turn; continue; }
+        if ((turn == 1 && !has1) || (turn == 2 && !has2)) {
+            cout << "  " << clr::dgray << "Player " << turn << " has no moves — passing." << clr::reset << "\n";
+            turn = 3 - turn; continue;
+        }
         if (turn == 1) {
             cout << "  Your move: ";
             string line; line = cooked_readline();
@@ -4817,9 +4825,9 @@ static void persist_save(const map<string,FSNode>& fs,
     // Save everything except root and transient trash
     for (const auto& [path, node] : fs) {
         if (path == "/") continue;
-        if (node.is_link) fprintf(f, "L %s\t%s\n", path.c_str(), node.link_target.c_str());
-        else if (node.is_dir) fprintf(f, "D %s\n", path.c_str());
-        else fprintf(f, "F %s\t%s\t%s\n", path.c_str(), node.mode.c_str(), vfs_escape(node.content).c_str());
+        if (node.is_link) fprintf(f, "L %s\t%s\n", vfs_escape(path).c_str(), vfs_escape(node.link_target).c_str());
+        else if (node.is_dir) fprintf(f, "D %s\n", vfs_escape(path).c_str());
+        else fprintf(f, "F %s\t%s\t%s\n", vfs_escape(path).c_str(), node.mode.c_str(), vfs_escape(node.content).c_str());
     }
     fclose(f);
 }
@@ -4850,12 +4858,12 @@ static bool persist_load(map<string,FSNode>& fs,
             if (find(users.begin(), users.end(), u) == users.end()) users.push_back(u);
         }
         else if (ln.rfind("K ", 0) == 0) g_installed_pkgs.insert(ln.substr(2));
-        else if (ln[0] == 'D') { string p = ln.substr(2); fs[p] = FSNode(true, ""); }
+        else if (ln[0] == 'D') { string p = vfs_unescape(ln.substr(2)); fs[p] = FSNode(true, ""); }
         else if (ln[0] == 'L') {
             size_t tb = ln.find('\t', 2);
             if (tb != string::npos) {
-                FSNode n(false, ""); n.is_link = true; n.link_target = ln.substr(tb + 1);
-                fs[ln.substr(2, tb - 2)] = n;
+                FSNode n(false, ""); n.is_link = true; n.link_target = vfs_unescape(ln.substr(tb + 1));
+                fs[vfs_unescape(ln.substr(2, tb - 2))] = n;
             }
         }
         else if (ln[0] == 'F') {
@@ -4865,7 +4873,7 @@ static bool persist_load(map<string,FSNode>& fs,
                 FSNode n(false, vfs_unescape(ln.substr(t2 + 1)));
                 n.mode = ln.substr(t1 + 1, t2 - t1 - 1);
                 if (n.mode.size() != 9) n.mode = "rw-r--r--";
-                fs[ln.substr(2, t1 - 2)] = n;
+                fs[vfs_unescape(ln.substr(2, t1 - 2))] = n;
             }
         }
     }
@@ -5219,10 +5227,12 @@ static void play_clicker(map<string,FSNode>& fs) {
         cout << "  " << clr::dgray << repeat(44, "─") << clr::reset << "\n";
         cout << "  " << clr::gray << "SPACE=click  1-5=buy  q=save&quit" << clr::reset << "\n";
 
-        auto tick_start = chrono::steady_clock::now();
+        auto last_tick = chrono::steady_clock::now();
         while (!kbhit()) {
             this_thread::sleep_for(chrono::milliseconds(60));
-            double dt = chrono::duration<double>(chrono::steady_clock::now() - tick_start).count();
+            auto now = chrono::steady_clock::now();
+            double dt = chrono::duration<double>(now - last_tick).count();
+            last_tick = now;
             st.coins += cps * dt;
             if (g_stdin_eof || g_sigint) break;
         }
@@ -6975,7 +6985,7 @@ static void cmd_news() {
         }
         // --- PRODUCTIVITY ---
         else if (cmd == "todo") {
-            string todopath = "/todos";
+            string todopath = "/todos/";
             size_t sp = args.find(' ');
             string subcmd = sp == string::npos ? args : args.substr(0, sp);
             string rest = sp == string::npos ? "" : args.substr(sp + 1);
@@ -7133,12 +7143,16 @@ static void cmd_news() {
         // --- FUN/NOVELTY ---
         else if (cmd == "lolcat") {
             string text = args.empty() ? "NoNameOS" : args;
-            for (size_t i = 0; i < text.length(); i++) {
-                int ci = (int)(i * 4) % 36;
-                int r = ci < 12 ? ci * 21 : (ci < 24 ? 255 - (ci - 12) * 21 : 0);
-                int g = ci < 12 ? 0 : (ci < 24 ? (ci - 12) * 21 : 255 - (ci - 24) * 21);
-                int b = ci < 12 ? 255 - ci * 21 : (ci < 24 ? 0 : (ci - 24) * 21);
-                cout << "\033[38;2;" << r << ";" << g << ";" << b << "m" << text[i] << "\033[0m";
+            size_t ci = 0;
+            for (size_t i = 0; i < text.length(); ) {
+                int len = utf8_seq_len((unsigned char)text[i]);
+                int c = (int)(ci * 4) % 36;
+                int r = c < 12 ? c * 21 : (c < 24 ? 255 - (c - 12) * 21 : 0);
+                int g = c < 12 ? 0 : (c < 24 ? (c - 12) * 21 : 255 - (c - 24) * 21);
+                int b = c < 12 ? 255 - c * 21 : (c < 24 ? 0 : (c - 24) * 21);
+                cout << "\033[38;2;" << r << ";" << g << ";" << b << "m" << text.substr(i, len) << "\033[0m";
+                ci++;
+                i += len;
             }
             cout << "\n";
         }

@@ -22,7 +22,7 @@
   <img src="https://img.shields.io/badge/version-v3.0.0-green?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/language-C%2B%2B17-blue?style=for-the-badge" alt="C++17"/>
   <img src="https://img.shields.io/badge/license-GPLv3-purple?style=for-the-badge" alt="License"/>
-  <img src="https://img.shields.io/badge/7837-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
+  <img src="https://img.shields.io/badge/7893-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
   <img src="https://img.shields.io/badge/44_games-red?style=for-the-badge" alt="Games"/>
   <img src="https://img.shields.io/badge/269_commands-cyan?style=for-the-badge" alt="Commands"/>
   <img src="https://img.shields.io/badge/49_bugs_fixed-2ea44f?style=for-the-badge" alt="Bugs Fixed"/>
@@ -104,7 +104,7 @@
 |----------|-------------|------------|
 | **Interactive Shell** | Pipes, redirects, chains, globs, TAB-complete, scripts, persistence, themes, 269 commands | Arrows, history, Ctrl+R search, fuzzy suggestions |
 | **Virtual Filesystem** | Files, directories, symlinks, permissions, trash | Timestamps, sizes, `ls -l`, `chmod` |
-| **40 Games** | Arcade, puzzle, strategy, word, reflex games | Tetris, Othello, Blackjack, Wordle, Battleship |
+| **44 Games** | Arcade, puzzle, strategy, word, reflex games | Tetris, Othello, Blackjack, Wordle, Battleship |
 | **System Tools** | Text editor, calculators, system info | `kernel`, `netstat`, `traceroute`, `report` |
 | **Text Processing** | grep, find, sort, word count, diff | `rev`, `tr`, `cut`, `uniq`, `nl`, `fold` |
 | **Converters** | Base64, ROT13, Morse, Roman, Binary | `urlencode`, `hexdump`, `hash` |
@@ -205,7 +205,7 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/Mark44928/NoNameOS.git && cd NoNameOS && g++ -O3 NoNameOS.cpp -o nonameos -lpthread && ./nonameos
+git clone https://github.com/Mark44928/NoNameOS.git && cd NoNameOS && g++ -O2 NoNameOS.cpp -o nonameos -lpthread && ./nonameos
 ```
 
 > **One command. One file. One terminal. Pure C++ fun.**
@@ -247,28 +247,28 @@ NoNameOS is written in pure C++ and uses POSIX headers. It compiles on any Linux
 ### Android (Termux)
 ```bash
 pkg install clang
-clang++ -O3 NoNameOS.cpp -o nonameos -lpthread
+clang++ -O2 NoNameOS.cpp -o nonameos -lpthread
 ./nonameos
 ```
 
 ### Debian / Ubuntu
 ```bash
 sudo apt update && sudo apt install g++
-g++ -O3 NoNameOS.cpp -o nonameos -lpthread
+g++ -O2 NoNameOS.cpp -o nonameos -lpthread
 ./nonameos
 ```
 
 ### Fedora
 ```bash
 sudo dnf install gcc-c++
-g++ -O3 NoNameOS.cpp -o nonameos -lpthread
+g++ -O2 NoNameOS.cpp -o nonameos -lpthread
 ./nonameos
 ```
 
 ### Arch Linux
 ```bash
 sudo pacman -S gcc
-g++ -O3 NoNameOS.cpp -o nonameos -lpthread
+g++ -O2 NoNameOS.cpp -o nonameos -lpthread
 ./nonameos
 ```
 
@@ -499,12 +499,12 @@ $ ./nonameos
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 
                     ═══════════════════════════════════════════
-                     v2.0.0 · Pure C++ OS Simulation
+                     v3.0.0 · Pure C++ OS Simulation
                     ═══════════════════════════════════════════
 
   [━━━━━━━━━━━━━━━━━━━━━━━━━] System ready
 
-  ✓ NoNameOS v2.0.0 booted successfully
+  ✓ NoNameOS v3.0.0 booted successfully
   Type help for available commands
   ↑↓ history  ←→ cursor  Backspace delete
 
@@ -653,7 +653,7 @@ NoNameOS is a goldmine for C++ learners. Here's what each feature teaches:
 | `TerminalGuard` | RAII (Resource Acquisition Is Initialization) | Always restore resources in destructors |
 | `map<string, FSNode>` | STL associative containers | Virtual filesystems, databases, caches |
 | `mt19937 rng{...}` | Modern C++ random | Cryptographic vs. pseudo-random generation |
-| `namespace color` | Namespaces & constants | Avoiding global pollution, naming conventions |
+| `namespace clr` | Namespaces & constants | Avoiding global pollution, naming conventions |
 | `cooked_readline()` | POSIX terminal I/O | How shells actually read input |
 | Command dispatch | String parsing & routing | Interpreter design, plugin systems |
 | `cp -r` iterator | Iterator safety | Avoiding undefined behavior with containers |
@@ -684,7 +684,7 @@ Type `exit` or press `Ctrl+C`. The `TerminalGuard` RAII class will restore your 
 <details>
 <summary><b>Can I save data between sessions?</b></summary>
 
-No. The virtual filesystem is entirely in-memory. When you exit, everything is gone. This is by design — it's a simulation, not a real OS.
+Yes. Use `save` to persist the VFS to `~/.nonameos.vfs`, and `load` to restore it. Session persistence (`persist on`) auto-saves on exit and auto-loads at boot.
 
 </details>
 
@@ -698,7 +698,7 @@ NoNameOS is a **simulation** for learning and fun. It has a shell, filesystem, a
 <details>
 <summary><b>Can I add my own commands?</b></summary>
 
-Yes! The entire project is one file. Find the command dispatcher (around line 3153) and add your own `else if (cmd == "mycommand")` block. Then recompile.
+Yes! The entire project is one file. Find the command dispatcher (around line 5624) and add your own `else if (cmd == "mycommand")` block. Then recompile.
 
 </details>
 
@@ -746,7 +746,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 │                    ┌────────────────────────────────┼─────┐     │
 │                    │                                │     │     │
 │           ┌────────▼───────┐              ┌─────────▼───┐ │     │
-│           │  Virtual FS    │              │  40 Games   │ │     │
+│           │  Virtual FS    │              │  44 Games   │ │     │
 │           │  map<string,   │              │  Tetris     │ │     │
 │           │    FSNode>     │              │  Snake      │ │     │
 │           │  timestamps    │              │  Pong       │ │     │
@@ -792,7 +792,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 
 | Version | Lines | Games | Commands | Key Changes |
 |---------|-------|-------|----------|-------------|
-| **v3.0.0** | 7,837 | 44 | 269 | pipes · redirects · && ; · globs · TAB · Ctrl+R · .nnsh scripts · persistence · themes · prompt · pkg · chess clicker pet fishing · crunch pack news stopwatch-laps |
+| **v3.0.0** | 7,893 | 44 | 269 | pipes · redirects · && ; · globs · TAB · Ctrl+R · .nnsh scripts · persistence · themes · prompt · pkg · chess clicker pet fishing · crunch pack news stopwatch-laps |
 | **v2.0.0** | 5,962 | 40 | 251 | 14 games, 20 tools, 10 eggs, 7 effects |
 | **v1.0.2** | 4,928 | 24 | 149 | 43 audit bug fixes |
 | **v1.0.1** | 4,561 | 24 | 135 | Arrow keys, cursor movement, easter eggs |
@@ -815,14 +815,10 @@ Contributions are welcome! Here's how:
 5. Open a Pull Request
 
 ### Ideas for contributions:
-- Add pipe support (`cmd1 | cmd2`)
-- Add a package manager simulation
-- Add persistent state across sessions
 - Improve the AsciiDash engine with graphics
 - Add more trivia questions and quiz content
 - Add new games (Tetris Pong variants, puzzles, etc.)
 - Add `vim` command with basic modal editing
-- Add tab completion for commands and paths
 
 ---
 
@@ -849,5 +845,5 @@ This project is licensed under the GNU General Public License v3. See the [LICEN
 ---
 
 <p align="center">
-  <sub><i>NoNameOS — because who needs a real OS when you can have 24 games and a terminal that judges your typing speed?</i></sub>
+  <sub><i>NoNameOS — because who needs a real OS when you can have 44 games and a terminal that judges your typing speed?</i></sub>
 </p>
