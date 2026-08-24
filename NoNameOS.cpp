@@ -93,6 +93,46 @@ static void sigcont_handler(int) {
 static const auto program_start = chrono::steady_clock::now();
 const string VERSION = "v3.0.0";
 
+// v3.0 UNICODE RENDERING — global on/off/auto
+// When off (auto-detected or user-forced), all ornamental Unicode in output is
+// replaced by safe ASCII equivalents so the UI never shows tofu boxes.
+static bool g_unicode = true;   // default on; detect_unicode() may flip to false
+
+static bool detect_unicode() {
+    // Check locale first — C.UTF-8 / en_US.UTF-8 etc = safe
+    string loc;
+    const char* l = getenv("LC_ALL");
+    if (!l || !*l) l = getenv("LC_CTYPE");
+    if (!l || !*l) l = getenv("LANG");
+    if (l) loc = l;
+    if (loc.find("UTF-8") != string::npos || loc.find("utf8") != string::npos)
+        return true;
+    // Known good terminals
+    string term;
+    const char* t = getenv("TERM");
+    if (t) term = t;
+    if (term.find("xterm") != string::npos || term.find("screen") != string::npos ||
+        term.find("tmux") != string::npos || term == "linux")
+        return true;
+    // TERM_PROGRAM hints
+    const char* tp = getenv("TERM_PROGRAM");
+    if (tp) {
+        string tps(tp);
+        if (tps.find("iTerm") != string::npos || tps.find("Terminal") != string::npos ||
+            tps.find("mintty") != string::npos || tps.find("ConEmu") != string::npos)
+            return true;
+    }
+    return false;  // unknown locale — assume no Unicode
+}
+
+// Returns `uni` when g_unicode is true, else `ascii` fallback.
+// Used for ornamental characters: ✓ ✗ ❯ ▸ ★ ▶ etc.
+// Box-drawing (─│═╔╗) and block elements (█▌░) are left as-is — they
+// render on virtually all terminals including this one.
+inline const string& uni(const string& uni, const string& ascii) {
+    return g_unicode ? uni : ascii;
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // SECTION 3: ANSI Color System and Visual Helpers
 // ══════════════════════════════════════════════════════════════════════════════
@@ -162,7 +202,7 @@ struct ThemeSpec {
     int ok, err, warn, inf, acc, mut, hdr, pu, ph, pd, ps; // 256-color indexes
 };
 const vector<ThemeSpec> THEME_DB = {
-    {"nonameos", "classic green/blue defaults",        46,196,226, 39,213,245, 75, 46,231, 39,240},
+    {"nonameos", "classic green/blue defaults",        46,196,226, 39,213,245, 75, 46,231, 39,252},
     {"matrix",   "all-green hacker terminal",          46, 46, 70, 34, 48, 28, 40, 46, 34, 34, 22},
     {"dracula",  "purple/pink pastel dark",            120,210, 51,141,213,245,176,176,252,141, 61},
     {"ocean",    "deep blues and cyans",               120,203,226, 39, 75,244, 33, 44,231, 39, 17},
@@ -586,7 +626,8 @@ string help_text(const string& cmd) {
         {"packlist","list .npk contents"},{"unpack","extract an .npk archive"},
         {"pkg","package manager (bonus toys)"},{"figlet","big block letters (pkg)"},
         {"nyancat","rainbow cat (pkg)"},{"starwars","ASCII crawl (pkg)"},
-        {"sheep","fluffy cowsay (pkg)"}
+        {"sheep","fluffy cowsay (pkg)"},
+        {"unicode","toggle Unicode rendering (on|off|auto|test)"}
     };
     auto it = ht.find(cmd);
     return it != ht.end() ? it->second : "no description";
@@ -662,7 +703,7 @@ static bool   g_stdin_live = false;
 static map<string,string> g_script_vars;
 
 // Prompt template (tokens %u %h %d %t %% ; set via `prompt set`)
-static string g_prompt_fmt = "\n%u@nonameos:%d\n❯ ";
+static string g_prompt_fmt;  // initialized in main() after detect_unicode()
 
 // TAB-completion data, refreshed by main before every prompt
 static vector<string> g_tab_cmds;    // ALL_COMMANDS + alias names
@@ -837,14 +878,29 @@ string readline_global(const vector<string>& history) {
     int hist_idx = (int)history.size();
     string saved;
 
+    // Extract last line of prompt template for redraw (handles multi-byte UTF-8 prompts)
+    string prompt_suffix = "> ";
+    { size_t nl = g_prompt_fmt.rfind('\n');
+      prompt_suffix = (nl != string::npos) ? g_prompt_fmt.substr(nl + 1) : g_prompt_fmt; }
+    // Precompute display width of prompt_suffix (counting UTF-8 chars, not bytes)
+    size_t prompt_width = 0;
+    for (size_t i = 0; i < prompt_suffix.size(); ) {
+        unsigned char c = prompt_suffix[i];
+        size_t skip = 1;
+        if (c >= 0xC0 && c < 0xE0) skip = 2;
+        else if (c >= 0xE0 && c < 0xF0) skip = 3;
+        else if (c >= 0xF0) skip = 4;
+        prompt_width++; i += skip;
+    }
+
     // v3 Ctrl+R reverse-i-search state
     bool rsearch = false;
     string rs_q;
     string rs_backup = line;
 
     auto redraw_from = [&]() {
-        cout << "\033[2K\r❯ " << line << flush;
-        cout << "\r\033[" << (cursor + 2) << "C" << flush;
+        cout << "\033[2K\r" << clr::prompt_sep << prompt_suffix << clr::reset << line << flush;
+        cout << "\r\033[" << (cursor + prompt_width) << "C" << flush;
     };
     auto redraw_rsearch = [&]() {
         // show latest match
@@ -1113,7 +1169,8 @@ const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","c
     "chess","clicker","pet","fishing",
     "run","set","save","load","persist","theme","prompt","news",
     "crunch","pack","packlist","unpack","pkg",
-    "figlet","nyancat","starwars","sheep"};
+    "figlet","nyancat","starwars","sheep",
+    "unicode"};
 
 size_t edit_dist(const string& a, const string& b) {
     size_t n = a.size(), m = b.size();
@@ -2269,7 +2326,7 @@ void play_tetris() {
         }
 
         cout << "\033[2J\033[1;1H";
-        cout << "\n  " << clr::bold << clr::cyan << "⬛ TETRIS" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "  " << clr::dgray << "(AD/←→=move W/↑=rotate S/↓=drop Q=quit)" << clr::reset << "\n\n";
+        cout << "\n  " << clr::bold << clr::cyan << uni("⬛","#") + " TETRIS" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "  " << clr::dgray << "(AD/←→=move W/↑=rotate S/↓=drop Q=quit)" << clr::reset << "\n\n";
         for (int y = 0; y < TETRIS_H; y++) {
             cout << "  " << clr::dgray << "│" << clr::reset;
             for (int x = 0; x < TETRIS_W; x++) {
@@ -3145,7 +3202,7 @@ void play_breakout() {
 
         // Render
         cout << "\033[2J\033[1;1H";
-        cout << "\n  " << clr::bold << clr::orange << "⬛ BREAKOUT" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "  " << clr::dgray << "(AD/←→=move Q=quit)" << clr::reset << "\n\n";
+        cout << "\n  " << clr::bold << clr::orange << uni("⬛","#") + " BREAKOUT" << clr::reset << "  " << clr::gray << "Score:" << clr::reset << " " << clr::yellow << score << clr::reset << "  " << clr::dgray << "(AD/←→=move Q=quit)" << clr::reset << "\n\n";
         for (int r = 0; r < H; r++) {
             cout << "  ";
             for (int c = 0; c < W; c++) {
@@ -3187,7 +3244,7 @@ void play_whack() {
             for (int c = 0; c < 3; c++) {
                 int n = r*3+c+1;
                 if (n == hole) cout << "  " << clr::bold << clr::yellow << "🐹" << clr::reset << " ";
-                else cout << "  " << clr::dgray << "⬛ " << clr::reset << " ";
+                else cout << "  " << clr::dgray << uni("⬛","#") + " " << clr::reset << " ";
             }
             cout << "\n\n";
         }
@@ -3900,7 +3957,7 @@ void play_simon() {
             int want = s == 0 ? KEY_LEFT : s == 1 ? KEY_UP : s == 2 ? KEY_DOWN : KEY_RIGHT;
             if (k != want) { ok = false; break; }
         }
-        if (!ok) { cout << "  " << clr::error << "✗ MISTAKE! Final score: " << score << clr::reset << "\n"; break; }
+        if (!ok) { cout << "  " << clr::error << uni("✗","x") << " MISTAKE! Final score: " << score << clr::reset << "\n"; break; }
         score++;
     }
     cout << "Press Enter to return to NoNameOS..."; cooked_readline();
@@ -4129,8 +4186,8 @@ void play_buzz() {
         cout << "  " << clr::cyan << "Q" << q + 1 << ": " << clr::bold << n << clr::reset << " → ";
         string a; a = cooked_readline();
         for (auto& ch : a) ch = static_cast<char>(tolower(static_cast<unsigned char>(ch)));
-        if (a == expect) { cout << "  " << clr::success << "✓ +1" << clr::reset << "\n"; score++; }
-        else cout << "  " << clr::error << "✗ was " << expect << clr::reset << "\n";
+        if (a == expect) { cout << "  " << clr::success << uni("✓","+") << " +1" << clr::reset << "\n"; score++; }
+        else cout << "  " << clr::error << uni("✗","x") << " was " << expect << clr::reset << "\n";
     }
     cout << "\n  " << clr::bold << "Score: " << clr::cyan << score << "/8" << clr::reset << "\n\n";
     cout << "Press Enter to return to NoNameOS..."; cooked_readline();
@@ -4202,8 +4259,8 @@ void play_jumble() {
         cout << "\n  Your guess: ";
         string line; line = cooked_readline();
         if (line == "q" || line == "Q") return;
-        if (line == w) cout << "  " << clr::success << "✓ Correct!" << clr::reset << "\n";
-        else cout << "  " << clr::error << "✗ It was " << w << clr::reset << "\n";
+        if (line == w) cout << "  " << clr::success << uni("✓","+") << " Correct!" << clr::reset << "\n";
+        else cout << "  " << clr::error << uni("✗","x") << " It was " << w << clr::reset << "\n";
         cout << "  " << clr::dgray << "Press Enter..." << clr::reset; cooked_readline();
     }
     cout << "Press Enter to return to NoNameOS..."; cooked_readline();
@@ -4230,8 +4287,8 @@ void play_arith() {
             if (guess > (INT_MAX - d) / 10) { guess = 0; break; }
             guess = guess * 10 + d;
         }
-        if (guess == ans) { cout << "  " << clr::success << "✓" << clr::reset << "\n"; score++; }
-        else cout << "  " << clr::error << "✗ " << ans << clr::reset << "\n";
+        if (guess == ans) { cout << "  " << clr::success << uni("✓","+") << "" << clr::reset << "\n"; score++; }
+        else cout << "  " << clr::error << uni("✗","x") << " " << ans << clr::reset << "\n";
     }
     cout << "  " << clr::bold << "Score: " << clr::cyan << score << "/10" << clr::reset << "\n\n";
     cout << "Press Enter to return to NoNameOS..."; cooked_readline();
@@ -4753,6 +4810,7 @@ static void persist_save(const map<string,FSNode>& fs,
     fprintf(f, "NNOS3\n");
     fprintf(f, "T %s\n", g_theme_name.c_str());
     fprintf(f, "P %s\n", vfs_escape(g_prompt_fmt).c_str());
+    fprintf(f, "Y %d\n", g_unicode ? 1 : 0);
     for (const auto& [n, v] : aliases)
         fprintf(f, "A %s=%s\n", n.c_str(), vfs_escape(v).c_str());
     for (const string& u : users) fprintf(f, "U %s\n", u.c_str());
@@ -4783,6 +4841,7 @@ static bool persist_load(map<string,FSNode>& fs,
         if (ln.empty() || ln[0] == '#') continue;
         if (ln.rfind("T ", 0) == 0) { apply_theme(ln.substr(2)); }
         else if (ln.rfind("P ", 0) == 0) { g_prompt_fmt = vfs_unescape(ln.substr(2)); }
+        else if (ln.rfind("Y ", 0) == 0) { g_unicode = (ln.substr(2) == "1"); }
         else if (ln.rfind("A ", 0) == 0) {
             size_t eq = ln.find('=', 2);
             if (eq != string::npos) aliases[ln.substr(2, eq - 2)] = vfs_unescape(ln.substr(eq + 1));
@@ -5312,53 +5371,53 @@ static void play_fishing(map<string,FSNode>& fs) {
 }
 
 // ---------- TOYS: pkg-gated bonus commands ----------
-static const struct { char ch; const char* rows[5]; } FIG_FONT[] = {
-    {'A',{"███▌ ","█▐█▌ ","█████","█▐█▌ ","▐▒ █"}},
-    {'B',{"████ ","█▐▐▌ ","███▌ ","█▐▐▌ ","████ "}},
-    {'C',{"█████","█▄▄▄ ","█    ","█▄▄▄ ","█████"}},
-    {'D',{"███▌ ","█▐▐▌ ","█▐▐▌ ","█▐▐▌ ","███▌ "}},
-    {'E',{"█████","█▄▄▄ ","███  ","█▄▄▄ ","█████"}},
-    {'F',{"█████","█▄▄▄ ","███  ","█    ","█    "}},
-    {'G',{"█████","█▄▄▄▄","█ ███","█▄▄██","█████"}},
-    {'H',{"█▐█▌ ","█▐█▌ ","█████","█▐█▌ ","█▐█▌ "}},
-    {'I',{"█████","  █  ","  █  ","  █  ","█████"}},
-    {'J',{"  ███","   ▐ ","   ▐ ","█  ▐ "," ██  "}},
-    {'K',{"█▐▐▌ ","█▐█  ","██   ","█▐█  ","█▐▐▌ "}},
-    {'L',{"█    ","█    ","█    ","█▄▄▄ ","█████"}},
-    {'M',{"█▐█▌ ","█████","█ █ █","█   █","█   █"}},
-    {'N',{"█▐▐▌ ","██▐▌ ","█▐██ ","▐▌██ ","▐▌▐▌ "}},
-    {'O',{"███▌ ","█▐▐▌ ","█▐▐▌ ","█▐▐▌ ","███▌ "}},
-    {'P',{"████ ","█▐▐▌ ","████ ","█    ","█    "}},
-    {'Q',{"███▌ ","█▐▐▌ ","█▐▐▌ ","█▄█▌ ","█████"}},
-    {'R',{"████ ","█▐▐▌ ","████ ","█▐█  ","█▐▐▌ "}},
-    {'S',{"█████","█▄▄▄ ","█████"," ▄▄▄█","█████"}},
-    {'T',{"█████","  █  ","  █  ","  █  ","  █  "}},
-    {'U',{"█▐▐▌ ","█▐▐▌ ","█▐▐▌ ","█▐▐▌ ","█████"}},
-    {'V',{"█▐▐▌ ","█▐▐▌ ","█▐▐▌ "," █▐█ ","  █  "}},
-    {'W',{"█   █","█ █ █","█████","█▐█▌ ","█   █"}},
-    {'X',{"█▐▐▌ "," ██  "," ██  "," ██  ","█▐▐▌ "}},
-    {'Y',{"█▐▐▌ "," ██  ","  █  ","  █  ","  █  "}},
-    {'Z',{"█████","  ▐█ "," ▐█  ","█▌   ","█████"}},
-    {'0',{"███▌ ","█▐██ ","█▐██ ","██▐▌ ","███▌ "}},
-    {'1',{" ▐█  ","███  "," ▐█  "," ▐█  ","█████"}},
-    {'2',{"████ ","   ▐ "," ██  ","█    ","█████"}},
-    {'3',{"████ ","   ▐ "," ██▌ ","   ▐ ","████ "}},
-    {'4',{"█▐█▌ ","█▐█▌ ","█████","  ▐█ ","  ▐█ "}},
-    {'5',{"█████","█▄▄▄ ","████ ","   ▐ ","████ "}},
-    {'6',{"████ ","█    ","████ ","█▐▐▌ ","████ "}},
-    {'7',{"█████","   ▐ ","  ██ "," ▐█  "," ▐   "}},
-    {'8',{"████ ","█▐▐▌ ","████ ","█▐▐▌ ","████ "}},
-    {'9',{"████ ","█▐▐▌ ","█████","   ▐ ","████ "}},
-    {' ',{"   ","   ","   ","   ","   "}},
+static const struct { char ch; const char* rows[6]; } FIG_FONT[] = {
+    {'A',{"  _   "," / | ","/  | ","/ /| |","/_/ |_|","       "}},
+    {'B',{"____  ","| __ ) ","|  _ \\ ","| |_) |","|____/ ","       "}},
+    {'C',{"  ___ "," / ___|","| |    ","| |___ "," \\____|","       "}},
+    {'D',{"____  ","|  _ \\ ","| | | |","| |_| |","|____/ ","       "}},
+    {'E',{" _____","| ____|","|  _|  ","| |___ ","|_____|","       "}},
+    {'F',{" _____","|  ___|","| |_   ","|  _|  ","|_|    ","       "}},
+    {'G',{"  ___ "," / ___|","| |  _ ","| |_| |"," \\____|","       "}},
+    {'H',{" _   _","| | | |","| |_| |","|  _  |","|_| |_|","       "}},
+    {'I',{" _____","|_   _|","  | |  ","  | |  "," |___| ","       "}},
+    {'J',{"   ___","    | |"," _  | |","| |_| |"," \\___/ ","       "}},
+    {'K',{" _  __","| |/ /","| ' / ","| . \\ ","|_|\\_\\","       "}},
+    {'L',{" _    ","| |   ","| |   ","| |___","|_____|","       "}},
+    {'M',{" _   _","| \\ | |","|  \\| |","| |\\  |","|_| \\_|","       "}},
+    {'N',{" _   _","| \\ | |","|  \\| |","| |\\  |","|_| \\_|","       "}},
+    {'O',{"  ___ "," / _ \\","| (_) |"," \\___/ ","       ","       "}},
+    {'P',{" ____ ","| __ ) ","|  _ \\ ","| |_) |","|____/ ","       "}},
+    {'Q',{"  ___ "," / _ \\","| (_) |"," \\___/ ","  (_)  ","       "}},
+    {'R',{" ____ ","| __ ) ","|  _ \\ ","| |_) |","|_\\_\\ ","       "}},
+    {'S',{"  ___ "," / __|","| (__ "," \\___|","      ","       "}},
+    {'T',{" _____","|_   _|","  | |  ","  | |  ","  |_|  ","       "}},
+    {'U',{" _   _","| | | |","| | | |","| |_| |"," \\___/ ","       "}},
+    {'V',{"__   __","\\ \\ / /"," \\ V / ","  | |  ","  |_|  ","       "}},
+    {'W',{"__   __","\\ \\ / /"," \\ V / "," |  |  "," |_|   ","       "}},
+    {'X',{"__  __","\\ \\/ / "," \\  /  "," /  \\  ","/_/\\_\\ ","       "}},
+    {'Y',{"__  __","\\ \\/ / "," \\  /  "," | |   "," |_|   ","       "}},
+    {'Z',{" _____","|__  / ","  / /  "," / /_  ","/____| ","       "}},
+    {'0',{"  ___ "," / _ \\","| (_) |"," \\___/ ","       ","       "}},
+    {'1',{" _ ","| |","| |","|_|","   ","   "}},
+    {'2',{" ____ ","|  _ \\ ","| |_) |","|  __/ ","|_|    ","       "}},
+    {'3',{" _____","|__  / ","  / /  "," / /_  ","/____| ","       "}},
+    {'4',{" _  _","| |/ /","| ' / ","| . \\ ","|_|\\_\\","       "}},
+    {'5',{" _____","| ____|","|  _|  ","| |___ ","|_____|","       "}},
+    {'6',{"  __ "," / /_","| '__|","| |   ","|_|   ","      "}},
+    {'7',{" _____","|__  / ","  / /  "," / /   ","/_/    ","       "}},
+    {'8',{" ____ ","(  _ \\ "," ) (_) ","(____/ ","       ","       "}},
+    {'9',{" ____ ","(  _ \\ "," ) (_) "," (___/ ","       ","       "}},
+    {' ',{"    ","    ","    ","    ","    ","    "}},
 };
 static void cmd_figlet(const string& args) {
     string text = args.empty() ? "NONAME OS" : args;
     for (char& c : text) c = (char)toupper((unsigned char)c);
     cout << "\n";
-    for (int row = 0; row < 5; row++) {
+    for (int row = 0; row < 6; row++) {
         cout << "  " << clr::success;
         for (char c : text) {
-            const char* art = "     ";
+            const char* art = "      ";
             for (const auto& f : FIG_FONT) if (f.ch == c) { art = f.rows[row]; break; }
             cout << art;
         }
@@ -5370,16 +5429,26 @@ static void cmd_nyancat() {
     const int W = 46;
     for (int frame = 0; frame < 70 && !kbhit(); frame++) {
         cout << "\033[2J\033[1;1H";
-        cout << "\n" << repeat(12, " ");
-        for (int x = 0; x < W; x++)
-            cout << clr::rgb((x*11+frame*13)%256, (100+x*3)%256, (200-x*4+frame*7+256)%256) << "=" << clr::reset;
-        cout << "\n" << repeat(10, " ") << clr::white << "♪♪ ";
-        for (int x = 0; x < (frame % W); x++) cout << " ";
-        cout << clr::yellow << ",-----," << clr::reset << "\n";
-        cout << repeat(14, " ") << "|  o o  |" << "\n";
-        cout << repeat(14, " ") << "'--___--'" << clr::magenta << " ~ nyan ~" << clr::reset << "\n\n";
+        // Rainbow trail
+        cout << "\n";
+        for (int y = 0; y < 4; y++) {
+            cout << repeat(6, " ");
+            for (int x = 0; x < W; x++) {
+                int ci = (x * 3 + y * 7 + frame * 5) % 6;
+                const char* colors[] = {"\033[31m","\033[33m","\033[32m","\033[36m","\033[34m","\033[35m"};
+                cout << colors[ci] << ((x + y + frame) % 3 == 0 ? "*" : (x + y + frame) % 3 == 1 ? "'" : "^") << "\033[0m";
+            }
+            cout << "\n";
+        }
+        // Pop tart body with cat
+        cout << repeat(14, " ") << clr::magenta << "   /\\_/\\  " << clr::reset << "\n";
+        cout << repeat(14, " ") << clr::magenta << "  ( o.o ) " << clr::reset << clr::gray << " ~nyan~" << clr::reset << "\n";
+        cout << repeat(14, " ") << clr::magenta << "   > ^ <  " << clr::reset << "\n";
+        cout << repeat(14, " ") << clr::yellow << " /|     |\\" << clr::reset << "\n";
+        cout << repeat(14, " ") << clr::yellow << "/_|_____|_\\" << clr::reset << "\n";
+        cout << "\n";
         cout << clr::dgray << "  any key exits" << clr::reset << flush;
-        this_thread::sleep_for(chrono::milliseconds(80));
+        this_thread::sleep_for(chrono::milliseconds(100));
     }
     while (kbhit()) (void)getkey();
     cout << "\033[0m\033[2J\033[1;1H";
@@ -5415,10 +5484,20 @@ static void cmd_sheep(const string& args) {
     cout << "\n  " << clr::dgray << vsep(w) << clr::reset << "\n";
     cout << "  " << clr::white << "  " << text << "  " << clr::reset << "\n";
     cout << "  " << clr::dgray << vsep(w) << clr::reset << "\n";
-    cout << "       " << clr::white << " __     " << clr::reset << "\n";
-    cout << "    " << clr::white << "u" << clr::reset << clr::gray << "..ssssss.." << clr::reset << clr::white << "__" << clr::reset << "\n";
-    cout << "      " << clr::gray << "(())" << clr::reset << clr::white << "((((((()))" << clr::reset << "\n";
-    cout << "         " << clr::gray << "^ ^" << clr::reset << "    ||\n\n";
+    cout << "       " << clr::white << "   \\\"-._            " << clr::reset << "\n";
+    cout << "       " << clr::white << "    (    \\          " << clr::reset << "\n";
+    cout << "       " << clr::white << "     \\    \\         " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "      \\    ;-.      " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "       \\  (   `.    " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "        \\  \\    |   " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "         \\  |   ;   " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "     _.--\\  ;  /    " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "    (      \\|  /     " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "     `--._  ||/      " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "          |||        " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "          |||        " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "         /||\\       " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "        / || \\      " << clr::reset << "\n\n";
 }
 
 // ---------- NEWS / MOTD ----------
@@ -5460,6 +5539,9 @@ static void cmd_news() {
     // leaving the shell in raw mode, and SIGCONT re-applies raw mode on resume.
     signal(SIGTSTP, sigtstp_handler);
     signal(SIGCONT, sigcont_handler);
+    // v3.0: detect Unicode support — ornamental chars replaced by ASCII fallbacks when off
+    g_unicode = detect_unicode();
+    g_prompt_fmt = "\n%u@nonameos:%d\n" + uni("❯",">") + " ";
     // Use RAII to manage terminal state — auto-restores on any exit path
     TerminalGuard tg;
     cout << "\033[2J\033[1;1H";
@@ -5475,6 +5557,7 @@ static void cmd_news() {
                     string l(lb); while (!l.empty() && (l.back()=='\n'||l.back()=='\r')) l.pop_back();
                     if (l.rfind("T ", 0) == 0) apply_theme(l.substr(2));
                     else if (l.rfind("P ", 0) == 0) g_prompt_fmt = vfs_unescape(l.substr(2));
+                    else if (l.rfind("Y ", 0) == 0) g_unicode = (l.substr(2) == "1");
                 }
             }
             fclose(cf);
@@ -5534,7 +5617,7 @@ static void cmd_news() {
     cout << "\n\n";
 
     // Success message
-    cout << "  " << clr::success << "✓ " << clr::bold << "NoNameOS " << VERSION << " booted successfully" << clr::reset << "\n";
+    cout << "  " << clr::success << uni("✓","+") << " " << clr::bold << "NoNameOS " << VERSION << " booted successfully" << clr::reset << "\n";
     cout << "  " << clr::muted << "Type " << clr::lcyan << "help" << clr::muted << " for available commands" << clr::reset << "\n";
     cout << "  " << clr::dgray << "↑↓ history  ←→ cursor  Backspace delete" << clr::reset << "\n\n";
     this_thread::sleep_for(chrono::milliseconds(400));
@@ -5560,7 +5643,7 @@ static void cmd_news() {
         int restored_nodes = (int)file_system.size();
         if (persist_load(file_system, aliases, SYSTEM_USERS)) {
             restored_nodes = (int)file_system.size();
-            cout << "  " << clr::success << "✓ Session restored — " << restored_nodes << " VFS nodes" << clr::reset << "\n";
+            cout << "  " << clr::success << uni("✓","+") << " Session restored — " << restored_nodes << " VFS nodes" << clr::reset << "\n";
             if (!g_installed_pkgs.empty())
                 cout << "  " << clr::muted << "packages: ";
             for (const auto& p : g_installed_pkgs) cout << p << " ";
@@ -5692,7 +5775,7 @@ static void cmd_news() {
             section("v2.0 Easter Eggs", "llm, gpt, blockchain, mine, neo, rabbit\ndlc, kitchen, toaster, canon");
             section("v2.0 Effects", "spinner, progress, gauge, rain, fire, stream, type");
             section("v3.0 Games", "chess, clicker, pet, fishing");
-            section("v3.0 Shell", "run, set, save, load, persist\ntheme, prompt, news · pipes | · redirects > >> <\nchains && ; · globs * ? · TAB complete · Ctrl+R search");
+            section("v3.0 Shell", "run, set, save, load, persist\ntheme, prompt, unicode, news · pipes | · redirects > >> <\nchains && ; · globs * ? · TAB complete · Ctrl+R search");
             section("v3.0 Tools", "crunch, pack, packlist, unpack, pkg");
 
             cout << "\n  " << clr::dgray << vsep(42) << clr::reset << "\n";
@@ -6503,7 +6586,8 @@ static void cmd_news() {
                     {"cfetch", "CFETCH(1)\t\tUser Commands\n\nNAME\n\tcfetch - system info display\n\nSYNOPSIS\n\tcfetch\n\nDESCRIPTION\n\tDisplay system information similar to neofetch."},
                     {"ps", "PS(1)\t\t\tUser Commands\n\nNAME\n\tps - list running processes\n\nSYNOPSIS\n\tps\n\nDESCRIPTION\n\tDisplay a snapshot of current simulated processes."},
                     {"run", "RUN(1)\t\t\tNoNameOS Shell\n\nNAME\n\trun - execute a .nnsh script from the VFS\n\nSYNOPSIS\n\trun <script.nnsh> [args...]\n\nDESCRIPTION\n\tRuns each line through the shell. Supports # comments,\n\tset name=value variables, $name/$1..$9/$@ substitution,\n\tand single-line: if A == B then <command>."},
-                    {"pkg", "PKG(8)\t\t\tNoNameOS System\n\nNAME\n\tpkg - package manager for bonus toys\n\nSYNOPSIS\n\tpkg list | install <pkg> | remove <pkg> | search <term>\n\nDESCRIPTION\n\tInstall gated commands (figlet, nyancat, starwars, sheep).\n\tInstalled set persists across sessions."},
+                     {"pkg", "PKG(8)\t\t\tNoNameOS System\n\nNAME\n\tpkg - package manager for bonus toys\n\nSYNOPSIS\n\tpkg list | install <pkg> | remove <pkg> | search <term>\n\nDESCRIPTION\n\tInstall gated commands (figlet, nyancat, starwars, sheep).\n\tInstalled set persists across sessions."},
+                     {"unicode", "UNICODE(1)\t\tUser Commands\n\nNAME\n\tunicode - toggle Unicode rendering\n\nSYNOPSIS\n\tunicode on | off | auto | test\n\nDESCRIPTION\n\tControl Unicode rendering globally.\n\ton: force Unicode ornamental characters.\n\toff: use ASCII fallbacks (no tofu boxes).\n\tauto: detect from locale/terminal.\n\ttest: show sample characters and current state.\n\tSetting persists across sessions."},
                     {"uname", "UNAME(1)\t\tUser Commands\n\nNAME\n\tuname - system information\n\nSYNOPSIS\n\tuname [-a | -r | -s | -m]\n\nDESCRIPTION\n\tPrint system information. -a for all, -r for release, -s for OS on Name, -m for architecture."},
                     {"uptime", "UPTIME(1)\t\tUser Commands\n\nNAME\n\tuptime - system uptime\n\nSYNOPSIS\n\tuptime\n\nDESCRIPTION\n\tDisplay how long the system has been running."},
                     {"cal", "CAL(1)\t\t\tUser Commands\n\nNAME\n\tcal - display calendar\n\nSYNOPSIS\n\tcal\n\nDESCRIPTION\n\tDisplay the current month's calendar with today highlighted."},
@@ -7527,7 +7611,7 @@ static void cmd_news() {
             if (args.empty() || args == "list") {
                 cout << "\n  " << clr::header << "Themes" << clr::reset << "  " << clr::muted << "(theme set <name>)" << clr::reset << "\n";
                 for (const auto& t : THEME_DB)
-                    cout << "   " << (t.name == g_theme_name ? clr::success + "▸ " : "  ")
+                    cout << "   " << (t.name == g_theme_name ? clr::success + uni("▸",">") + " " : "  ")
                          << setw(9) << t.name
                          << " " << clr::fg256(t.acc) << "█████" << clr::fg256(t.ok) << "███" << clr::fg256(t.inf) << "██" << clr::reset
                          << "  " << clr::gray << t.desc << clr::reset << "\n";
@@ -7552,8 +7636,18 @@ static void cmd_news() {
                 else { g_prompt_fmt = fmtv; persist_save(file_system, aliases, SYSTEM_USERS);
                        cout << "  " << clr::success << "Prompt updated." << clr::reset << " Tokens: %u %h %d %t %%\n"; }
             }
-            else if (args == "reset") { g_prompt_fmt = "\n%u@nonameos:%d\n❯ "; persist_save(file_system, aliases, SYSTEM_USERS); cout << "  Prompt reset.\n"; }
-            else cout << "  Current template: \"" << g_prompt_fmt << "\"\n  Usage: prompt set \"\\n%u@%h:%d\\n❯ \"  (tokens %u %h %d %t %%)\n";
+            else if (args == "reset") { g_prompt_fmt = "\n%u@nonameos:%d\n" + uni("❯",">") + " "; persist_save(file_system, aliases, SYSTEM_USERS); cout << "  Prompt reset.\n"; }
+            else cout << "  Current template: \"" << g_prompt_fmt << "\"\n  Usage: prompt set \"\\n%u@%h:%d\\n" + uni("❯",">") + " \"  (tokens %u %h %d %t %%)\n";
+        }
+        else if (cmd == "unicode") {
+            if (args == "on") { g_unicode = true; cout << "  Unicode rendering: " << clr::success << "ON" << clr::reset << "\n"; }
+            else if (args == "off") { g_unicode = false; cout << "  Unicode rendering: " << clr::error << "OFF" << clr::reset << " (ASCII fallbacks)\n"; }
+            else if (args == "auto") { g_unicode = detect_unicode(); cout << "  Unicode rendering: " << (g_unicode ? clr::success : clr::error) << (g_unicode ? "ON" : "OFF") << clr::reset << " (auto-detected)\n"; }
+            else if (args == "test") {
+                cout << "  Prompt:   " << uni("❯",">") << "  Check: " << uni("✓","+") << "  Cross: " << uni("✗","x") << "  Block: " << uni("⬛","#") << "\n";
+                cout << "  Current:  " << (g_unicode ? clr::success + "UNICODE ON" : clr::error + "UNICODE OFF (ASCII)") << clr::reset << "\n";
+            }
+            else { cout << "  Usage: unicode on|off|auto|test\n"; }
         }
         else if (cmd == "news") { cmd_news(); }
         else if (cmd == "crunch") {
@@ -7717,7 +7811,7 @@ static void cmd_news() {
         }
         else {
             ok = false;
-            cout << "\n  " << clr::error << "✗ " << clr::bold << "command not found: " << clr::reset << clr::error << cmd << clr::reset << "\n";
+            cout << "\n  " << clr::error << uni("✗","x") << " " << clr::bold << "command not found: " << clr::reset << clr::error << cmd << clr::reset << "\n";
             string sug = closest_cmd(cmd);
             if (!sug.empty()) cout << "  " << clr::muted << "Did you mean " << clr::lcyan << clr::bold << sug << clr::reset << clr::muted << "?" << clr::reset << "\n";
             cout << "\n";
@@ -7800,9 +7894,9 @@ static void cmd_news() {
             char tbuf[8]; strftime(tbuf, sizeof(tbuf), "%H:%M", &tb);
             string host = "nonameos";
             cout << "\n";
-            for (size_t i = 0; i < g_prompt_fmt.size(); i++) {
+            for (size_t i = 0; i < g_prompt_fmt.size(); ) {
                 if (g_prompt_fmt[i] == '%' && i + 1 < g_prompt_fmt.size()) {
-                    char t = g_prompt_fmt[i+1]; i++;
+                    char t = g_prompt_fmt[i+1]; i += 2;
                     if (t == 'u') { cout << clr::prompt_user << current_user << clr::reset; continue; }
                     if (t == 'd') { cout << clr::prompt_dir << current_dir << clr::reset; continue; }
                     if (t == 'h') { cout << clr::prompt_host << host << clr::reset; continue; }
@@ -7811,7 +7905,14 @@ static void cmd_news() {
                     cout << '%' << t;
                     continue;
                 }
-                cout << clr::prompt_sep << g_prompt_fmt[i] << clr::reset;
+                // UTF-8: 0xxxxxxx=1B, 110xxxxx=2B, 1110xxxx=3B, 11110xxx=4B
+                size_t chlen = 1;
+                unsigned char c = g_prompt_fmt[i];
+                if (c >= 0xC0 && c < 0xE0) chlen = 2;
+                else if (c >= 0xE0 && c < 0xF0) chlen = 3;
+                else if (c >= 0xF0) chlen = 4;
+                cout << clr::prompt_sep << g_prompt_fmt.substr(i, chlen) << clr::reset;
+                i += chlen;
             }
             cout << flush;
         }
