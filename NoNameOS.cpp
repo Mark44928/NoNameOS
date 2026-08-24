@@ -5484,20 +5484,15 @@ static void cmd_sheep(const string& args) {
     cout << "\n  " << clr::dgray << vsep(w) << clr::reset << "\n";
     cout << "  " << clr::white << "  " << text << "  " << clr::reset << "\n";
     cout << "  " << clr::dgray << vsep(w) << clr::reset << "\n";
-    cout << "       " << clr::white << "   \\\"-._            " << clr::reset << "\n";
-    cout << "       " << clr::white << "    (    \\          " << clr::reset << "\n";
-    cout << "       " << clr::white << "     \\    \\         " << clr::reset << "\n";
-    cout << "       " << clr::gray  << "      \\    ;-.      " << clr::reset << "\n";
-    cout << "       " << clr::gray  << "       \\  (   `.    " << clr::reset << "\n";
-    cout << "       " << clr::gray  << "        \\  \\    |   " << clr::reset << "\n";
-    cout << "       " << clr::gray  << "         \\  |   ;   " << clr::reset << "\n";
-    cout << "       " << clr::gray  << "     _.--\\  ;  /    " << clr::reset << "\n";
-    cout << "       " << clr::gray  << "    (      \\|  /     " << clr::reset << "\n";
-    cout << "       " << clr::gray  << "     `--._  ||/      " << clr::reset << "\n";
-    cout << "       " << clr::gray  << "          |||        " << clr::reset << "\n";
-    cout << "       " << clr::gray  << "          |||        " << clr::reset << "\n";
-    cout << "       " << clr::gray  << "         /||\\       " << clr::reset << "\n";
-    cout << "       " << clr::gray  << "        / || \\      " << clr::reset << "\n\n";
+    cout << "       " << clr::white << "           __  _                    " << clr::reset << "\n";
+    cout << "       " << clr::white << "      .-.'  `; `-._  __  _         " << clr::reset << "\n";
+    cout << "       " << clr::white << "     (_,         .-:'  `; `-._     " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "    ,'o\"(        (_,           )    " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "   (__,-'      ,'o\"(            )>  " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "      (       (__,-'            )    " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "       `-'._.--._(             )    " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "          |||  |||`-'._.--._.-'    " << clr::reset << "\n";
+    cout << "       " << clr::gray  << "          |||  |||                 " << clr::reset << "\n\n";
 }
 
 // ---------- NEWS / MOTD ----------
