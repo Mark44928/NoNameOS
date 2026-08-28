@@ -53,7 +53,7 @@
 ---
 
 > **Note:** NoNameOS is **not** a real operating system. It is a C++ simulation that mimics an OS environment with a shell, virtual filesystem, games, and built-in tools.
-
+> This repo is vibe-coded, but AGENTS.md makes this repo stable and it works.
 ---
 
 ## Why NoNameOS?
@@ -78,7 +78,7 @@
 - [Why NoNameOS?](#why-nonameos)
 - [Perfect For](#perfect-for)
 - [Features](#features)
-- [What's New in v2.0.0](#whats-new-in-v200)
+- [What's New in v3.0.0](#whats-new-in-v300)
 - [Quick Start](#quick-start)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
 - [Build Instructions](#build-instructions)
