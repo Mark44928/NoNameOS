@@ -732,15 +732,17 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 
 ## Architecture
 
+**Note** - If the Architecture looked misaligned/messy, it's the rendering problem. we can't fix this bug. 😕
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        NoNameOS Architecture                                │
+│                        NoNameOS Architecture                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐    │
 │  │ Terminal I/O │───▶│  Shell (REPL)   │───▶│  Dispatcher  │    │
 │  │ termios.h    │    │ cooked_readline │    │  if/else map │    │
-│  │  fcntl.h      │    │ history, arrows │    │  269 cmds    │    │
+│  │  fcntl.h     │    │ history, arrows │    │  269 cmds    │    │
 │  └──────────────┘    └─────────────────┘    └───────┬──────┘    │
 │                                                     │           │
 │                    ┌────────────────────────────────┼─────┐     │
