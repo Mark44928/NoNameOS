@@ -47,6 +47,8 @@
 #include <cstring>
 #include <climits>
 #include <array>
+#include <regex>
+#include <cstdio>
 // POSIX headers for terminal control (raw input) and non-blocking I/O detection
 #include <termios.h>
 #include <unistd.h>
@@ -91,7 +93,7 @@ static void sigcont_handler(int) {
 }
 
 static const auto program_start = chrono::steady_clock::now();
-const string VERSION = "v3.0.0";
+const string VERSION = "v4.0.0";
 
 // v3.0 UNICODE RENDERING — global on/off/auto
 // When off (auto-detected or user-forced), all ornamental Unicode in output is
@@ -208,6 +210,8 @@ const vector<ThemeSpec> THEME_DB = {
     {"ocean",    "deep blues and cyans",               120,203,226, 39, 75,244, 33, 44,231, 39, 17},
     {"sunset",   "warm orange/red gradient",           154,196,214,208,201,180,209,208,255,209, 94},
     {"mono",     "grayscale, zero color",              255,250,255,255,255,245,255,255,231,245,240},
+    {"gruvbox",  "warm retro brown/yellow",            214,196,172,108,161,137,208,223,146,108,240},
+    {"rose",     "pink pastel citrus",                 211,203,216,152,205,145,212,211,168,176,240},
 };
 static string g_theme_name = "nonameos";
 
@@ -627,7 +631,16 @@ string help_text(const string& cmd) {
         {"pkg","package manager (bonus toys)"},{"joke","random joke"},
         {"nyancat","rainbow cat (pkg)"},{"starwars","ASCII crawl (pkg)"},
         {"sheep","fluffy cowsay (pkg)"},
-        {"unicode","toggle Unicode rendering (on|off|auto|test)"}
+        {"unicode","toggle Unicode rendering (on|off|auto|test)"},
+        // v4.0.0
+        {"war","card war vs AI (first to 12)"},{"yahtzee","roll dice, take the best hand"},
+        {"higherlower","will the next number be higher or lower?"},{"artillery","angle + power cannon duel"},
+        {"bitwise","bit probe and/or/xor/shl/shr (hex ok)"},{"regex","test a regex, matches highlighted"},
+        {"utime","epoch ↔ local datetime"},{"ipcalc","IPv4 subnet calculator"},
+        {"budget","expense tracker (persists)"},{"keytest","show raw key codes"},
+        {"snow","snowfall effect"},{"wave","sine wave effect"},{"starfield","warp starfield"},
+        {"coffee","HTTP 418"},{"potato","premium vegetables"},{"banana","the potassium command"},
+        {"goose","do NOT honk"}
     };
     auto it = ht.find(cmd);
     return it != ht.end() ? it->second : "no description";
@@ -1170,6 +1183,10 @@ const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","c
     "run","set","save","load","persist","theme","prompt","news",
     "crunch","pack","packlist","unpack","pkg",
     "nyancat","starwars","sheep",
+    "war","yahtzee","higherlower","artillery",
+    "bitwise","regex","utime","ipcalc","budget","keytest",
+    "snow","wave","starfield",
+    "coffee","potato","banana","goose",
     "unicode"};
 
 size_t edit_dist(const string& a, const string& b) {
@@ -5462,6 +5479,11 @@ static const vector<string> NEWS_DB = {
     "Tamagotchi union demands shorter decay rates between sessions.",
     "Idle clicker players collectively click 42 million times.",
     "Pipes reported working; plumbers everywhere relieved.",
+    "Budget tracker now accepted as legal tender in /home.",
+    "Higher-Lower streaks recognized by the simulated UN.",
+    "Artillery shells finally obey wind; aerodynamics thrilled.",
+    "Yahtzee AI caught rerolling dice numbers 1 through 5.",
+    "Goose home-invasions up 400% — homing instincts blamed.",
 };
 static string news_headline(size_t i) { return NEWS_DB[i % NEWS_DB.size()]; }
 static void cmd_news() {
@@ -5474,6 +5496,581 @@ static void cmd_news() {
         cout << "  " << clr::warning << "• " << clr::reset << clr::white << news_headline((size_t)(day + i)) << clr::reset << "\n";
     cout << "  " << clr::dgray << vsep(48) << clr::reset << "\n";
     cout << "  " << clr::muted << "weather: simulated · markets: vibes · sports: snake won" << clr::reset << "\n\n";
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 11.9: v4.0.0 — New Games (war, yahtzee, higherlower,
+//                     artillery) and Tools, Effects & Eggs
+// ═══════════════════════════════════════════════════════════════
+
+// ---------- WAR: card duel vs AI (first to 12 wins) ----------
+static string card_name(int v) {
+    if (v >= 2 && v <= 9) return to_string(v);
+    static const char* hi[5] = {"10","J","Q","K","A"};
+    return hi[v - 10];
+}
+
+void play_war() {
+    int you = 0, foe = 0;
+    while (!(g_stdin_eof || g_sigint)) {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::lcyan << uni("🃏","*") << " WAR" << clr::reset << "  "
+             << clr::dgray << "(ENTER=draw  ·  q=quit  ·  first to 12)" << clr::reset << "\n\n";
+        cout << "  You: " << clr::green << you << clr::reset << "   AI: " << clr::magenta << foe << clr::reset << "\n";
+        cout << "  " << clr::dgray << vsep(30) << clr::reset << "\n";
+        cout << "  Draw card: " << flush;
+        string ln = cooked_readline();
+        if (ln == "q" || ln == "Q") return;
+        int a = rng_int(2, 14), b = rng_int(2, 14);
+        cout << "  " << clr::bold << clr::cyan << card_name(a) << clr::reset << "  vs  "
+             << clr::bold << clr::yellow << card_name(b) << clr::reset << "  ";
+        if (a != b)
+            cout << uni("→","->") << " " << (a > b ? clr::success + string("You take it!") : clr::error + string("AI takes it!")) << clr::reset << "\n";
+        else {
+            cout << clr::warning << uni("⚔","x") << " WAR! Three cards burn each side..." << clr::reset << "\n";
+            this_thread::sleep_for(chrono::milliseconds(400));
+            a = rng_int(2, 14);
+            b = rng_int(2, 14);
+            cout << "  Face-off: " << clr::cyan << card_name(a) << clr::reset << "  vs  " << clr::yellow << card_name(b) << clr::reset << " — stake is doubled  ";
+            if (a != b)
+                cout << uni("→","->") << " " << (a > b ? clr::success + string("You win the war!") : clr::error + string("AI wins the war!")) << clr::reset << "\n";
+            else
+                cout << clr::muted << "Mutual destruction. Nobody scores." << clr::reset << "\n";
+            this_thread::sleep_for(chrono::milliseconds(400));
+        }
+        if (a > b) you++;
+        else if (b > a) foe++;
+        if (you >= 12 || foe >= 12) break;
+    }
+    cout << "\n  " << clr::bold << "Final: " << clr::green << you << clr::reset << " — " << clr::magenta << foe << clr::reset << "  "
+         << clr::accent << (you > foe ? "You rule the deck." : foe > you ? "The AI rules the deck." : "An honorable stalemate.") << clr::reset << "\n\n";
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// ---------- YAHTZEE: 3 rounds, best category auto-scored vs AI ----------
+static int ya_best(const vector<int>& d) {
+    int cnt[7] = {0,0,0,0,0,0,0}, sum = 0;
+    for (int x : d) { cnt[x]++; sum += x; }
+    bool t3 = false, quad = false, five = false, pr1 = false, pr2 = false;
+    for (int f = 1; f <= 6; f++) {
+        if (cnt[f] >= 3) t3 = true;
+        if (cnt[f] >= 4) quad = true;
+        if (cnt[f] == 5) five = true;
+        if (cnt[f] == 2) { if (pr1) pr2 = true; else pr1 = true; }
+    }
+    int run = 0, sml = 0, lrg = 0;
+    for (int f = 1; f <= 6; f++) {
+        if (cnt[f] > 0) { run++; if (run >= 4) sml = 30; if (run >= 5) lrg = 40; }
+        else run = 0;
+    }
+    int best = 0;
+    for (int f = 1; f <= 6; f++) best = max(best, f * cnt[f]);
+    best = max(best, sum);
+    if (t3) best = max(best, sum);
+    if (quad) best = max(best, sum);
+    if (t3 && (pr1 || pr2 || quad || five)) best = max(best, 25);
+    best = max(max(best, sml), max(lrg, five ? 50 : 0));
+    return best;
+}
+
+void play_yahtzee() {
+    vector<int> d(5), d2(5);
+    auto roll_all = [](vector<int>& v) { for (int& x : v) x = rng_int(1, 6); };
+    int you_total = 0, ai_total = 0;
+    for (int r = 1; r <= 3; r++) {
+        if (g_stdin_eof || g_sigint) break;
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::lblue << uni("🎲","[ dice ]") << " YAHTZEE — round " << r << "/3" << clr::reset
+             << "  " << clr::dgray << "(reroll up to 2x · q=quit)" << clr::reset << "\n\n";
+        roll_all(d);
+        for (int pass = 0; pass < 2; pass++) {
+            cout << "  Dice: ";
+            for (int i = 0; i < 5; i++) cout << clr::yellow << "[" << d[i] << "]" << clr::reset << " ";
+            cout << "\n  Reroll which dice #s (e.g. " << clr::bold << "1 4" << clr::reset << ", 1-5) or ENTER to score: " << flush;
+            string ln = cooked_readline();
+            if (ln == "q" || ln == "Q") return;
+            int pos;
+            bool any = false, bad = false;
+            istringstream ps(ln);
+            while (ps >> pos) {
+                if (pos < 1 || pos > 5) { bad = true; continue; }
+                d[pos - 1] = rng_int(1, 6);
+                any = true;
+            }
+            if (bad) cout << "  " << clr::error << "dice numbers are 1-5" << clr::reset << "\n";
+            if (!any) break;
+        }
+        int sc = ya_best(d);
+        roll_all(d2);
+        int asc = ya_best(d2);
+        you_total += sc;
+        ai_total += asc;
+        cout << "  " << clr::bold << "Your hand scores " << clr::cyan << sc << clr::reset
+             << " pts  ·  AI scores " << clr::magenta << asc << clr::reset << " pts\n";
+        cout << "  Totals — You: " << clr::green << you_total << clr::reset
+             << "   AI: " << clr::magenta << ai_total << clr::reset << "\n\n";
+    }
+    cout << "  " << clr::accent
+         << (you_total > ai_total ? "You out-rolled the AI! Fortune favors the dice."
+             : ai_total > you_total ? "The AI rolled dangerously well. Lucky it."
+             : "Dead heat. The dice gods shrug.") << clr::reset << "\n\n";
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// ---------- HIGHER-LOWER: streak guessing ----------
+void play_higherlower() {
+    int cur = rng_int(1, 100), streak = 0, best = 0;
+    while (!(g_stdin_eof || g_sigint)) {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::magenta << uni("⇅","^v") << " HIGHER-LOWER" << clr::reset << "  "
+             << clr::dgray << "(h / l  ·  q=quit)" << clr::reset << "\n\n";
+        cout << "  Current: " << clr::bold << clr::cyan << cur << clr::reset << "   streak "
+             << clr::green << streak << clr::reset << "   best " << clr::yellow << best << clr::reset << "\n\n";
+        cout << "  Will the next number be H)igher or L)ower? " << flush;
+        string ln = cooked_readline();
+        if (ln == "q" || ln == "Q") return;
+        int next = rng_int(1, 100);
+        while (next == cur) next = rng_int(1, 100);
+        bool up = next > cur;
+        char pick = ln.empty() ? ' ' : (char)tolower((unsigned char)ln[0]);
+        cout << "  Next: " << clr::bold << next << clr::reset << "  " << uni("→","->") << " ";
+        if ((up && pick == 'h') || (!up && pick == 'l')) {
+            streak++;
+            best = max(best, streak);
+            cout << clr::success << "Correct! streak " << streak << clr::reset << "\n";
+            this_thread::sleep_for(chrono::milliseconds(450));
+        } else {
+            cout << clr::error << "Wrong. Streak broken at " << streak << "." << clr::reset << "\n";
+            break;
+        }
+        cur = next;
+    }
+    cout << "\n  " << clr::bold << "Final streak: " << clr::cyan << streak << clr::reset
+         << "   best this session: " << clr::yellow << best << clr::reset << "\n\n";
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// ---------- ARTILLERY: angle+power cannon vs an unseen bunker ----------
+void play_artillery() {
+    int target = rng_int(150, 400);
+    int wind = rng_int(-40, 40);
+    int hits = 0;
+    cout << "\033[2J\033[1;1H";
+    cout << "\n  " << clr::bold << clr::orange << uni("💣","*") << " ARTILLERY" << clr::reset << "  "
+         << clr::dgray << "(5 shots · q=quit)" << clr::reset << "\n\n";
+    cout << "  " << clr::info << "Intel: enemy bunker somewhere out to 500 m." << clr::reset << "\n";
+    cout << "  Wind today: " << (wind >= 0 ? clr::green : clr::magenta) << (wind >= 1 ? "+" : "") << wind
+         << clr::reset << clr::gray << " (shells drift 3 m per unit)" << clr::reset << "\n\n";
+    for (int shot = 1; shot <= 5 && !(g_stdin_eof || g_sigint); shot++) {
+        cout << "  Shot " << clr::bold << shot << "/5" << clr::reset << " — angle " << clr::cyan << "1-90" << clr::reset
+             << " + power " << clr::cyan << "1-100" << clr::reset << ", e.g. " << clr::bold << "45 67" << clr::reset << ": " << flush;
+        string ln = cooked_readline();
+        if (ln == "q" || ln == "Q") return;
+        istringstream is(ln);
+        double ang, pw;
+        if (!(is >> ang >> pw) || ang < 1 || ang > 90 || pw < 1 || pw > 100) {
+            cout << "  " << clr::error << "bad shot data" << clr::reset << "\n";
+            shot--;
+            continue;
+        }
+        double rad = ang * 3.14159265358979 / 180.0;
+        int dist = (int)((pw / 100.0) * 500.0 * sin(2.0 * rad)) + wind * 3;
+        if (dist < 0) dist = 0;
+        int diff = dist - target;
+        cout << "  " << clr::magenta << uni("💥","*") << " boom" << clr::reset << "  impact at " << clr::bold << dist << " m" << clr::reset << "  ";
+        if (abs(diff) <= 12) {
+            hits++;
+            cout << clr::success << "DIRECT HIT on shot " << shot << "! Bunker down." << clr::reset << "\n";
+            break;
+        } else if (diff > 0) {
+            cout << clr::warning << "overshot by " << diff << " m" << clr::reset << "\n";
+        } else {
+            cout << clr::warning << "fell short by " << -diff << " m" << clr::reset << "\n";
+        }
+        this_thread::sleep_for(chrono::milliseconds(350));
+    }
+    cout << "\n  " << clr::bold << "Bunker was at " << target << " m." << clr::reset
+         << "  " << clr::accent << (hits ? "Sieg! The hill is yours."
+                                         : "All shells spent. The bunker lives to be annoying.") << clr::reset << "\n\n";
+    cout << "Press Enter to return to NoNameOS..."; cooked_readline();
+}
+
+// ---------- BITWISE: hex/oct/bin tool + and/or/xor/shl/shr math ----------
+void cmd_bitwise(const string& args) {
+    istringstream ss(args);
+    string sa, op, sb;
+    ss >> sa >> op >> sb;
+    auto parse = [](const string& s, long long* out) {
+        if (s.empty()) return false;
+        try {
+            size_t idx = 0;
+            long long v = stoll(s, &idx, 0);
+            if (idx != s.size()) return false;
+            *out = v;
+            return true;
+        } catch (...) { return false; }
+    };
+    long long a = 0;
+    if (sa.empty() || !parse(sa, &a)) { cout << "Usage: bitwise <a> [and|or|xor|shl|shr] <b>\n       ex: bitwise 0xFF or 0x0F\n\n"; return; }
+    unsigned long long u = (unsigned long long)a;
+    string bin;
+    bool nz = false;
+    for (int i = 63; i >= 0; i--) { if ((u >> i) & 1) nz = true; if (nz) bin += ((u >> i) & 1) ? "1" : "0"; }
+    cout << "  dec " << a << "  hex 0x" << hex << u << dec << "  bin 0b" << (bin.empty() ? "0" : bin) << "\n";
+    if (op.empty()) { cout << "\n"; return; }
+    long long b = 0;
+    if (sb.empty() || !parse(sb, &b)) { cout << "  " << clr::error << "missing/bad operand b" << clr::reset << "\n\n"; return; }
+    long long r = 0;
+    if (op == "and") r = a & b;
+    else if (op == "or") r = a | b;
+    else if (op == "xor") r = a ^ b;
+    else if (op == "shl") r = (long long)((unsigned long long)a << b);
+    else if (op == "shr") r = (long long)((unsigned long long)a >> b);
+    else { cout << "  " << clr::error << "unknown op '" << op << "' (want and|or|xor|shl|shr)" << clr::reset << "\n\n"; return; }
+    cout << "  " << a << " " << op << " " << b << " = " << clr::bold << r << clr::reset
+         << "  (0x" << hex << (unsigned long long)r << dec << ")\n\n";
+}
+
+// ---------- REGEX tester: highlight matches in text or piped data ----------
+void cmd_regex_test(const string& args) {
+    if (args.empty()) {
+        cout << "Usage: regex <pattern> <text>\n       or pipe text in:  cat f | regex ^[a-z]+$\n";
+        cout << "  ex: regex ^[a-z]+$ hello   ·   regex Q[0-9]( 2019-Q4 2020-Q1)\n\n";
+        return;
+    }
+    size_t sp = args.find(' ');
+    string pat = args.substr(0, sp);
+    string text = sp == string::npos ? "" : args.substr(sp + 1);
+    if (text.empty() && g_stdin_live) text = g_stdin_buf;
+    if (text.empty()) {
+        cout << "  " << clr::error << "no text to match (pass it as arg or pipe it in)" << clr::reset << "\n\n";
+        return;
+    }
+    try {
+        regex re(pat);
+        auto it = sregex_iterator(text.begin(), text.end(), re);
+        auto endit = sregex_iterator();
+        vector<pair<size_t, size_t>> hits;
+        for (; it != endit && hits.size() < 200; ++it)
+            hits.push_back({(size_t)it->position(), (size_t)it->length()});
+        cout << "  " << clr::muted << "input: " << clr::reset << text << "\n";
+        cout << "  " << clr::info << (hits.size() == 200 ? string("200+") : to_string(hits.size()))
+             << " match(es)" << clr::reset << "\n";
+        if (!hits.empty()) {
+            string hl;
+            size_t idx = 0;
+            for (auto& h : hits) {
+                if (h.first < idx) continue;
+                hl += text.substr(idx, h.first - idx);
+                hl += clr::success + text.substr(h.first, h.second) + clr::reset;
+                idx = h.first + h.second;
+            }
+            hl += text.substr(idx);
+            cout << "  " << clr::muted << "found: " << clr::reset << hl << "\n";
+        }
+        cout << "\n";
+    } catch (const regex_error& e) {
+        cout << "  " << clr::error << "regex error: " << e.what() << clr::reset << "\n\n";
+    }
+}
+
+// ---------- UTIME: epoch <-> local datetime ----------
+void cmd_utime(const string& args) {
+    istringstream ss(args);
+    long long ep;
+    if (args.empty() || args.rfind("now", 0) == 0)
+        ep = (long long)time(nullptr);
+    else if (!(ss >> ep)) { cout << "Usage: utime [epoch|now]\n       ex: utime 1000000000\n\n"; return; }
+    time_t t = (time_t)ep;
+    tm ltm;
+    localtime_r(&t, &ltm);
+    char b1[40], b2[16];
+    strftime(b1, sizeof(b1), "%Y-%m-%d %H:%M:%S", &ltm);
+    strftime(b2, sizeof(b2), "%a", &ltm);
+    cout << "  epoch : " << clr::bold << ep << clr::reset << "\n";
+    cout << "  local : " << clr::cyan << b1 << clr::reset << "  " << clr::muted << "(" << b2 << ")" << clr::reset << "\n\n";
+}
+
+// ---------- IPCALC: IPv4 subnet calculator ----------
+static string ipcalc_dotted(uint32_t v) {
+    ostringstream os;
+    os << ((v >> 24) & 255) << "." << ((v >> 16) & 255) << "." << ((v >> 8) & 255) << "." << (v & 255);
+    return os.str();
+}
+
+void cmd_ipcalc(const string& args) {
+    if (args.empty()) { cout << "Usage: ipcalc <a.b.c.d>/<prefix>   ex: ipcalc 192.168.1.42/24\n\n"; return; }
+    size_t sl = args.find('/');
+    string ippart = sl == string::npos ? "" : args.substr(0, sl);
+    if (sl == string::npos || ippart.empty() || sl + 1 >= args.size()) {
+        cout << "  " << clr::error << "need <ip>/<prefix>, e.g. 10.0.0.7/24" << clr::reset << "\n\n";
+        return;
+    }
+    int o[4] = {0, 0, 0, 0};
+    if (sscanf(ippart.c_str(), "%d.%d.%d.%d", &o[0], &o[1], &o[2], &o[3]) != 4) {
+        cout << "  " << clr::error << "malformed ip '" << ippart << "'" << clr::reset << "\n\n";
+        return;
+    }
+    for (int i = 0; i < 4; i++)
+        if (o[i] < 0 || o[i] > 255) { cout << "  " << clr::error << "octet " << o[i] << " out of range" << clr::reset << "\n\n"; return; }
+    int p = atoi(args.substr(sl + 1).c_str());
+    if (p < 0 || p > 32) { cout << "  " << clr::error << "prefix must be 0-32" << clr::reset << "\n\n"; return; }
+    uint32_t addr = ((uint32_t)o[0] << 24) | ((uint32_t)o[1] << 16) | ((uint32_t)o[2] << 8) | (uint32_t)o[3];
+    uint32_t mask = p ? (0xFFFFFFFFu << (32 - p)) : 0u;
+    uint32_t net = addr & mask;
+    uint32_t bcast = net | (~mask);
+    uint64_t total = 1ULL << (32 - p);
+    uint64_t usable = p >= 2 ? total - 2 : total;
+    cout << "  " << clr::header << "IP " << ippart << "/" << p << clr::reset << "\n";
+    cout << "  " << clr::gray << "mask      " << clr::reset << ipcalc_dotted(mask) << "\n";
+    cout << "  " << clr::gray << "wildcard  " << clr::reset << ipcalc_dotted(~mask) << "\n";
+    cout << "  " << clr::gray << "network   " << clr::reset << clr::cyan << ipcalc_dotted(net) << clr::reset << "\n";
+    cout << "  " << clr::gray << "broadcast " << clr::reset << clr::yellow << ipcalc_dotted(bcast) << clr::reset << "\n";
+    if (p >= 2)
+        cout << "  " << clr::gray << "hosts     " << clr::reset << ipcalc_dotted(net + 1) << " ... " << ipcalc_dotted(bcast - 1) << "\n";
+    cout << "  " << clr::gray << "usable    " << clr::reset << clr::bold << usable << clr::reset << " / " << total << " total\n\n";
+}
+
+// ---------- BUDGET: persistent expense tracker (/home/budget.save) ----------
+static vector<tuple<string, double, string>> budget_rows(map<string,FSNode>& fs) {
+    vector<tuple<string, double, string>> rows;
+    auto c = vfs_read("/home/budget.save", fs, "/");
+    if (!c) return rows;
+    istringstream ls(*c);
+    string line;
+    while (getline(ls, line)) {
+        size_t t1 = line.find('|');
+        if (t1 == string::npos) continue;
+        size_t t2 = line.find('|', t1 + 1);
+        if (t2 == string::npos) continue;
+        rows.push_back({line.substr(0, t1), atof(line.substr(t1 + 1, t2 - t1 - 1).c_str()), line.substr(t2 + 1)});
+    }
+    return rows;
+}
+
+void cmd_budget(const string& args, map<string,FSNode>& fs) {
+    string sub = args.substr(0, args.find(' '));
+    if (sub == "clear") {
+        fs["/home/budget.save/"] = FSNode(false, "");
+        cout << "  " << clr::success << "Budget cleared." << clr::reset << "\n";
+        return;
+    }
+    if (sub == "add") {
+        string rest = args.find(' ') == string::npos ? "" : args.substr(args.find(' ') + 1);
+        istringstream ds(rest);
+        double amt;
+        string desc;
+        if (!(ds >> amt)) { cout << "Usage: budget add <amount> <note>\n       ex: budget add 12.50 coffee\n\n"; return; }
+        getline(ds, desc);
+        size_t a = desc.find_first_not_of(" \t");
+        desc = a == string::npos ? "(unnamed)" : desc.substr(a);
+        ostringstream os;
+        os << fixed << setprecision(2) << amt;
+        auto prev = vfs_read("/home/budget.save", fs, "/");
+        fs["/home/budget.save/"] = FSNode(false, (prev ? *prev : "") + desc + "|" + os.str() + "|" + get_timestamp() + "\n");
+        cout << "  " << clr::success << "+ spent " << fixed << setprecision(2) << amt << " on " << desc
+             << clr::reset << clr::muted << "  ·  saved to /home/budget.save" << clr::reset << "\n";
+        return;
+    }
+    auto rows = budget_rows(fs);
+    if (sub == "remove") {
+        string idxs = args.find(' ') == string::npos ? "" : args.substr(args.find(' ') + 1);
+        int n = atoi(idxs.c_str());
+        if (n < 1 || n > (int)rows.size()) { cout << "Run " << clr::cyan << "budget list" << clr::reset << " to see entry numbers.\n"; return; }
+        rows.erase(rows.begin() + n - 1);
+        ostringstream body;
+        for (auto& r : rows)
+            body << get<0>(r) << "|" << fixed << setprecision(2) << get<1>(r) << "|" << get<2>(r) << "\n";
+        fs["/home/budget.save/"] = FSNode(false, body.str());
+        cout << "  " << clr::success << "Removed entry " << n << "." << clr::reset << "\n";
+        return;
+    }
+    double total = 0, big = 0;
+    for (auto& r : rows) { total += get<1>(r); big = max(big, get<1>(r)); }
+    if (sub == "total") {
+        cout << "  Total spent: " << clr::bold << fixed << setprecision(2) << total << clr::reset
+             << "  over " << rows.size() << " entries.\n\n";
+        return;
+    }
+    if (sub == "list" || sub.empty()) {
+        if (rows.empty()) {
+            cout << "  " << clr::muted << "No expenses yet." << clr::reset << "  Start one: "
+                 << clr::cyan << "budget add 9.99 coffee" << clr::reset << "\n\n";
+            return;
+        }
+        if (sub == "list") {
+            cout << "\n  " << clr::header << "Expenses" << clr::reset << "\n";
+            cout << "  " << clr::dgray << vsep(46) << clr::reset << "\n";
+            int i = 0;
+            for (auto& r : rows) {
+                i++;
+                cout << "  " << clr::dgray << setw(2) << i << clr::reset << "  "
+                     << clr::magenta << setw(9) << right << fixed << setprecision(2) << get<1>(r) << clr::reset << "  "
+                     << clr::white << setw(18) << left << get<0>(r) << clr::reset
+                     << clr::dgray << get<2>(r) << clr::reset << "\n";
+            }
+            cout << "  " << clr::dgray << vsep(46) << clr::reset << "\n";
+        }
+        cout << "  Total: " << clr::bold << fixed << setprecision(2) << total << clr::reset
+             << "  (" << rows.size() << " entries · biggest " << big << ")\n";
+        if (sub.empty())
+            cout << "  " << clr::muted << "usage: budget add <amt> <note> | list | remove <n> | total | clear" << clr::reset << "\n";
+        cout << "\n";
+        return;
+    }
+    cout << "Usage: budget add <amt> <note> | list | remove <n> | total | clear\n\n";
+}
+
+// ---------- KEYTEST: live key-code display ----------
+void cmd_keytest() {
+    static const map<int, string> kname = {
+        {KEY_UP, "UP"}, {KEY_DOWN, "DOWN"}, {KEY_LEFT, "LEFT"}, {KEY_RIGHT, "RIGHT"},
+        {KEY_HOME, "HOME"}, {KEY_END, "END"}, {KEY_PGUP, "PGUP"}, {KEY_PGDN, "PGDN"},
+        {KEY_DEL, "DEL"}, {KEY_ENTER, "ENTER"}, {KEY_SPACE, "SPACE"}, {KEY_ESC, "ESC"},
+    };
+    cout << "\n  " << clr::bold << clr::cyan << uni("⌨","[key]") << " KEY TEST" << clr::reset << "  "
+         << clr::dgray << "(press keys · q quits)" << clr::reset << "\n\n";
+    while (!g_stdin_eof && !g_sigint) {
+        int k = getkey();
+        if (k == KEY_NONE) { if (g_stdin_eof) break; continue; }
+        if (k == 'q' || k == 'Q') break;
+        string nm;
+        auto f = kname.find(k);
+        if (f != kname.end()) nm = f->second;
+        else if (k >= ' ' && k < 127) nm = string("'") + (char)k + "'";
+        else nm = "raw";
+        cout << "  " << clr::cyan << setw(7) << left << nm << clr::reset
+             << clr::muted << "  code " << k << clr::reset << "\n";
+    }
+    while (kbhit()) (void)getkey();
+    cout << "\n";
+}
+
+// ---------- v4.0 EFFECTS: snow / wave / starfield ----------
+void cmd_snow() {
+    const int W = 56, H = 16, N = 46;
+    vector<int> xs(N), ys(N), sp(N), drift(N);
+    for (int i = 0; i < N; i++) {
+        xs[i] = rng_int(0, W - 1);
+        ys[i] = -rng_int(0, H);
+        sp[i] = rng_int(1, 2);
+        drift[i] = rng_int(0, 5) == 0 ? 1 : 0;
+    }
+    for (int f = 0; f < 200 && !kbhit(); f++) {
+        cout << "\033[2J\033[1;1H";
+        vector<string> grid(H, string(W, ' '));
+        for (int i = 0; i < N; i++) {
+            if (ys[i] >= 0 && ys[i] < H && xs[i] >= 0 && xs[i] < W)
+                grid[ys[i]][xs[i]] = rng_int(0, 1) ? '*' : '.';
+            if (drift[i] && rng_int(0, 1)) xs[i] += rng_int(0, 1) ? 1 : -1;
+            if (xs[i] < 0) xs[i] = W - 1;
+            if (xs[i] >= W) xs[i] = 0;
+            ys[i] += sp[i];
+            if (ys[i] >= H) { ys[i] = -rng_int(0, 3); xs[i] = rng_int(0, W - 1); }
+        }
+        for (int y = 0; y < H; y++) {
+            for (int x = 0; x < W; x++) {
+                char c = grid[y][x];
+                cout << (c == '.' ? clr::dgray : c == '*' ? clr::white : "") << c << clr::reset;
+            }
+            cout << "\n";
+        }
+        this_thread::sleep_for(chrono::milliseconds(60));
+    }
+    cout << "\033[0m\033[2J\033[1;1H";
+    while (kbhit()) (void)getkey();
+}
+
+void cmd_wave() {
+    const int W = 56, H = 12;
+    for (int f = 0; f < 140 && !kbhit(); f++) {
+        double phase = f * 0.22;
+        cout << "\033[2J\033[1;1H";
+        for (int y = 0; y < H; y++) {
+            for (int x = 0; x < W; x++) {
+                double v = sin(x * 0.38 + phase) * (H / 3.0) + sin(x * 0.9 - phase * 1.7) * (H / 6.0);
+                int band = H / 2 + (int)round(v);
+                bool on = band == y || band - 1 == y;
+                cout << (on ? clr::cyan : clr::dgray) << (on ? uni("~","~") : ".") << clr::reset;
+            }
+            cout << "\n";
+        }
+        this_thread::sleep_for(chrono::milliseconds(40));
+    }
+    cout << "\033[0m\033[2J\033[1;1H";
+    while (kbhit()) (void)getkey();
+}
+
+void cmd_starfield() {
+    const int N = 42, W = 58, H = 20;
+    double cx = (W - 1) / 2.0, cy = (H - 1) / 2.0;
+    vector<double> ang(N), rad(N);
+    for (int i = 0; i < N; i++) {
+        ang[i] = rng_int(0, 628) / 100.0;
+        rad[i] = 0.35 + rng_int(0, 25) / 100.0;
+    }
+    for (int f = 0; f < 110 && !kbhit(); f++) {
+        cout << "\033[2J\033[1;1H";
+        vector<vector<char>> grid(H, vector<char>(W, ' '));
+        for (int i = 0; i < N; i++) {
+            rad[i] *= 1.07 + (i % 3) * 0.02;
+            int x = (int)round(cx + cos(ang[i]) * rad[i] * 3.0);
+            int y = (int)round(cy + sin(ang[i]) * rad[i] * 1.4);
+            if (x < 0 || x >= W || y < 0 || y >= H) {
+                ang[i] = rng_int(0, 628) / 100.0;
+                rad[i] = 0.35 + rng_int(0, 25) / 100.0;
+                continue;
+            }
+            grid[y][x] = rad[i] > 3.2 ? '*' : rad[i] > 1.6 ? '+' : '.';
+        }
+        for (int y = 0; y < H; y++) {
+            for (int x = 0; x < W; x++) {
+                char c = grid[y][x];
+                cout << (c == '*' ? clr::white : c == '+' ? clr::lblue : c == '.' ? clr::dgray : "")
+                     << c << clr::reset;
+            }
+            cout << "\n";
+        }
+        this_thread::sleep_for(chrono::milliseconds(46));
+    }
+    cout << "\033[0m\033[2J\033[1;1H";
+    while (kbhit()) (void)getkey();
+}
+
+// ---------- v4.0 EASTER EGGS: coffee / potato / banana / goose ----------
+void cmd_coffee() {
+    cout << "  " << clr::warning << "HTTP 418 — I'm a teapot. No coffee today." << clr::reset << "\n";
+    cout << clr::magenta << R"(        ( (
+         ) )
+      ........,
+      |      |]
+      \      /
+       `----')" << clr::reset << "\n\n";
+}
+
+void cmd_potato() {
+    cout << clr::yellow << R"(        ____
+     .-~    -.
+    (        )
+     '-.____.-')" << clr::reset << "\n";
+    cout << "  A perfectly adequate potato. " << clr::muted << "Grade: premium." << clr::reset << "\n\n";
+}
+
+void cmd_banana() {
+    cout << clr::yellow << R"(       ___
+     .-   -.
+    / banana\
+    \       /
+     `-.__.-')" << clr::reset << "\n";
+    cout << "  " << clr::muted << "Ba... na... NA! (potassium levels rising)" << clr::reset << "\n\n";
+}
+
+void cmd_goose() {
+    cout << clr::white << R"(    __
+ <(o )___
+  ( ._> /
+   `---')" << clr::reset << "\n";
+    cout << "  " << clr::warning << "HONK! " << clr::reset << clr::muted << "The goose takes your homework and one simulated dollar." << clr::reset << "\n\n";
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -5727,6 +6324,10 @@ static void cmd_news() {
             section("v3.0 Games", "chess, clicker, pet, fishing");
             section("v3.0 Shell", "run, set, save, load, persist\ntheme, prompt, unicode, news · pipes | · redirects > >> <\nchains && ; · globs * ? · TAB complete · Ctrl+R search");
             section("v3.0 Tools", "crunch, pack, packlist, unpack, pkg");
+            section("v4.0 Games", "war, yahtzee, higherlower, artillery");
+            section("v4.0 Tools", "bitwise, regex, utime, ipcalc\nbudget, keytest");
+            section("v4.0 Effects", "snow, wave, starfield");
+            section("v4.0 Easter Eggs", "coffee, potato, banana, goose");
 
             cout << "\n  " << clr::dgray << vsep(42) << clr::reset << "\n";
             cout << "  " << clr::dim << "Tip: " << clr::muted << "type " << clr::lcyan << "help <cmd>" << clr::muted << " or " << clr::lcyan << "man <cmd>" << clr::muted << " for details" << clr::reset << "\n\n";
@@ -6539,6 +7140,11 @@ static void cmd_news() {
                      {"pkg", "PKG(8)\t\t\tNoNameOS System\n\nNAME\n\tpkg - package manager for bonus toys\n\nSYNOPSIS\n\tpkg list | install <pkg> | remove <pkg> | search <term>\n\nDESCRIPTION\n\tInstall gated commands (joke, nyancat, starwars, sheep).\n\tInstalled set persists across sessions."},
                      {"unicode", "UNICODE(1)\t\tUser Commands\n\nNAME\n\tunicode - toggle Unicode rendering\n\nSYNOPSIS\n\tunicode on | off | auto | test\n\nDESCRIPTION\n\tControl Unicode rendering globally.\n\ton: force Unicode ornamental characters.\n\toff: use ASCII fallbacks (no tofu boxes).\n\tauto: detect from locale/terminal.\n\ttest: show sample characters and current state.\n\tSetting persists across sessions."},
                     {"uname", "UNAME(1)\t\tUser Commands\n\nNAME\n\tuname - system information\n\nSYNOPSIS\n\tuname [-a | -r | -s | -m]\n\nDESCRIPTION\n\tPrint system information. -a for all, -r for release, -s for OS on Name, -m for architecture."},
+                    {"war", "WAR(6)\t\t\tGame Commands\n\nNAME\n\twar - card war vs AI\n\nSYNOPSIS\n\twar\n\nDESCRIPTION\n\tDraw a card each round vs the AI, higher card wins. A tie burns\n\tthree cards on each side and the face-off scores double.\n\tFirst to 12 wins the deck."},
+                    {"yahtzee", "YAHTZEE(6)\t\tGame Commands\n\nNAME\n\tyahtzee - dice rolls vs AI\n\nSYNOPSIS\n\tyahtzee\n\nDESCRIPTION\n\t3 rounds. Each round: roll 5 dice, reroll up to twice by listing\n\tdice numbers (e.g. '1 4'), or ENTER to score. Your best category\n\tis auto-scored against the AI's. Highest 3-round total wins."},
+                    {"artillery", "ARTILLERY(6)\t\tGame Commands\n\nNAME\n\tartillery - angle and power cannon duel\n\nSYNOPSIS\n\tartillery\n\nDESCRIPTION\n\t5 shots to destroy a hidden bunker between 0-500 m. Pass angle\n\tand power each shot (e.g. '45 67'). Wind pushes shells 3 m per\n\tunit. A direct hit is within 12 m."},
+                    {"bitwise", "BITWISE(1)\t\tUser Commands\n\nNAME\n\tbitwise - bit probing and bit math\n\nSYNOPSIS\n\tbitwise <n>            show dec/hex/bin\n\tbitwise <a> <op> <b>   ops: and or xor shl shr\n\nDESCRIPTION\n\tAccepts hex input (0x..). See the decimal, hex and binary form\n\tof a number, or run bitwise operations on two operands."},
+                    {"budget", "BUDGET(1)\t\tUser Commands\n\nNAME\n\tbudget - expense tracker\n\nSYNOPSIS\n\tbudget add <amount> <note>\n\tbudget list | total | remove <n> | clear\n\nDESCRIPTION\n\tTrack spending in a persistent VFS file (/home/budget.save).\n\tSurvives sessions via persistence."},
                     {"uptime", "UPTIME(1)\t\tUser Commands\n\nNAME\n\tuptime - system uptime\n\nSYNOPSIS\n\tuptime\n\nDESCRIPTION\n\tDisplay how long the system has been running."},
                     {"cal", "CAL(1)\t\t\tUser Commands\n\nNAME\n\tcal - display calendar\n\nSYNOPSIS\n\tcal\n\nDESCRIPTION\n\tDisplay the current month's calendar with today highlighted."},
                     {"rainbow", "RAINBOW(1)\t\tUser Commands\n\nNAME\n\trainbow - rainbow text\n\nSYNOPSIS\n\trainbow [message]\n\nDESCRIPTION\n\tPrint text with rainbow color cycling animation."},
@@ -7490,6 +8096,29 @@ static void cmd_news() {
         else if (cmd == "pet") { cmd_pet(args, file_system); }
         else if (cmd == "fishing") { play_fishing(file_system); }
         // ═══════════════════════════════════════════════════════════
+        //  v4.0.0 — NEW GAMES
+        // ═══════════════════════════════════════════════════════════
+        else if (cmd == "war") { play_war(); }
+        else if (cmd == "yahtzee") { play_yahtzee(); }
+        else if (cmd == "higherlower") { play_higherlower(); }
+        else if (cmd == "artillery") { play_artillery(); }
+        // ═══════════════════════════════════════════════════════════
+        //  v4.0.0 — TOOLS / EFFECTS / EGGS
+        // ═══════════════════════════════════════════════════════════
+        else if (cmd == "bitwise") { cmd_bitwise(args); }
+        else if (cmd == "regex") { cmd_regex_test(args); }
+        else if (cmd == "utime") { cmd_utime(args); }
+        else if (cmd == "ipcalc") { cmd_ipcalc(args); }
+        else if (cmd == "budget") { cmd_budget(args, file_system); }
+        else if (cmd == "keytest") { cmd_keytest(); }
+        else if (cmd == "snow") { cmd_snow(); }
+        else if (cmd == "wave") { cmd_wave(); }
+        else if (cmd == "starfield") { cmd_starfield(); }
+        else if (cmd == "coffee") { cmd_coffee(); }
+        else if (cmd == "potato") { cmd_potato(); }
+        else if (cmd == "banana") { cmd_banana(); }
+        else if (cmd == "goose") { cmd_goose(); }
+        // ═══════════════════════════════════════════════════════════
         //  v3.0.0 — SHELL / SYSTEM / TOOLS
         // ═══════════════════════════════════════════════════════════
         else if (cmd == "run") {
@@ -7579,7 +8208,7 @@ static void cmd_news() {
                     apply_theme(nm);
                     persist_save(file_system, aliases, SYSTEM_USERS);
                     cout << "  " << clr::success << "Theme '" << nm << "' active (saved)." << clr::reset << "\n";
-                } else cout << "Usage: theme set <nonameos|matrix|dracula|ocean|sunset|mono>\n";
+                } else cout << "Usage: theme set <nonameos|matrix|dracula|ocean|sunset|mono|gruvbox|rose>\n";
             }
         }
         else if (cmd == "prompt") {

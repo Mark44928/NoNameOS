@@ -9,7 +9,7 @@
 </pre>
 <i>Screenshot from 2.0.0, Tested in Termux via MyPhone myT10.</i>
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260808-140453.png"/>
-<p align="center"><sub><i>Screenshot from above of this screenshot is v0.3.1, current version (v3.0.0) has 44 games, 269 commands, and full color support not shown here.</i></sub></p>
+<p align="center"><sub><i>Screenshot from above of this screenshot is v0.3.1, current version (v4.0.0) has 48 games, 286 commands, and full color support not shown here.</i></sub></p>
 
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
 </div>
@@ -23,8 +23,8 @@
   <img src="https://img.shields.io/badge/language-C%2B%2B17-blue?style=for-the-badge" alt="C++17"/>
   <img src="https://img.shields.io/badge/license-GPLv3-purple?style=for-the-badge" alt="License"/>
   <img src="https://img.shields.io/badge/7893-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
-  <img src="https://img.shields.io/badge/44_games-red?style=for-the-badge" alt="Games"/>
-  <img src="https://img.shields.io/badge/269_commands-cyan?style=for-the-badge" alt="Commands"/>
+  <img src="https://img.shields.io/badge/48-games-red?style=for-the-badge" alt="Games"/>
+  <img src="https://img.shields.io/badge/286-commands-cyan?style=for-the-badge" alt="Commands"/>
   <img src="https://img.shields.io/badge/49_bugs_fixed-2ea44f?style=for-the-badge" alt="Bugs Fixed"/>
   <img src="https://img.shields.io/badge/dependencies-zero-brightgreen?style=for-the-badge" alt="Zero Dependencies"/>
   <img src="https://img.shields.io/badge/platform-linux-lightgrey?style=for-the-badge" alt="Linux"/>
@@ -33,12 +33,12 @@
 </p>
 
 <blockquote align="center">
-  <b>One file. Zero dependencies. 44 games. 269 commands. One terminal.</b>
+  <b>One file. Zero dependencies. 48 games. 286 commands. One terminal.</b>
   <br/><sub><i>Simulated OS meets sandbox playground — all in a single .cpp</i></sub>
 </blockquote>
 
 <p align="center">
-  <b>A pure C++ terminal operating-system simulation featuring an interactive shell with pipes, scripts and persistence, a virtual filesystem, 44 built-in games, and 269 commands — all contained in a single source file.</b><br/>
+  <b>A pure C++ terminal operating-system simulation featuring an interactive shell with pipes, scripts and persistence, a virtual filesystem, 48 built-in games, and 286 commands — all contained in a single source file.</b><br/>
   <sub>No external dependencies. No framework. No build system headaches. Just compile and run.</sub>
 </p>
 
@@ -61,7 +61,7 @@
 | | |
 |---|---|
 | **Single File** | Entire project is one `.cpp` — no build system, no `#include` hell, no headaches |
-| **Fun to Use** | 44 games, easter eggs, color themes, animated boot — it's genuinely enjoyable |
+| **Fun to Use** | 48 games, easter eggs, color themes, animated boot — it's genuinely enjoyable |
 | **Learn C++** | See real-world STL, OOP, RAII, ANSI escape codes, and POSIX I/O in action |
 | **Hackable** | Every feature in one file — read it, mod it, break it, fix it |
 | **Portable** | Compiles everywhere — Linux, Termux, WSL, even your toaster if it runs g++ |
@@ -78,6 +78,7 @@
 - [Why NoNameOS?](#why-nonameos)
 - [Perfect For](#perfect-for)
 - [Features](#features)
+- [What's New in v4.0.0](#whats-new-in-v400)
 - [What's New in v3.0.0](#whats-new-in-v300)
 - [Quick Start](#quick-start)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
@@ -102,9 +103,9 @@
 
 | Category | What You Get | Highlights |
 |----------|-------------|------------|
-| **Interactive Shell** | Pipes, redirects, chains, globs, TAB-complete, scripts, persistence, themes, 269 commands | Arrows, history, Ctrl+R search, fuzzy suggestions |
+| **Interactive Shell** | Pipes, redirects, chains, globs, TAB-complete, scripts, persistence, themes, 286 commands | Arrows, history, Ctrl+R search, fuzzy suggestions |
 | **Virtual Filesystem** | Files, directories, symlinks, permissions, trash | Timestamps, sizes, `ls -l`, `chmod` |
-| **44 Games** | Arcade, puzzle, strategy, word, reflex games | Tetris, Othello, Blackjack, Wordle, Battleship |
+| **48 Games** | Arcade, puzzle, strategy, word, reflex games | Tetris, Othello, Blackjack, Wordle, Battleship |
 | **System Tools** | Text editor, calculators, system info | `kernel`, `netstat`, `traceroute`, `report` |
 | **Text Processing** | grep, find, sort, word count, diff | `rev`, `tr`, `cut`, `uniq`, `nl`, `fold` |
 | **Converters** | Base64, ROT13, Morse, Roman, Binary | `urlencode`, `hexdump`, `hash` |
@@ -115,7 +116,32 @@
 
 ---
 
-## What's New in v3.0.0
+## What's New in v4.0.0
+
+### 4 new games
+- `war` — card war vs AI: ties burn three cards and the face-off scores double, first to 12 wins the deck
+- `yahtzee` — 3 rounds of best-category dice vs AI; reroll up to twice by listing dice numbers (`1 4`)
+- `higherlower` — will the next number be higher or lower? Build the longest streak
+- `artillery` — 5 shots with angle + power to hit a hidden bunker; wind pushes shells 3 m per unit
+
+### New tools
+- `bitwise` — dec/hex/bin probe plus `and|or|xor|shl|shr` math (accepts `0x..` input)
+- `regex` — live regex tester; matches highlighted against text or piped input
+- `utime` — epoch ↔ local datetime converter (`utime 1000000000` or `utime now`)
+- `ipcalc` — IPv4 subnet calculator: mask, wildcard, network, broadcast, usable hosts
+- `budget` — persistent expense tracker (`budget add 12.50 coffee`, list/remove/total/clear)
+- `keytest` — show raw key codes live (great for debugging terminal setups)
+
+### New effects & easter eggs
+- Effects: `snow` (snowfall), `wave` (sine surf), `starfield` (warp speed)
+- Eggs: `coffee` (HTTP 418), `potato`, `banana`, `goose` (HONK)
+
+### Two new themes
+- `gruvbox` — warm retro brown/yellow palette
+- `rose` — pink pastel citrus palette
+- `theme set gruvbox` / `theme set rose` (both persist like the rest)
+
+### New in v3.0.0
 
 ### Shell power-ups
 - **Pipelines** — `cat file | grep x | sort | wc` (stdout→stdin between commands)
@@ -742,13 +768,13 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 │  ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐    │
 │  │ Terminal I/O │───▶│  Shell (REPL)   │───▶│  Dispatcher  │    │
 │  │ termios.h    │    │ cooked_readline │    │  if/else map │    │
-│  │  fcntl.h     │    │ history, arrows │    │  269 cmds    │    │
+│  │  fcntl.h     │    │ history, arrows │    │  286 cmds    │    │
 │  └──────────────┘    └─────────────────┘    └───────┬──────┘    │
 │                                                     │           │
 │                    ┌────────────────────────────────┼─────┐     │
 │                    │                                │     │     │
 │           ┌────────▼───────┐              ┌─────────▼───┐ │     │
-│           │  Virtual FS    │              │  44 Games   │ │     │
+│           │  Virtual FS    │              │  48 Games   │ │     │
 │           │  map<string,   │              │  Tetris     │ │     │
 │           │    FSNode>     │              │  Snake      │ │     │
 │           │  timestamps    │              │  Pong       │ │     │
@@ -776,7 +802,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 | **STL Containers** | `map<string, FSNode>` | Virtual filesystem backed by associative containers |
 | **MT19937 RNG** | `mt19937 rng{random_device{}()}` | Modern C++ random number generation |
 | **ANSI Colors** | `namespace color` | 256-color and truecolor RGB terminal rendering |
-| **Single Dispatch** | exec_segment in main() | One massive if/else chain routes all 269 commands (plus pipes/chains engine around it) |
+| **Single Dispatch** | exec_segment in main() | One massive if/else chain routes all 286 commands (plus pipes/chains engine around it) |
 
 ## Fun Facts
 
@@ -794,6 +820,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 
 | Version | Lines | Games | Commands | Key Changes |
 |---------|-------|-------|----------|-------------|
+| **v4.0.0** | 8,522 | 48 | 286 | war · yahtzee · higherlower · artillery · bitwise regex utime ipcalc budget keytest · snow wave starfield · coffee potato banana goose · gruvbox + rose themes |
 | **v3.0.0** | 7,893 | 44 | 269 | pipes · redirects · && ; · globs · TAB · Ctrl+R · .nnsh scripts · persistence · themes · prompt · pkg · chess clicker pet fishing · crunch pack news stopwatch-laps |
 | **v2.0.0** | 5,962 | 40 | 251 | 14 games, 20 tools, 10 eggs, 7 effects |
 | **v1.0.2** | 4,928 | 24 | 149 | 43 audit bug fixes |
@@ -847,5 +874,5 @@ This project is licensed under the GNU General Public License v3. See the [LICEN
 ---
 
 <p align="center">
-  <sub><i>NoNameOS — because who needs a real OS when you can have 44 games and a terminal that judges your typing speed?</i></sub>
+  <sub><i>NoNameOS — because who needs a real OS when you can have 48 games and a terminal that judges your typing speed?</i></sub>
 </p>

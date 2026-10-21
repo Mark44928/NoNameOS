@@ -13,12 +13,12 @@ if [[ ! -f "$README" ]]; then echo "Error: $README not found"; exit 1; fi
 LINES=$(wc -l < "$SRC" | tr -d ' ')
 VERSION=$(grep -oP 'const string VERSION = "\K[^"]+' "$SRC" | head -1)
 
-# Pull the ALL_COMMANDS set (first 20 lines covers it)
-CMDS_RAW=$(sed -n '/^const set<string> ALL_COMMANDS/,/};/p' "$SRC" | head -20)
+# Pull the full ALL_COMMANDS set (head -20 truncated it at 182 of 269 entries)
+CMDS_RAW=$(sed -n '/^const set<string> ALL_COMMANDS/,/};/p' "$SRC")
 TOTAL=$(echo "$CMDS_RAW" | grep -oP '"[^"]+"' | wc -l | tr -d ' ')
 
 # Games list (must match the ALL_COMMANDS entries exactly)
-GAMES="snake tetris pong sudoku flappy minesweeper tictactoe hangman rps adventure guess 2048 typing reaction nummem memory connect4 lightsout puzzle breakout whack wordle quiz trivia"
+GAMES="snake tetris pong sudoku flappy minesweeper tictactoe ttt hangman rps adventure guess 2048 typing reaction nummem memory connect4 lightsout puzzle breakout whack wordle quiz trivia othello mastermind simon blackjack battleship slots maze nim buzz bulls twentyone jumble arith bingo chess clicker pet fishing play war yahtzee higherlower artillery"
 GAME_COUNT=0
 for g in $GAMES; do
     echo "$CMDS_RAW" | grep -q "\"$g\"" && GAME_COUNT=$((GAME_COUNT + 1))
@@ -31,7 +31,8 @@ for e in $EGGS; do
     echo "$CMDS_RAW" | grep -q "\"$e\"" && EGG_COUNT=$((EGG_COUNT + 1))
 done
 
-COMMANDS=$((TOTAL - GAME_COUNT - EGG_COUNT))
+# README "commands" stat means ALL_COMMANDS entries; games/eggs are a subset breakdown
+COMMANDS=$TOTAL
 
 # Format line count with commas for display
 LINES_FMT=$(printf "%'d" "$LINES")
