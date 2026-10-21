@@ -6057,11 +6057,22 @@ void cmd_potato() {
 }
 
 void cmd_banana() {
-    cout << clr::yellow << R"(       ___
-     .-   -.
-    / banana\
-    \       /
-     `-.__.-')" << clr::reset << "\n";
+    cout << clr::yellow << R"(                            :
+                            #-
+                            =-:
+                           +==*:
+                          :%: =*
+                          += ::#:
+                         -# =+ *-
+                        -#: %- *-
+                       =*: ++ :%:
+                     -+=  =*: ++
+                  :-+=: :++: =*:
+              ::-==-: :=+- :++:
+       :::--====--:-===- :=+-
+       -%+=-::------:::-=+-:
+        :-======---====-:
+           ::::---:::)" << clr::reset << "\n";
     cout << "  " << clr::muted << "Ba... na... NA! (potassium levels rising)" << clr::reset << "\n\n";
 }
 
