@@ -7,11 +7,11 @@
  / /|  / /_/ / /|  / /_/ / / / / / /  __/ /_/ /___/ /
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 </pre>
-<i>Screenshot from 2.0.0, Tested in Termux via MyPhone myT10.</i>
-<img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260808-140453.png"/>
-<p align="center"><sub><i>Screenshot from above of this screenshot is v0.3.1, current version (v4.0.0) has 48 games, 286 commands, and full color support not shown here.</i></sub></p>
+<img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260808-140453.png" width="700" alt="NoNameOS v2.0.0 running in Termux"/>
+<p align="center"><sub><i>NoNameOS v2.0.0 running in Termux on a MyPhone myT10. Current v4.0.0 adds more games, commands, and full color themes.</i></sub></p>
 
-<img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS Screenshot"/>
+<img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS shell screenshot"/>
+<p align="center"><sub><i>An earlier build (v0.3.1), shown for comparison.</i></sub></p>
 </div>
 
 
@@ -19,17 +19,17 @@
 <h1 align="center">NoNameOS</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v3.0.0-green?style=for-the-badge" alt="Version"/>
+  <img src="https://img.shields.io/badge/version-v4.0.0-green?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/language-C%2B%2B17-blue?style=for-the-badge" alt="C++17"/>
   <img src="https://img.shields.io/badge/license-GPLv3-purple?style=for-the-badge" alt="License"/>
-  <img src="https://img.shields.io/badge/7893-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
+  <img src="https://img.shields.io/badge/8533-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
   <img src="https://img.shields.io/badge/48-games-red?style=for-the-badge" alt="Games"/>
   <img src="https://img.shields.io/badge/286-commands-cyan?style=for-the-badge" alt="Commands"/>
-  <img src="https://img.shields.io/badge/49_bugs_fixed-2ea44f?style=for-the-badge" alt="Bugs Fixed"/>
   <img src="https://img.shields.io/badge/dependencies-zero-brightgreen?style=for-the-badge" alt="Zero Dependencies"/>
   <img src="https://img.shields.io/badge/platform-linux-lightgrey?style=for-the-badge" alt="Linux"/>
   <img src="https://img.shields.io/github/languages/code-size/Mark44928/NoNameOS?style=for-the-badge" alt="Code Size"/>
   <img src="https://img.shields.io/github/last-commit/Mark44928/NoNameOS?style=for-the-badge" alt="Last Commit"/>
+  <img src="https://github.com/Mark44928/NoNameOS/actions/workflows/build.yml/badge.svg" alt="Build"/>
 </p>
 
 <blockquote align="center">
@@ -60,7 +60,7 @@
 
 | | |
 |---|---|
-| **Single File** | Entire project is one `.cpp` — no build system, no `#include` hell, no headaches |
+| **Single File** | Entire project is one `.cpp` — no build system, no dependency hell, no headaches |
 | **Fun to Use** | 48 games, easter eggs, color themes, animated boot — it's genuinely enjoyable |
 | **Learn C++** | See real-world STL, OOP, RAII, ANSI escape codes, and POSIX I/O in action |
 | **Hackable** | Every feature in one file — read it, mod it, break it, fix it |
@@ -141,7 +141,7 @@
 - `rose` — pink pastel citrus palette
 - `theme set gruvbox` / `theme set rose` (both persist like the rest)
 
-### New in v3.0.0
+## What's New in v3.0.0
 
 ### Shell power-ups
 - **Pipelines** — `cat file | grep x | sort | wc` (stdout→stdin between commands)
@@ -168,7 +168,7 @@
 - **Package manager** — `pkg install figlet|nyancat|starwars|sheep` unlocks bonus toys
 - `news` MOTD headlines, `crunch` column math, `pack/packlist/unpack` archiver, laps-capable `stopwatch`
 
-### New in v2.0.0
+## What's New in v2.0.0
 
 ### 14 new games (+25% more games!)
 - `othello` — classic Reversi vs. AI (2-player hotseat too)
@@ -199,7 +199,7 @@
 - `help` now lists v2.0 categories: Games, System, Tools, Easter Eggs, Effects
 - Version bumped to **v2.0.0** — the biggest feature drop yet
 
-### New in v1.0.2
+## What's New in v1.0.2
 
 ### Bug Fixes (43 total across all audits)
 - Fixed 2 critical Sudoku infinite loops in initialization
@@ -216,12 +216,12 @@
 - kbhit/getkey use static peek buffer (race-free)
 - CSV separator width fixed
 
-### New in v1.0.1
+## What's New in v1.0.1
 - Global arrow key support in all 7 real-time games
 - Shell readline with cursor movement, backspace, history navigation
 - 25+ easter eggs (`sudo`, `konami`, `rickroll`, `disco`, `matrix`, etc.)
 
-### New in v1.0.0
+## What's New in v1.0.0
 - **11 new games:** Tetris, Pong, Sudoku, Flappy Bird, Memory Cards, Connect Four, Lights Out, Sliding Puzzle, Breakout, Whack-a-Mole, Wordle, Quiz
 - **60+ new commands:** Converters, math tools, text processing, fun utilities
 - **Enhanced visuals:** 256-color ANSI, truecolor RGB, animated boot, styled prompts
@@ -525,12 +525,12 @@ $ ./nonameos
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 
                     ═══════════════════════════════════════════
-                     v3.0.0 · Pure C++ OS Simulation
+                     v4.0.0 · Pure C++ OS Simulation
                     ═══════════════════════════════════════════
 
   [━━━━━━━━━━━━━━━━━━━━━━━━━] System ready
 
-  ✓ NoNameOS v3.0.0 booted successfully
+  ✓ NoNameOS v4.0.0 booted successfully
   Type help for available commands
   ↑↓ history  ←→ cursor  Backspace delete
 
@@ -724,7 +724,7 @@ NoNameOS is a **simulation** for learning and fun. It has a shell, filesystem, a
 <details>
 <summary><b>Can I add my own commands?</b></summary>
 
-Yes! The entire project is one file. Find the command dispatcher (around line 5624) and add your own `else if (cmd == "mycommand")` block. Then recompile.
+Yes! The entire project is one file. Search for the `exec_segment` dispatcher and add your own `else if (cmd == "mycommand")` block. Then recompile.
 
 </details>
 
@@ -810,7 +810,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 - **Zero external dependencies** — only standard library + POSIX
 - **Compiles in ~10 seconds** on a modern machine
 - **Runs on anything**: Linux, macOS, Termux (Android), WSL
-- **43 bugs found and fixed** across 5 automated audit passes
+- **43+ bugs found and fixed** across automated audit passes
 - **25+ easter eggs** hidden throughout the codebase
 - **Built with**: C++, POSIX, and questionable life choices
 
@@ -820,7 +820,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 
 | Version | Lines | Games | Commands | Key Changes |
 |---------|-------|-------|----------|-------------|
-| **v4.0.0** | 8,522 | 48 | 286 | war · yahtzee · higherlower · artillery · bitwise regex utime ipcalc budget keytest · snow wave starfield · coffee potato banana goose · gruvbox + rose themes |
+| **v4.0.0** | 8,533 | 48 | 286 | war · yahtzee · higherlower · artillery · bitwise regex utime ipcalc budget keytest · snow wave starfield · coffee potato banana goose · gruvbox + rose themes |
 | **v3.0.0** | 7,893 | 44 | 269 | pipes · redirects · && ; · globs · TAB · Ctrl+R · .nnsh scripts · persistence · themes · prompt · pkg · chess clicker pet fishing · crunch pack news stopwatch-laps |
 | **v2.0.0** | 5,962 | 40 | 251 | 14 games, 20 tools, 10 eggs, 7 effects |
 | **v1.0.2** | 4,928 | 24 | 149 | 43 audit bug fixes |
