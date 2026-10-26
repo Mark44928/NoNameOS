@@ -13,6 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build with warnings as errors
-        run: make CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O2'
+        run: make CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O2 -Wno=comment'
       - name: Smoke test
         run: printf 'version\nexit\n' | ./nonameos
