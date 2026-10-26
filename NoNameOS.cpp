@@ -1277,8 +1277,8 @@ void cmd_paste(const string& args, map<string,FSNode>& fs, const string& cdir) {
     { istringstream s1(*c1); while (getline(s1, line)) l1.push_back(line); }
     { istringstream s2(*c2); while (getline(s2, line)) l2.push_back(line); }
     for (size_t i = 0; i < max(l1.size(), l2.size()); i++) {
-        if (i < l1.size()) cout << l1[i]; cout << "\t";
-        if (i < l2.size()) cout << l2[i]; cout << "\n";
+        if (i < l1.size()) { cout << l1[i]; } cout << "\t";
+        if (i < l2.size()) { cout << l2[i]; } cout << "\n";
     }
 }
 
@@ -4911,8 +4911,8 @@ static bool glob_match(const string& pat, const string& s) {
     return p == pat.size();
 }
 
-// Expand any */? tokens in `args` against the VFS; returns args unchanged when
-// nothing matches (so typos degrade gracefully instead of vanishing).
+// Expand any glob wildcard tokens in `args` against the VFS; returns args
+// unchanged when nothing matches (so typos degrade gracefully instead of vanishing).
 static string expand_globs(const string& args, map<string,FSNode>& fs, const string& cdir) {
     if (args.find('*') == string::npos && args.find('?') == string::npos) return args;
     istringstream ss(args);
