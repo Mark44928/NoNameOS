@@ -561,7 +561,7 @@ string help_text(const string& cmd) {
         {"which","locate command"},{"alias","manage aliases"},
         {"unalias","remove alias"},{"users","list users"},
         {"banner","ASCII banner"},{"fortune","random quote"},
-        {"factor","factorize number"},{"shuf","shuffle text"},
+        {"factor","factorize number"},{"crypto","fake crypto prices"},{"shuf","shuffle text"},
         {"head","first 10 lines"},{"tail","last 10 lines"},
         {"sort","sort lines"},{"wc","count lines/words/chars"},
         {"tee","write and display"},{"nano","line editor"},
@@ -1159,7 +1159,7 @@ const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","c
     "paste","uniq","nl","fold","basename","dirname","free","dmesg","lscpu","lsusb","arch",
     "nproc","du","locate","pom","alarm","bc","ln","trash",
     "tetris","pong","sudoku","flappy","memory","connect4","lightsout","puzzle","breakout","whack",
-    "colors","weather","epoch","uuid","base64","rot13","uppercase","lowercase",
+    "colors","weather","crypto","epoch","uuid","base64","rot13","uppercase","lowercase",
     "wordcount","matrix","cmtheme","countdown","ascii","hexdump","password",
     "quote","joke","ip","uptime2","mem","cpu","disk","calc2",
     "bmi","tip","units","roman","binary","morse","bar","sparkline",
@@ -2605,6 +2605,27 @@ void cmd_weather() {
     cout << "  Temp:       " << clr::red << temp << "°C" << clr::reset << "\n";
     cout << "  Humidity:   " << clr::blue << hum << "%" << clr::reset << "\n";
     cout << "  Wind:       " << clr::gray << wind << " km/h" << clr::reset << "\n\n";
+}
+
+void cmd_crypto() {
+    const struct { string sym; string name; double base; } coins[] = {
+        {"BTC","Bitcoin",67000},{"ETH","Ethereum",3400},{"SOL","Solana",160},
+        {"DOGE","Dogecoin",0.12},{"ADA","Cardano",0.45},{"DOT","Polkadot",6.2},
+        {"AVAX","Avalanche",28},{"LINK","Chainlink",14},{"SHIB","Shiba",0.00002},
+        {"PEPE","Pepe",0.000001}
+    };
+    cout << "\n  " << clr::bold << clr::orange << "Crypto Prices (simulated)" << clr::reset << "\n";
+    cout << "  " << clr::dgray << vsep(52) << clr::reset << "\n";
+    for (const auto& c : coins) {
+        double change = (rng_int(0, 10000) / 10000.0 - 0.5) * 0.12;
+        double price = c.base * (1.0 + change);
+        string s = (change >= 0) ? "+" : "";
+        string col = (change >= 0) ? clr::green : clr::red;
+        cout << "  " << clr::bold << c.sym << clr::reset << " (" << clr::dim << c.name << clr::reset << ")"
+             << "  " << clr::white << "$" << price << clr::reset
+             << "  " << col << s << (change*100) << "%" << clr::reset << "\n";
+    }
+    cout << "  " << clr::dgray << vsep(52) << clr::reset << "\n\n";
 }
 
 void cmd_epoch() {
@@ -6322,7 +6343,7 @@ void cmd_goose() {
 
             section("Filesystem", "ls, ls -l, cd, mkdir, touch, cat, echo, rm, rm -r\ngrep, find, locate, cp, cp -r, mv, pwd\ntree, ln -s, chmod, trash, du, head, tail\nsort, wc, tee");
             section("System", "whoami, who, date, uptime, hostname, uname\ncfetch, ps, top, env, printenv, history\nclear, help, man, exit");
-            section("Tools", "nano, calc, bc, cowsay, cal, rainbow, lolcat\nyes, sleep, which, alias, unalias, su\nuseradd, userdel, users, banner, fortune\nfactor, shuf, sl, train");
+            section("Tools", "nano, calc, bc, cowsay, cal, rainbow, lolcat\nyes, sleep, which, alias, unalias, su\nuseradd, userdel, users, banner, fortune\nfactor, crypto, shuf, sl, train");
             section("Text", "rev, tr, cut, paste, uniq, nl, fold\nbasename, dirname");
             section("System Info", "free, dmesg, lscpu, lsusb, arch, nproc, ping, watch, df, seq");
             section("Games", "play (AsciiDash), guess, trivia, adventure, snake\nminesweeper, tictactoe (ttt), hangman, rps\n2048, typing, reaction, nummem, wordle, quiz");
@@ -7799,6 +7820,7 @@ void cmd_goose() {
         // --- NEW COMMANDS ---
         else if (cmd == "colors") { cmd_colors(); }
         else if (cmd == "weather") { cmd_weather(); }
+        else if (cmd == "crypto") { cmd_crypto(); }
         else if (cmd == "epoch") { cmd_epoch(); }
         else if (cmd == "uuid") { cmd_uuid(); }
         else if (cmd == "base64") { cmd_base64(args, file_system, current_dir); }
