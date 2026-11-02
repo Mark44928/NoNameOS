@@ -79,9 +79,8 @@ static void sigint_handler(int) {
 static void sigtstp_handler(int) {
     // Restore cooked terminal before suspending so the user's shell isn't left raw
     if (g_term_saved) tcsetattr(STDIN_FILENO, TCSANOW, &g_orig_term);
-    signal(SIGTSTP, SIG_DFL);   // default action: stop the process
+    signal(SIGTSTP, sigtstp_handler);  // re-arm for when the shell resumes (after Ctrl+Z / fg)
     raise(SIGTSTP);
-    signal(SIGTSTP, sigtstp_handler);  // re-arm when the shell resumes (after Ctrl+Z / fg)
 }
 static void sigcont_handler(int) {
     if (g_term_saved) {
