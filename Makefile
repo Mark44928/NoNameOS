@@ -9,7 +9,7 @@ ifeq ($(origin CXX), default)
   endif
 endif
 
-CXXFLAGS = -std=c++17 -Wall -Wextra -O2
+CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -Wno-comment
 TARGET = nonameos
 SRC = NoNameOS.cpp
 
