@@ -8,7 +8,7 @@
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 </pre>
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260808-140453.png" width="700" alt="NoNameOS v2.0.0 running in Termux"/>
-<p align="center"><sub><i>NoNameOS v2.0.0 running in Termux on a MyPhone myT10. Current v4.0.0 adds more games, commands, and full color themes.</i></sub></p>
+<p align="center"><sub><i>NoNameOS v2.0.0 running in Termux on a MyPhone myT10. Current v4.1.0 adds more games, commands, and full color themes.</i></sub></p>
 
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS shell screenshot"/>
 <p align="center"><sub><i>An earlier build (v0.3.1), shown for comparison.</i></sub></p>
@@ -19,7 +19,7 @@
 <h1 align="center">NoNameOS</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v4.0.0-green?style=for-the-badge" alt="Version"/>
+  <img src="https://img.shields.io/badge/version-v4.1.0-green?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/language-C%2B%2B17-blue?style=for-the-badge" alt="C++17"/>
   <img src="https://img.shields.io/badge/license-GPLv3-purple?style=for-the-badge" alt="License"/>
   <img src="https://img.shields.io/badge/8533-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
@@ -78,7 +78,7 @@
 - [Why NoNameOS?](#why-nonameos)
 - [Perfect For](#perfect-for)
 - [Features](#features)
-- [What's New in v4.0.0](#whats-new-in-v400)
+- [What's New in v4.1.0](#whats-new-in-v400)
 - [What's New in v3.0.0](#whats-new-in-v300)
 - [Quick Start](#quick-start)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
@@ -116,7 +116,7 @@
 
 ---
 
-## What's New in v4.0.0
+## What's New in v4.1.0
 
 ### 4 new games
 - `war` — card war vs AI: ties burn three cards and the face-off scores double, first to 12 wins the deck
@@ -525,12 +525,12 @@ $ ./nonameos
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 
                     ═══════════════════════════════════════════
-                     v4.0.0 · Pure C++ OS Simulation
+                     v4.1.0 · Pure C++ OS Simulation
                     ═══════════════════════════════════════════
 
   [━━━━━━━━━━━━━━━━━━━━━━━━━] System ready
 
-  ✓ NoNameOS v4.0.0 booted successfully
+  ✓ NoNameOS v4.1.0 booted successfully
   Type help for available commands
   ↑↓ history  ←→ cursor  Backspace delete
 
@@ -820,7 +820,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 
 | Version | Lines | Games | Commands | Key Changes |
 |---------|-------|-------|----------|-------------|
-| **v4.0.0** | 8,533 | 48 | 286 | war · yahtzee · higherlower · artillery · bitwise regex utime ipcalc budget keytest · snow wave starfield · coffee potato banana goose · gruvbox + rose themes |
+| **v4.1.0** | 8,533 | 48 | 286 | war · yahtzee · higherlower · artillery · bitwise regex utime ipcalc budget keytest · snow wave starfield · coffee potato banana goose · gruvbox + rose themes |
 | **v3.0.0** | 7,893 | 44 | 269 | pipes · redirects · && ; · globs · TAB · Ctrl+R · .nnsh scripts · persistence · themes · prompt · pkg · chess clicker pet fishing · crunch pack news stopwatch-laps |
 | **v2.0.0** | 5,962 | 40 | 251 | 14 games, 20 tools, 10 eggs, 7 effects |
 | **v1.0.2** | 4,928 | 24 | 149 | 43 audit bug fixes |
