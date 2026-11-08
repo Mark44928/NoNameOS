@@ -92,7 +92,7 @@ static void sigcont_handler(int) {
 }
 
 static const auto program_start = chrono::steady_clock::now();
-const string VERSION = "v4.1.0";
+const string VERSION = "v4.2.0";
 
 // v3.0 UNICODE RENDERING — global on/off/auto
 // When off (auto-detected or user-forced), all ornamental Unicode in output is
@@ -562,7 +562,7 @@ string help_text(const string& cmd) {
         {"banner","ASCII banner"},{"fortune","random quote"},
         {"factor","factorize number"},{"crypto","fake crypto prices"},{"shuf","shuffle text"},
         {"head","first 10 lines"},{"tail","last 10 lines"},
-        {"sort","sort lines"},{"wc","count lines/words/chars"},
+        {"sort","sort lines"},{"wc","count lines/words/chars"},{"sha256sum","SHA-256 of a file"},{"stat","file metadata"},
         {"tee","write and display"},{"nano","line editor"},
         {"calc","calculator"},{"bc","better calculator"},
         {"play","AsciiDash game"},{"guess","number guessing game"},
@@ -648,8 +648,7 @@ string help_text(const string& cmd) {
         {"roulette","Russian roulette game"},
         {"slotmachine","spin the slots"},
         {"towers","Towers of Hanoi"},
-        {"solitaire","Klondike solitaire"},
-        {"poker","poker card game"},
+        {"poker","five-card draw poker"},
         {"darts","darts game"},
         {"bowling","bowling game"},
         {"spaceinvaders","classic arcade game"},
@@ -1253,7 +1252,7 @@ const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","c
     "nproc","du","locate","pom","alarm","bc","ln","trash",
     "tetris","pong","sudoku","flappy","memory","connect4","lightsout","puzzle","breakout","whack",
     "colors","weather","crypto","epoch","uuid","base64","rot13","uppercase","lowercase",
-    "wordcount","matrix","cmtheme","countdown","ascii","hexdump","password",
+    "wordcount","matrix","cmtheme","countdown","ascii","hexdump","password","sha256sum","stat",
     "quote","joke","ip","uptime2","mem","cpu","disk","calc2",
     "bmi","tip","units","roman","binary","morse","bar","sparkline",
     "colorgen","palette","diff","csv","stats","age","datecalc","encode",
@@ -1281,7 +1280,7 @@ const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","c
     "snow","wave","starfield",
     "coffee","potato","banana","goose",
     "unicode","asciiart","qr","barcode","emoticon","roulette","slotmachine",
-    "towers","solitaire","poker","darts","bowling","spaceinvaders","asteroids",
+    "towers","poker","darts","bowling","spaceinvaders","asteroids",
     "moonbuggy","lunarlander","breakout2","pacman","frogger","centipede","defender",
     "galaga","donkeykong","mario","zelda","tetris2","snake2","pong2",
     "checkers","backgammon","go","mahjong","dominoes","yahtzee2","monopoly",
@@ -2884,9 +2883,107 @@ void cmd_wordcount(const string& args, map<string,FSNode>& fs, const string& cdi
              << string(max(0, 15 - (int)sorted_words[i].first.size()), ' ')
              << clr::cyan << repeat(bar, "█") << clr::reset << " " << sorted_words[i].second << "\n";
     }
-    cout << "\n";
+     cout << "\n";
+ }
+
+// ---- v4.2.0: SHA-256 (FIPS 180-4), self-contained so the OS stays stdlib-only ----
+namespace sha256impl {
+static const unsigned int K[64] = {
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+};
+static inline unsigned int rotr(unsigned int x, unsigned int n) { return (x >> n) | (x << (32 - n)); }
+
+string hash(const string& msg) {
+    unsigned int h[8] = {0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
+    vector<unsigned char> m(msg.begin(), msg.end());
+    unsigned long long bitlen = (unsigned long long)m.size() * 8ULL;
+    m.push_back(0x80);
+    while (m.size() % 64 != 56) m.push_back(0x00);
+    for (int i = 7; i >= 0; i--) m.push_back((unsigned char)(bitlen >> (i * 8)));
+    for (size_t off = 0; off < m.size(); off += 64) {
+        unsigned int w[64];
+        for (int i = 0; i < 16; i++)
+            w[i] = ((unsigned int)m[off + i * 4] << 24) | ((unsigned int)m[off + i * 4 + 1] << 16)
+                 | ((unsigned int)m[off + i * 4 + 2] << 8) | (unsigned int)m[off + i * 4 + 3];
+        for (int i = 16; i < 64; i++) {
+            unsigned int s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);
+            unsigned int s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >> 10);
+            w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+        }
+        unsigned int a = h[0], b = h[1], c = h[2], d = h[3];
+        unsigned int e = h[4], f = h[5], g = h[6], hh = h[7];
+        for (int i = 0; i < 64; i++) {
+            unsigned int S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+            unsigned int ch = (e & f) ^ ((~e) & g);
+            unsigned int t1 = hh + S1 + ch + K[i] + w[i];
+            unsigned int S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+            unsigned int maj = (a & b) ^ (a & c) ^ (b & c);
+            unsigned int t2 = S0 + maj;
+            hh = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+        }
+        h[0] += a; h[1] += b; h[2] += c; h[3] += d;
+        h[4] += e; h[5] += f; h[6] += g; h[7] += hh;
+    }
+    char buf[65];
+    for (int i = 0; i < 8; i++) snprintf(buf + i * 8, 9, "%08x", h[i]);
+    return string(buf, 64);
+}
+} // namespace sha256impl
+
+void cmd_sha256sum(const string& args, map<string,FSNode>& fs, const string& cdir) {
+    // Stdin path first, like wc/grep: `cat <file> | sha256sum` must produce the
+    // same digest as `sha256sum <file>`, which requires cat to be verbatim.
+    if (args.empty() && g_stdin_live) {
+        cout << "  " << clr::cyan << sha256impl::hash(g_stdin_buf) << clr::reset << "\n";
+        return;
+    }
+    if (args.empty()) { cout << "Usage: sha256sum <file>\n"; return; }
+    auto c = vfs_read(args, fs, cdir);
+    if (!c) { cout << "error: file not found.\n"; return; }
+    cout << "  " << clr::cyan << sha256impl::hash(*c) << clr::reset << "  " << args << "\n";
 }
 
+void cmd_stat(const string& args, map<string,FSNode>& fs, const string& cdir) {
+    if (args.empty()) { cout << "Usage: stat <path>\n"; return; }
+    if (has_traversal(args)) { cout << "error: path traversal not allowed.\n"; return; }
+    string full = resolved_path(fs, resolve_user_path(args, cdir));
+    auto it = fs.find(full);
+    if (it == fs.end()) { cout << "error: no such file or directory.\n"; return; }
+    const FSNode& n = it->second;
+    int lines = 0, words = 0;
+    if (!n.is_dir) {
+        bool in_word = false;
+        for (char ch : n.content) {
+            if (ch == '\n') lines++;
+            if (isspace((unsigned char)ch)) in_word = false;
+            else if (!in_word) { in_word = true; words++; }
+        }
+    }
+    string shown = full;
+    while (!shown.empty() && shown.back() == '/') shown.pop_back();
+    size_t slash = shown.find_last_of('/');
+    if (slash != string::npos) shown = shown.substr(slash + 1);
+    cout << "\n  " << clr::bold << "File:" << clr::reset << "  " << clr::cyan << shown << clr::reset << "\n";
+    cout << "  " << clr::gray << "Path:" << clr::reset << "   " << full << "\n";
+    cout << "  " << clr::gray << "Type:" << clr::reset << "   " << (n.is_dir ? "directory" : n.is_link ? "symlink" : "regular file") << "\n";
+    cout << "  " << clr::gray << "Mode:" << clr::reset << "   " << n.mode << "\n";
+    if (n.is_link && !n.link_target.empty())
+        cout << "  " << clr::gray << "Target:" << clr::reset << " " << n.link_target << "\n";
+    cout << "  " << clr::gray << "Size:" << clr::reset << "   " << clr::white << n.size() << clr::reset << " bytes\n";
+    if (!n.is_dir)
+        cout << "  " << clr::gray << "Lines:" << clr::reset << "  " << clr::white << lines << clr::reset
+             << "   " << clr::gray << "Words:" << clr::reset << " " << clr::white << words << clr::reset << "\n";
+    cout << "  " << clr::gray << "Created:" << clr::reset << " " << n.created_at << "\n\n";
+}
+// Rendering is kept lightweight (short ANSI codes, color grouped per row) so the
+// animation never blocks on terminal output and stays responsive to keypresses.
 // Animated matrix rain; runs until any key is pressed, then returns to the shell.
 // Rendering is kept lightweight (short ANSI codes, color grouped per row) so the
 // animation never blocks on terminal output and stays responsive to keypresses.
@@ -6276,7 +6373,7 @@ void cmd_goose() {
 
 void cmd_asciiart() {
     cout << "\n  " << clr::bold << "ASCII Art Generator" << clr::reset << "\n";
-    cout << "  " << clr::dgray << "Convert images to ASCII art (placeholder)" << clr::reset << "\n";
+    cout << "  " << clr::dgray << "Image-to-ASCII is not available in this build" << clr::reset << "\n";
     cout << "  " << clr::gray << "Tip: Use ascii command for simple ASCII banners" << clr::reset << "\n\n";
 }
 
@@ -6287,7 +6384,7 @@ void cmd_qr(const string& args) {
         return;
     }
     cout << "\n  " << clr::bold << "QR Code Generator" << clr::reset << "\n";
-    cout << "  " << clr::dgray << "(QR code would be displayed here in a real terminal)" << clr::reset << "\n";
+    cout << "  " << clr::dgray << "QR rendering is not available in this build" << clr::reset << "\n";
     cout << "  Text: " << clr::cyan << args << clr::reset << "\n\n";
 }
 
@@ -6297,7 +6394,7 @@ void cmd_barcode(const string& args) {
         return;
     }
     cout << "\n  " << clr::bold << "Barcode Generator" << clr::reset << "\n";
-    cout << "  " << clr::dgray << "(Barcode would be displayed here)" << clr::reset << "\n";
+    cout << "  " << clr::dgray << "Barcode rendering is not available in this build" << clr::reset << "\n";
     cout << "  Text: " << clr::cyan << args << clr::reset << "\n\n";
 }
 
@@ -6307,48 +6404,215 @@ void cmd_emoticon(const string& args) {
         cout << "  Example: emoticon happy\n\n";
         return;
     }
-    cout << "\n  " << clr::bold << "Emoticon Display" << clr::reset << "\n";
-    cout << "  " << clr::yellow << "(: " << clr::reset << clr::cyan << args << clr::reset << clr::yellow << " :)" << clr::reset << "\n\n";
+    static const map<string, string> moods = {
+        {"happy", ":)"}, {"sad", ":("}, {"wink", ";)"}, {"surprise", ":O"},
+        {"cry", ":'("}, {"love", "<3"}, {"angry", ">:("}, {"cool", "B)"},
+    };
+    auto it = moods.find(args);
+    if (it != moods.end()) {
+        cout << "\n  " << clr::bold << "Emoticon" << clr::reset << "  " << clr::yellow << it->second << clr::reset << "\n\n";
+    } else {
+        cout << "\n  " << clr::bold << "Emoticon" << clr::reset << "  " << clr::yellow << "(: " << args << clr::reset << clr::yellow << " :)" << clr::reset << "\n\n";
+    }
 }
 
 void cmd_roulette() {
+    // One live chamber in six; the cylinder is re-spun every pull.
     cout << "\n  " << clr::bold << "Russian Roulette" << clr::reset << "\n";
-    cout << "  " << clr::red << "BANG!" << clr::reset << "\n\n";
+    cout << "  " << clr::dgray << "Spinning the cylinder..." << clr::reset << "\n";
+    this_thread::sleep_for(chrono::milliseconds(400));
+    cout << "  You pull the trigger...\n";
+    this_thread::sleep_for(chrono::milliseconds(300));
+    if (rng_int(1, 6) == 1) {
+        cout << "  " << clr::red << clr::bold << "BANG!" << clr::reset << "\n\n";
+    } else {
+        cout << "  " << clr::success << "*click*" << clr::reset << "  " << clr::dgray << "empty chamber — you live" << clr::reset << "\n\n";
+    }
 }
 
 void cmd_slotmachine() {
-    cout << "\n  " << clr::bold << "Slot Machine" << clr::reset << "\n";
-    cout << "  " << clr::yellow << "[7] [7] [7]" << clr::reset << "\n";
-    cout << "  " << clr::cyan << "JACKPOT!" << clr::reset << "\n\n";
+    static const char* syms[] = {"7", "BAR", "cherry", "lemon", "bell"};
+    cout << "\n  " << clr::bold << "Slot Machine" << clr::reset << "\n  ";
+    int vals[3];
+    for (int i = 0; i < 3; i++) {
+        vals[i] = rng_int(0, 4);
+        cout << clr::yellow << "[" << syms[vals[i]] << "]" << clr::reset << " ";
+        cout.flush();
+        this_thread::sleep_for(chrono::milliseconds(250));
+    }
+    cout << "\n";
+    if (vals[0] == vals[1] && vals[1] == vals[2]) {
+        cout << "  " << clr::cyan << clr::bold << "JACKPOT! Triple " << syms[vals[0]] << "!" << clr::reset << "\n\n";
+    } else if (vals[0] == vals[1] || vals[1] == vals[2] || vals[0] == vals[2]) {
+        cout << "  " << clr::green << "Two of a kind — so close!" << clr::reset << "\n\n";
+    } else {
+        cout << "  " << clr::dgray << "No match. Spin again!" << clr::reset << "\n\n";
+    }
 }
 
 void cmd_towers() {
-    cout << "\n  " << clr::bold << "Towers of Hanoi" << clr::reset << "\n";
-    cout << "  " << clr::dgray << "Move disks from left to right" << clr::reset << "\n";
-    cout << "  " << clr::gray << "(Game implementation would go here)" << clr::reset << "\n\n";
-}
+    const int DISKS = 4;
+    vector<int> rods[3];
+    for (int d = DISKS; d >= 1; d--) rods[0].push_back(d);
+    int moves = 0;
+    const int perfect = (1 << DISKS) - 1;
 
-void cmd_solitaire() {
-    cout << "\n  " << clr::bold << "Klondike Solitaire" << clr::reset << "\n";
-    cout << "  " << clr::dgray << "Klondike solitaire game" << clr::reset << "\n";
-    cout << "  " << clr::gray << "(Game implementation would go here)" << clr::reset << "\n\n";
+    auto draw = [&]() {
+        cout << "\033[2J\033[1;1H";
+        cout << "\n  " << clr::bold << clr::amber << "TOWERS OF HANOI" << clr::reset << "   " << clr::dgray << "move all " << DISKS << " disks to rod C" << clr::reset << "\n\n";
+        for (int r = 0; r < 3; r++) {
+            cout << "  " << (char)('A' + r) << " |";
+            for (size_t i = 0; i < rods[r].size(); i++) {
+                cout << " " << string(rods[r][i] * 2 - 1, '=');
+            }
+            if (rods[r].empty()) cout << clr::dgray << " (empty)" << clr::reset;
+            cout << "\n";
+        }
+        cout << "\n  " << clr::gray << "Moves: " << moves << clr::reset << "   " << clr::dgray << "type AB to move the top disk A->B, q to quit" << clr::reset << "\n";
+    };
+
+    while (rods[2].size() != (size_t)DISKS) {
+        draw();
+        cout << "  Move: ";
+        string line = cooked_readline();
+        if ((line.empty() && g_stdin_eof) || line == "q" || line == "Q") { cout << "\n"; return; }
+        if (line.size() < 2) {
+            cout << "  " << clr::error << "usage: <from><to> e.g. AC" << clr::reset << "\n";
+            this_thread::sleep_for(chrono::milliseconds(700));
+            continue;
+        }
+        int from = toupper((unsigned char)line[0]) - 'A';
+        int to = toupper((unsigned char)line[1]) - 'A';
+        if (from < 0 || from > 2 || to < 0 || to > 2 || from == to) {
+            cout << "  " << clr::error << "rods are A, B, C and must differ" << clr::reset << "\n";
+            this_thread::sleep_for(chrono::milliseconds(700));
+            continue;
+        }
+        if (rods[from].empty()) {
+            cout << "  " << clr::error << "rod " << (char)('A' + from) << " is empty" << clr::reset << "\n";
+            this_thread::sleep_for(chrono::milliseconds(700));
+            continue;
+        }
+        if (!rods[to].empty() && rods[to].back() < rods[from].back()) {
+            cout << "  " << clr::error << "cannot stack a larger disk on a smaller one" << clr::reset << "\n";
+            this_thread::sleep_for(chrono::milliseconds(700));
+            continue;
+        }
+        rods[to].push_back(rods[from].back());
+        rods[from].pop_back();
+        moves++;
+    }
+    draw();
+    if (moves == perfect) cout << "  " << clr::success << clr::bold << "PERFECT! Solved in the minimum " << perfect << " moves." << clr::reset << "\n";
+    else cout << "  " << clr::success << clr::bold << "SOLVED in " << moves << " moves!" << clr::reset << "  " << clr::dgray << "(perfect: " << perfect << ")" << clr::reset << "\n";
+    cout << "Press Enter to return to NoNameOS...";
+    cooked_readline();
 }
 
 void cmd_poker() {
-    cout << "\n  " << clr::bold << "Poker" << clr::reset << "\n";
-    cout << "  " << clr::dgray << "Try to get the best hand" << clr::reset << "\n";
-    cout << "  " << clr::gray << "(Game implementation would go here)" << clr::reset << "\n\n";
+    static const char RANKS[] = "23456789TJQKA";
+    static const char* SUITS[] = {"\u2663", "\u2665", "\u2666", "\u2660"}; // club heart diamond spade
+    auto label = [&](int card) { return string(1, RANKS[card % 13]) + SUITS[card / 13]; };
+
+    // Higher rank wins. 8=straight flush ... 0=high card.
+    auto hand_rank = [](const vector<int>& h) {
+        int counts[13] = {0}, suits[4] = {0};
+        for (int c : h) { counts[c % 13]++; suits[c / 13]++; }
+        bool flush = suits[0] == 5 || suits[1] == 5 || suits[2] == 5 || suits[3] == 5;
+        bool straight = false;
+        for (int start = 0; start + 5 <= 13; start++) {
+            bool ok = true;
+            for (int r = start; r < start + 5; r++) if (!counts[r]) ok = false;
+            if (ok) straight = true;
+        }
+        bool wheel = counts[12] && counts[0] && counts[1] && counts[2] && counts[3]; // A-5
+        int pairs = 0, trips = 0, quads = 0;
+        for (int r = 0; r < 13; r++) {
+            if (counts[r] == 2) pairs++;
+            else if (counts[r] == 3) trips++;
+            else if (counts[r] == 4) quads++;
+        }
+        if (straight && flush) return 8;
+        if (quads) return 7;
+        if (trips && pairs) return 6;
+        if (flush) return 5;
+        if (straight || wheel) return 4;
+        if (trips) return 3;
+        if (pairs == 2) return 2;
+        if (pairs) return 1;
+        return 0;
+    };
+    static const char* HAND_NAMES[] = {
+        "high card", "one pair", "two pair", "three of a kind", "straight",
+        "flush", "full house", "four of a kind", "straight flush"
+    };
+
+    vector<int> deck;
+    for (int c = 0; c < 52; c++) deck.push_back(c);
+    shuffle(deck.begin(), deck.end(), rng());
+
+    vector<int> player(deck.begin(), deck.begin() + 5);
+    vector<int> dealer(deck.begin() + 5, deck.begin() + 10);
+    vector<int> rest(deck.begin() + 10, deck.end());
+
+    auto show = [&](const char* who, const vector<int>& hand, bool reveal) {
+        cout << "  " << clr::dgray << who << " " << clr::reset;
+        for (int c : hand) cout << clr::yellow << label(c) << clr::reset << " ";
+        if (reveal) cout << " " << clr::cyan << "(" << HAND_NAMES[hand_rank(hand)] << ")" << clr::reset;
+        cout << "\n";
+    };
+
+    cout << "\n  " << clr::bold << clr::lred << "\u2660 FIVE-CARD DRAW POKER" << clr::reset << "   " << clr::dgray << "one swap round, then showdown" << clr::reset << "\n\n";
+    show("Dealer:", dealer, false);
+    show("You:   ", player, true);
+    cout << "\n  " << clr::gray << "Swap which cards? (e.g. 1 3 5 — or Enter to stand pat)" << clr::reset << "\n  Swap: ";
+    string line = cooked_readline();
+    if (!(line.empty() && g_stdin_eof)) {
+        set<int> picks;
+        istringstream ss(line);
+        int n;
+        while (ss >> n) picks.insert(n);
+        for (int slot : picks) {
+            if (slot >= 1 && slot <= 5 && !rest.empty()) {
+                player[slot - 1] = rest.back();
+                rest.pop_back();
+            }
+        }
+    }
+
+    // Dealer keeps paired-or-better cards and redraws the rest.
+    {
+        int counts[13] = {0};
+        for (int c : dealer) counts[c % 13]++;
+        for (int i = 0; i < 5 && !rest.empty(); i++) {
+            if (counts[dealer[i] % 13] < 2) {
+                dealer[i] = rest.back();
+                rest.pop_back();
+            }
+        }
+    }
+
+    cout << "\n  " << clr::bold << "-- Showdown --" << clr::reset << "\n";
+    show("Dealer:", dealer, true);
+    show("You:   ", player, true);
+    int pr = hand_rank(player), dr = hand_rank(dealer);
+    if (pr > dr) cout << "\n  " << clr::success << clr::bold << "You win with " << HAND_NAMES[pr] << "!" << clr::reset << "\n\n";
+    else if (dr > pr) cout << "\n  " << clr::error << clr::bold << "Dealer wins with " << HAND_NAMES[dr] << "." << clr::reset << "\n\n";
+    else cout << "\n  " << clr::warning << "Push — same hand (" << HAND_NAMES[pr] << ")." << clr::reset << "\n\n";
+    cout << "Press Enter to return to NoNameOS...";
+    cooked_readline();
 }
 
 void cmd_darts() {
-    int score = rand() % 101;
+    int score = rng_int(0, 100);
     cout << "\n  " << clr::bold << "Darts" << clr::reset << "\n";
     cout << "  " << clr::white << "You scored: " << clr::cyan << score << clr::reset << " points!" << "\n\n";
 }
 
 void cmd_bowling() {
-    int pins = rand() % 11;
+    int pins = rng_int(0, 10);
     cout << "\n  " << clr::bold << "Bowling" << clr::reset << "\n";
+    if (pins == 10) cout << "  " << clr::success << clr::bold << "STRIKE!" << clr::reset << "\n";
     cout << "  " << clr::white << "You knocked down: " << clr::cyan << pins << clr::reset << " pins!" << "\n\n";
 }
 
@@ -6446,6 +6710,22 @@ void cmd_bowling() {
     cout << "  " << clr::muted << "Type " << clr::lcyan << "help" << clr::muted << " for available commands" << clr::reset << "\n";
     cout << "  " << clr::dgray << "↑↓ history  ←→ cursor  Backspace delete" << clr::reset << "\n\n";
     this_thread::sleep_for(chrono::milliseconds(400));
+
+    // v4.2.0: rotating tip of the day — small surfaces of features people miss.
+    {
+        static const vector<string> tips = {
+            "TAB completes commands; `man <cmd>` shows the manual.",
+            "`sha256sum <file>` verifies a file without leaving the shell.",
+            "Pipes and chains work: `cat /f | grep x && echo ok`.",
+            "Anything in /home/ persists across sessions — even clicker progress.",
+            "`stat <path>` shows type, mode, size and word count for any file.",
+            "Stuck? `which <cmd>` finds it, `help <cmd>` explains it.",
+            "`theme list` repaints everything — try `theme gruvbox`.",
+            "Misspelled something? The closest command is suggested automatically.",
+        };
+        cout << "  " << clr::dgray << "tip: " << clr::reset << clr::gray
+             << tips[rng_int(0, (int)tips.size() - 1)] << clr::reset << "\n\n";
+    }
 
     map<string, FSNode> file_system;
     file_system["/"] = FSNode(true, "");
@@ -6605,7 +6885,10 @@ void cmd_bowling() {
             section("v4.0 Games", "war, yahtzee, higherlower, artillery");
             section("v4.0 Tools", "bitwise, regex, utime, ipcalc\nbudget, keytest");
             section("v4.0 Effects", "snow, wave, starfield");
+            section("v4.2.0 Tools", "sha256sum, stat");
             section("v4.0 Easter Eggs", "coffee, potato, banana, goose");
+            section("v4.1.0 Games", "roulette, slotmachine, towers, poker\ndarts, bowling");
+            section("v4.1.0 Tools", "emoticon, qr, barcode, asciiart");
 
             cout << "\n  " << clr::dgray << vsep(42) << clr::reset << "\n";
             cout << "  " << clr::dim << "Tip: " << clr::muted << "type " << clr::lcyan << "help <cmd>" << clr::muted << " or " << clr::lcyan << "man <cmd>" << clr::muted << " for details" << clr::reset << "\n\n";
@@ -6717,7 +7000,10 @@ void cmd_bowling() {
                     string fullpath = resolve_user_path(one, current_dir);
                     fullpath = resolved_path(file_system, fullpath);
                     if (file_system.find(fullpath) != file_system.end() && !file_system[fullpath].is_dir)
-                        cout << file_system[fullpath].content << "\n";
+                        // Print verbatim: an injected newline here corrupts every
+                        // pipe consumer (wc counted an extra char, and piped
+                        // checksums could never match the file's).
+                        cout << file_system[fullpath].content;
                     else cout << "\033[31merror:\033[0m file not found: " << one << "\n";
                 }
             }
@@ -7454,6 +7740,8 @@ void cmd_bowling() {
                     {"tail", "TAIL(1)\t\t\tUser Commands\n\nNAME\n\ttail - display last lines of a file\n\nSYNOPSIS\n\ttail <file>\n\nDESCRIPTION\n\tDisplay the last 10 lines of a VFS file."},
                     {"sort", "SORT(1)\t\t\tUser Commands\n\nNAME\n\tsort - sort file contents\n\nSYNOPSIS\n\tsort <file>\n\nDESCRIPTION\n\tSort the lines of a VFS file alphabetically."},
                     {"wc", "WC(1)\t\t\tUser Commands\n\nNAME\n\twc - count lines, words, and characters\n\nSYNOPSIS\n\twc <file>\n\nDESCRIPTION\n\tDisplay line, word, and character counts for a VFS file."},
+                    {"sha256sum", "SHA256SUM(1)\t\tUser Commands\n\nNAME\n\tsha256sum - SHA-256 checksum of a file\n\nSYNOPSIS\n\tsha256sum <file>\n\nDESCRIPTION\n\tPrint the SHA-256 digest (FIPS 180-4) of a VFS file, computed in-process."},
+                    {"stat", "STAT(1)\t\t\tUser Commands\n\nNAME\n\tstat - display file status\n\nSYNOPSIS\n\tstat <path>\n\nDESCRIPTION\n\tShow type, mode, size, line/word count and creation stamp of a VFS path."},
                     {"tee", "TEE(1)\t\t\tUser Commands\n\nNAME\n\ttee - write to file and display\n\nSYNOPSIS\n\ttee <file> <text>\n\nDESCRIPTION\n\tWrite text to a VFS file and also display it on stdout."},
                     {"cp", "CP(1)\t\t\tUser Commands\n\nNAME\n\tcp - copy files\n\nSYNOPSIS\n\tcp <source> <dest>\n\nDESCRIPTION\n\tCopy a VFS file from source to destination."},
                     {"mv", "MV(1)\t\t\tUser Commands\n\nNAME\n\tmv - move or rename files\n\nSYNOPSIS\n\tmv <source> <dest>\n\nDESCRIPTION\n\tMove or rename a file or directory in the VFS."},
@@ -8072,7 +8360,20 @@ void cmd_bowling() {
         else if (cmd == "base64") { cmd_base64(args, file_system, current_dir); }
         else if (cmd == "rot13") { cmd_rot13(args); }
         else if (cmd == "password") { cmd_password(); }
+        // --- v4.1.0 commands (were dead code: listed in help but never dispatched) ---
+        else if (cmd == "asciiart") { cmd_asciiart(); }
+        else if (cmd == "qr") { cmd_qr(args); }
+        else if (cmd == "barcode") { cmd_barcode(args); }
+        else if (cmd == "emoticon") { cmd_emoticon(args); }
+        else if (cmd == "roulette") { cmd_roulette(); }
+        else if (cmd == "slotmachine") { cmd_slotmachine(); }
+        else if (cmd == "towers") { cmd_towers(); }
+        else if (cmd == "poker") { cmd_poker(); }
+        else if (cmd == "darts") { cmd_darts(); }
+        else if (cmd == "bowling") { cmd_bowling(); }
         else if (cmd == "wordcount") { cmd_wordcount(args, file_system, current_dir); }
+        else if (cmd == "sha256sum") { cmd_sha256sum(args, file_system, current_dir); }
+        else if (cmd == "stat") { cmd_stat(args, file_system, current_dir); }
         else if (cmd == "matrix") {
             if (args == "-r") {
                 matrix_rain(30, "01", vector<size_t>{0, 1});

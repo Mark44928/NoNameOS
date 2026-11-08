@@ -15,4 +15,4 @@ jobs:
       - name: Build with warnings as errors
         run: make CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O2 -Wno-comment'
       - name: Smoke test
-        run: printf 'version\nexit\n' | ./nonameos
+        run: bash tests/smoke.sh

@@ -1,11 +1,11 @@
 # AGENTS.md — NoNameOS
 
-Single-file C++ terminal OS simulation. All code lives in `NoNameOS.cpp` (~8533 lines). No packages, tests, or linters; CI exists at `.github/workflows/build.yml`.
+Single-file C++ terminal OS simulation. All code lives in `NoNameOS.cpp` (~9k lines). No packages or linters; tests/smoke.sh pipes REPL sessions and greps for output. CI exists at `.github/workflows/build.yml`.
 
 ## Repo Layout
 
 ```
-NoNameOS.cpp        # everything — ~8533 lines, 13+ sections
+NoNameOS.cpp        # everything — ~9k lines, 13+ sections
 Makefile            # CXX ?= g++ -std=c++17 -Wall -Wextra -O2 -lpthread
 README.md           # screenshots, command reference (prose not source of truth)
 update-readme.sh    # patches <!--STAT:*--> anchors in README.md; `make readme`
@@ -25,11 +25,11 @@ clang++ -std=c++17 -Wall -Wextra -O2 NoNameOS.cpp -o nonameos -lpthread  # Termu
 ./nonameos              # interactive raw-mode REPL; Ctrl+C / `exit` to quit; needs a tty
 ```
 
-- **Must have `-lpthread` + `-std=c++17`** or link fails. `CXX=clang++ make` works on Termux.
+- **Must have `-lpthread` + `-std=c++17`** or link fails. The Makefile auto-selects `clang++` on Termux (`ifeq ($(TERMUX_VERSION),)`), `g++` elsewhere.
 - Full `-O2` build takes >120s on this Termux device. Fast gate (~60s): `clang++ -std=c++17 -Wall -Wextra -O0 -fsyntax-only NoNameOS.cpp`.
-- Binaries gitignored — never commit. `make readme` replaces `<!--STAT:*-->` anchors only; ASCII-art sections and Version History are NOT anchored — patch by hand only when stats change.
+- Binaries gitignored — never commit. `make readme` runs the idempotent `update-readme.sh`, which regex-patches badges and version strings in place (there are no `<!--STAT:*-->` anchors any more) and prints the counts it derived — trust those, not hand-counted numbers. Version History rows stay hand-maintained.
 - Zero-warning rule: `-Wall -Wextra` must stay clean (verified Termux clang 21).
-- `VERSION = "v4.0.0"` at `NoNameOS.cpp:96` — bump with README badges/history.
+- `VERSION = "v4.2.0"` at `NoNameOS.cpp:95` — bump with README badges/history.
 
 ## Architecture — Sections (`grep '// SECTION' NoNameOS.cpp`)
 
@@ -37,19 +37,19 @@ clang++ -std=c++17 -Wall -Wextra -O2 NoNameOS.cpp -o nonameos -lpthread  # Termu
 |-----|------|----------|
 | 1 | 28 | utils: `rng()/rng_int()`, `expr::Parser` (+ - * / % ^, right-assoc `^`), game `constexpr`s |
 | 2 | 61 | signals+globals `g_orig_term/g_term_saved/g_sigint/g_quit/g_stdin_eof`; SIGINT flag-only, SIGTSTP/SIGCONT toggle termios |
-| 3 | 139 | `namespace clr`: fixed 256-colors + semantic colors (mutable refs); `THEME_DB` (:206) + `apply_theme()` (:218) |
-| 4 | 447 | `FSNode` (:514), `TerminalGuard` RAII raw+O_NONBLOCK (:463), `get_timestamp()` (:496) |
-| 5 | 506 | VFS: `resolved_path` (symlink depth 8), `help_text` (:544), `parse_command`, `resolve_user_path`, `has_traversal` |
-| 5.8 | 708 | v3 shell globals: `g_stdin_buf/g_stdin_live`, `g_script_vars`, `g_prompt_fmt` (`%u %h %d %t %%`), tab/cwd completion |
-| 6 | 727 | input: `kbhit` (:735), `getkey` (cross-call `pend` escape buffer), `readline_global` (TAB + Ctrl+R), `KEY_*=1000+` (:750) |
-| 6.5 | 1106 | `cooked_readline()` (:1111) — drains kbhit; getline fallback when `g_term_saved==0` |
-| 7 | 1146 | `ALL_COMMANDS` set **286** entries (:1152), `edit_dist`/`closest_cmd` (threshold 4), text-tool helpers |
-| 8 | 1481 | v1/v2 games: snake, minesweeper, tictactoe, hangman, rps, 2048, tetris, pong, sudoku, flappy, ... |
-| 11.5 | 3842 | v2 games/system/eggs/effects: othello…bingo, kernel/boot/netstat…, llm/rain/fire/stream… |
-| 11.7 | 4784 | v3 engine helpers: `persist_save/load`, `vfs_escape/unescape`, `expand_globs`, `filter_source`, `script_subst`, `PKG_DB`+`g_installed_pkgs` |
-| 11.8 | 4991 | v3 games/toys: `chess::` (legality+castling+promo, greedy-2ply AI), clicker/pet/fishing, pkg-gated figlet/nyancat/starwars/sheep, `cmd_news` |
-| 11.9 | 5502 | v4 games/tools/effects/eggs: war, yahtzee, higherlower, artillery; bitwise/regex/ipcalc/utime; budget/keytest; snow/wave/starfield; eggs coffee/potato/banana/goose |
-| 12 | 6078 | `main()`: theme/prompt peek → boot → persist_load → MOTD → `exec_segment` (:6231) + `run_one` (:8418) → REPL → `persist_save` on exit |
+| 3 | 138 | `namespace clr`: fixed 256-colors + semantic colors (mutable refs); `THEME_DB` (:205) + `apply_theme()` (:217) |
+| 4 | 446 | `FSNode` (:513), `TerminalGuard` RAII raw+O_NONBLOCK (:458), `get_timestamp()` (:495) |
+| 5 | 505 | VFS: `resolved_path` (symlink depth 8), `help_text` (:543), `parse_command`, `resolve_user_path`, `has_traversal` |
+| 5.8 | 800 | v3 shell globals: `g_stdin_buf/g_stdin_live`, `g_script_vars`, `g_prompt_fmt` (`%u %h %d %t %%`), tab/cwd completion |
+| 6 | 819 | input: `kbhit` (:827), `getkey` (cross-call `pend` escape buffer), `readline_global` (TAB + Ctrl+R), `KEY_*=1000+` (:750) |
+| 6.5 | 1198 | `cooked_readline()` (:1203) — drains kbhit; getline fallback when `g_term_saved==0` |
+| 7 | 1244 | `ALL_COMMANDS` set **826 distinct** entries (:1244), `edit_dist`/`closest_cmd` (threshold 4), text-tool helpers |
+| 8 | 1644 | v1/v2 games: snake, minesweeper, tictactoe, hangman, rps, 2048, tetris, pong, sudoku, flappy, ... |
+| 11.5 | 4124 | v2 games/system/eggs/effects: othello…bingo, kernel/boot/netstat…, llm/rain/fire/stream… |
+| 11.7 | 5110 | v3 engine helpers: `persist_save/load`, `vfs_escape/unescape`, `expand_globs`, `filter_source`, `script_subst`, `PKG_DB`+`g_installed_pkgs` |
+| 11.8 | 5273 | v3 games/toys: `chess::` (legality+castling+promo, greedy-2ply AI), clicker/pet/fishing, pkg-gated figlet/nyancat/starwars/sheep, `cmd_news` |
+| 11.9 | 5784 | v4 games/tools/effects/eggs: war, yahtzee, higherlower, artillery; bitwise/regex/ipcalc/utime; budget/keytest; snow/wave/starfield; eggs coffee/potato/banana/goose |
+| 12 | 6625 | `main()`: theme/prompt peek → boot → persist_load → MOTD → `exec_segment` (:6789) + `run_one` (:8998) → REPL → `persist_save` on exit |
 
 - `SYSTEM_USERS {"root","user","guest","admin"}` mutated by su/useradd/userdel, persisted via `U` lines.
 
@@ -62,7 +62,7 @@ clang++ -std=c++17 -Wall -Wextra -O2 NoNameOS.cpp -o nonameos -lpthread  # Termu
 
 ## v3 Shell Engine — How Lines Execute
 
-- REPL → `run_one(line)` (:8418): split unquoted `;` and `&&` markers → each part split on unquoted `|` → stages through `exec_segment(seg,capture,captured)` (:6231).
+- REPL → `run_one(line)` (:8998): split unquoted `;` and `&&` markers → each part split on unquoted `|` → stages through `exec_segment(seg,capture,captured)` (:6789).
 - `exec_segment`: trim → `< file` input redirect → `> >>` extraction → `expand_globs()` vs VFS keys → alias resolve once → giant dispatch chain. Returns false only on unknown command (drives `&&`; skip is `i += 3` — marker AND target).
 - Pipes: stdout captured via `cout.rdbuf()` swap into ostringstream; carried to next stage through `g_stdin_buf` + `g_stdin_live`. Filters consume via `filter_source()` or `args.empty() && g_stdin_live`. **Never reset `g_stdin_*` at segment entry** — that broke pipes once.
 - Scripts: `run x.nnsh args…` → per line strip `#comment` → `script_subst` (`$var $1-$9 $@`) → `set k=v` → one-line `if A == B then cmd` → else `run_one`. Interactive `$x` expansion applies to any line containing `$`.
@@ -78,14 +78,14 @@ clang++ -std=c++17 -Wall -Wextra -O2 NoNameOS.cpp -o nonameos -lpthread  # Termu
 
 ## Command System
 
-- Add a command ⇒ touch ALL of: `ALL_COMMANDS` (:1152), `help_text()` map, dispatch chain inside `exec_segment`, optional `manpages` map + `section(...)` line in `help`. Missing `ALL_COMMANDS` breaks `which`, fuzzy suggest, update-readme counts.
+- Add a command ⇒ touch ALL of: `ALL_COMMANDS` (:1244), `help_text()` map, dispatch chain inside `exec_segment`, optional `manpages` map + `section(...)` line in `help`. Missing `ALL_COMMANDS` breaks `which`, fuzzy suggest, update-readme counts.
 - Fuzzy: Levenshtein `edit_dist`, suggestion threshold 4 via `closest_cmd`.
 - Aliases default `ll .. ttt`, user aliases persist (`A` lines). Prompt template tokens `%u %h %d %t %%` rendered each prompt with themed colors; duration `…ms` shown after >100ms.
 - pkg gating pattern: branch checks `g_installed_pkgs.count("figlet")` else prints install hint (figlet/nyancat/starwars/sheep).
 
 ## Games — know the input mode
 
-- Turn-based (`cooked_readline`): chess (`e2 e4`), othello, mastermind, blackjack, battleship, slots, maze, nim, buzz, bulls, twentyone, jumble, arith, bingo, minesweeper, tictactoe, hangman, rps, sudoku, wordle, quiz, trivia, adventure, guess, memory, connect4, lightsout, puzzle, typing, nummem, reaction; v4: war (ENTER draw), yahtzee (`1 4` reroll), higherlower (h/l), artillery (`45 80`).
+- Turn-based (`cooked_readline`): chess (`e2 e4`), othello, mastermind, blackjack, battleship, slots, maze, nim, buzz, bulls, twentyone, jumble, arith, bingo, minesweeper, tictactoe, hangman, rps, sudoku, wordle, quiz, trivia, adventure, guess, memory, connect4, lightsout, puzzle, typing, nummem, reaction; v4: war (ENTER draw), yahtzee (`1 4` reroll), higherlower (h/l), artillery (`45 80`); v4.1: roulette (ENTER pull), slotmachine (ENTER spin), towers (`AB` moves a disk A→B, perfect clear is 15), poker (five-card draw: list swap slots, dealer keeps pairs), darts (ENTER throw), bowling (ENTER roll).
 - Realtime (`kbhit/getkey`): snake, tetris, pong, breakout, flappy, asciidash, clicker (SPACE click, 1-5 buy, q saves), simon, rain, fire, stream; v4 effects: snow, wave, starfield.
 - Persistent progress lives in VFS under `/home/` (clicker.sav, pet.save, fishing.log, budget.save) — survives via session persistence.
 - Custom AsciiDash maps: `echo map.gmd ____^^__` then `play map.gmd`.
@@ -99,6 +99,7 @@ clang++ -std=c++17 -Wall -Wextra -O2 NoNameOS.cpp -o nonameos -lpthread  # Termu
 
 ```bash
 make clean && make          # zero warnings required
+bash tests/smoke.sh         # 29 piped-REPL assertions (CI runs this too)
 ./nonameos                  # smoke: help · TAB complete · Ctrl+R · pipes · chains
 printf '%s\n' 'echo /t.txt hi' 'cat /t.txt' 'cat /t.txt | grep hi' \
   'ls > /o.txt' 'wc /o.txt' 'bogus && echo NO' 'theme list' 'pkg list' 'exit' | ./nonameos
@@ -114,5 +115,5 @@ missing `-lpthread` · trailing-`/` VFS keys · `getchar()` in realtime · undra
 
 ## References
 
-- Executable truth: `Makefile:2` · POSIX includes `NoNameOS.cpp:53` · TerminalGuard `:463` · input `:727-1145` · `ALL_COMMANDS` `:1152` · persistence `:4784+` · main `:6078` · exec_segment `:6231` · run_one `:8418`.
+- Executable truth: `Makefile:2` · POSIX includes `NoNameOS.cpp:53` · TerminalGuard `:458` · input `:819-1197` · `ALL_COMMANDS` `:1244` · persistence `:5110+` · main `:6625` · exec_segment `:6789` · run_one `:8998`.
 - Docs: README (features/build/FAQ), CONTRIBUTING.md, `.github/PULL_REQUEST_TEMPLATE.md`.
