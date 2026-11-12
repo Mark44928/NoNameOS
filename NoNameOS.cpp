@@ -1038,6 +1038,7 @@ string readline_global(const vector<string>& history) {
             }
             for (const auto& p : g_tab_paths)
                 if (p.rfind(full, 0) == 0 && p != full) cands.push_back(p);
+            tok = full;
             sort(cands.begin(), cands.end());
         }
         if (cands.empty()) return;
@@ -1714,6 +1715,7 @@ void play_snake() {
     bool game_over = false;
 
     while (!game_over) {
+        if (g_stdin_eof || g_sigint) break;
         if (kbhit()) {
             int k = getkey();
             if ((k == 'w' || k == KEY_UP) && dy == 0) { dx = 0; dy = -1; }
@@ -1845,6 +1847,7 @@ void play_minesweeper() {
     };
 
     while (!game_over) {
+        if (g_stdin_eof || g_sigint) break;
         cout << "\033[2J\033[1;1H";
         cout << "\n  " << clr::bold << clr::red << "💣 MINESWEEPER" << clr::reset << " " << clr::dgray << "v1.0" << clr::reset << "   " << clr::gray << "Mines:" << clr::reset << " " << clr::red << MINESWEEPER_MINES << clr::reset << "\n\n";
         cout << "    ";
@@ -3477,6 +3480,7 @@ void play_breakout() {
     bool game_over = false;
 
     while (!game_over) {
+        if (g_stdin_eof || g_sigint) break;
         if (kbhit()) {
             int k = getkey();
             if ((k == 'a' || k == KEY_LEFT) && paddle > 0) paddle--;
@@ -5124,6 +5128,7 @@ static void persist_save(const map<string,FSNode>& fs,
     // Save everything except root and transient trash
     for (const auto& [path, node] : fs) {
         if (path == "/") continue;
+        if (path.rfind("/trash/", 0) == 0) continue;
         if (node.is_link) fprintf(f, "L %s\t%s\n", vfs_escape(path).c_str(), vfs_escape(node.link_target).c_str());
         else if (node.is_dir) fprintf(f, "D %s\n", vfs_escape(path).c_str());
         else fprintf(f, "F %s\t%s\t%s\n", vfs_escape(path).c_str(), node.mode.c_str(), vfs_escape(node.content).c_str());
@@ -7843,6 +7848,7 @@ void cmd_bowling() {
             int gold = 0;
             bool running = true;
             while (running) {
+                if (g_stdin_eof || g_sigint) break;
                 cout << "  " << clr::bold << clr::red << "❤ HP: " << hp << clr::reset << "   " << clr::bold << clr::yellow << "💰 Gold: " << gold << clr::reset << "\n";
                 cout << "What do you do? [left / right / rest / quit]\n> ";
                 string choice;
