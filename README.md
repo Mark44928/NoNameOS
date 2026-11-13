@@ -11,6 +11,7 @@
 <p align="center"><sub><i>NoNameOS v2.0.0 running in Termux on a MyPhone myT10. Current v4.2.0 adds more games, commands, and full color themes.</i></sub></p>
 
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS shell screenshot"/>
+<img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20261113-0633.png" width="560" alt="NoNameOS v4.2.0 shell — boot log, typed commands and ls output visible"/>
 <p align="center"><sub><i>An earlier build (v0.3.1), shown for comparison.</i></sub></p>
 </div>
 
