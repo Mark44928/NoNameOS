@@ -5141,13 +5141,24 @@ static bool persist_load(map<string,FSNode>& fs,
                          vector<string>& users) {
     FILE* f = fopen(persist_path().c_str(), "r");
     if (!f) return false;
-    char linebuf[8192];
-    bool ok = fgets(linebuf, sizeof(linebuf), f) && string(linebuf).rfind("NNOS3", 0) == 0;
-    if (!ok) { fclose(f); return false; }
+    // Read the whole file, then split on '\n': fgets with a fixed buffer
+    // silently truncated any saved line longer than 8191 bytes (a big file's
+    // F record), corrupting session persistence.
+    string whole;
+    {
+        char chunk[8192];
+        size_t n;
+        while ((n = fread(chunk, 1, sizeof chunk, f)) > 0) whole.append(chunk, n);
+    }
+    fclose(f);
+    if (whole.rfind("NNOS3", 0) != 0) return false;
     fs.clear();
     fs["/"] = FSNode(true, "");
-    while (fgets(linebuf, sizeof(linebuf), f)) {
-        string ln(linebuf);
+    size_t pos = 0;
+    while (pos < whole.size()) {
+        size_t eol = whole.find('\n', pos);
+        string ln = whole.substr(pos, eol == string::npos ? string::npos : eol - pos);
+        pos = (eol == string::npos) ? whole.size() : eol + 1;
         while (!ln.empty() && (ln.back() == '\n' || ln.back() == '\r')) ln.pop_back();
         if (ln.empty() || ln[0] == '#') continue;
         if (ln.rfind("T ", 0) == 0) { apply_theme(ln.substr(2)); }
@@ -5181,7 +5192,6 @@ static bool persist_load(map<string,FSNode>& fs,
             }
         }
     }
-    fclose(f);
     return !fs.empty();
 }
 
@@ -9029,7 +9039,7 @@ void cmd_bowling() {
             }
             g_stdin_live = false; g_stdin_buf.clear();
             if (!ok) all_ok = false;
-            if (!ok && cond_next) { i += 3; continue; }   // && short-circuit: skip marker AND its target
+            if (!ok && cond_next) { i += 3; while (i < parts.size() && parts[i] == "&&" && i + 1 < parts.size()) i += 2; continue; }   // && short-circuit: skip marker AND target, and any later && legs in the chain
             i += cond_next ? 2 : 1;
         }
         last_cmd_end = chrono::steady_clock::now();
