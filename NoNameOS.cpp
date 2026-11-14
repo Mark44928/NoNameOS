@@ -79,8 +79,12 @@ static void sigint_handler(int) {
 static void sigtstp_handler(int) {
     // Restore cooked terminal before suspending so the user's shell isn't left raw
     if (g_term_saved) tcsetattr(STDIN_FILENO, TCSANOW, &g_orig_term);
-    signal(SIGTSTP, sigtstp_handler);  // re-arm for when the shell resumes (after Ctrl+Z / fg)
+    // Default action (stop) must be installed BEFORE raising, or the raise
+    // recurses into this handler forever. On fg, execution resumes after the
+    // raise() and the handler is re-installed for the next Ctrl+Z.
+    signal(SIGTSTP, SIG_DFL);
     raise(SIGTSTP);
+    signal(SIGTSTP, sigtstp_handler);
 }
 static void sigcont_handler(int) {
     if (g_term_saved) {
@@ -653,88 +657,6 @@ string help_text(const string& cmd) {
         {"poker","five-card draw poker"},
         {"darts","darts game"},
         {"bowling","bowling game"},
-        {"spaceinvaders","classic arcade game"},
-        {"asteroids","asteroids game"},
-        {"moonbuggy","moon buggy game"},
-        {"lunarlander","lunar lander game"},
-        {"breakout2","breakout game variant"},
-        {"pacman","pacman game"},
-        {"frogger","frogger game"},
-        {"centipede","centipede game"},
-        {"defender","defender game"},
-        {"galaga","galaga game"},
-        {"donkeykong","donkey kong game"},
-        {"mario","mario game"},
-        {"zelda","zelda game"},
-        {"tetris2","tetris variant"},
-        {"snake2","snake variant"},
-        {"pong2","pong variant"},
-        {"checkers","checkers game"},
-        {"backgammon","backgammon game"},
-        {"go","go board game"},
-        {"mahjong","mahjong game"},
-        {"dominoes","dominoes game"},
-        {"yahtzee2","yahtzee variant"},
-        {"monopoly","monopoly game"},
-        {"risk","risk game"},
-        {"scrabble2","scrabble variant"},
-        {"clue","clue game"},
-        {"connect5","connect 5 game"},
-        {"reversi","reversi game"},
-        {"hex","hex game"},
-        {"chess2","chess variant"},
-        {"shogi","shogi game"},
-        {"base","base conversion"},
-        {"convert","unit conversion"},
-        {"temp","temperature conversion"},
-        {"volume","volume conversion"},
-        {"area","area conversion"},
-        {"length","length conversion"},
-        {"weight","weight conversion"},
-        {"currency","currency conversion"},
-        {"timezone","timezone conversion"},
-        {"sunrise","sunrise/sunset times"},
-        {"moonphase","moon phase"},
-        {"horoscope","daily horoscope"},
-        {"tarot","tarot reading"},
-        {"iqlist","IQ test list"},
-        {"iqtest","IQ test"},
-        {"memorytest","memory test"},
-        {"typingspeed","typing speed test"},
-        {"reactiontime","reaction time test"},
-        {"reflex","reflex test"},
-        {"aim","aim test"},
-        {"colorblind","colorblind test"},
-        {"hearing","hearing test"},
-        {"vision","vision test"},
-        {"mathquiz","math quiz"},
-        {"spelling","spelling test"},
-        {"trivia2","trivia variant"},
-        {"hangman2","hangman variant"},
-        {"wordsearch","word search game"},
-        {"crossword","crossword puzzle"},
-        {"anagram","anagram game"},
-        {"palindrome","palindrome checker"},
-        {"haiku","haiku generator"},
-        {"limerick","limerick generator"},
-        {"poetry","poetry generator"},
-        {"story","story generator"},
-        {"joke2","joke variant"},
-        {"riddle","riddle game"},
-        {"proverb","proverb generator"},
-        {"quote2","quote variant"},
-        {"fact","random fact"},
-        {"trivia3","trivia variant 3"},
-        {"movie","movie info"},
-        {"book","book info"},
-        {"music","music info"},
-        {"artist","artist info"},
-        {"lyrics","song lyrics"},
-        {"chord","chord finder"},
-        {"metronome","metronome"},
-        {"tuner","instrument tuner"},
-        {"bpm","beats per minute"},
-        {"beat","beat generator"}
     };
     auto it = ht.find(cmd);
     return it != ht.end() ? it->second : "no description";
@@ -2800,7 +2722,7 @@ void cmd_epoch() {
     time_t now = time(nullptr);
     cout << "  " << clr::bold << "Unix Epoch:" << clr::reset << " " << clr::cyan << now << clr::reset << "\n";
     tm t_buf;
-    localtime_r(&now, &t_buf);
+    gmtime_r(&now, &t_buf);
     char buf[64];
     strftime(buf, sizeof(buf), "  UTC: %a, %d %b %Y %H:%M:%S", &t_buf);
     cout << buf << "\n\n";
