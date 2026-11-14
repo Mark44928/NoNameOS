@@ -23,9 +23,9 @@
   <img src="https://img.shields.io/badge/version-v4.2.0-green?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/language-C%2B%2B17-blue?style=for-the-badge" alt="C++17"/>
   <img src="https://img.shields.io/badge/license-GPLv3-purple?style=for-the-badge" alt="License"/>
-  <img src="https://img.shields.io/badge/9102-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
+  <img src="https://img.shields.io/badge/9010-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
   <img src="https://img.shields.io/badge/54-games-red?style=for-the-badge" alt="Games"/>
-  <img src="https://img.shields.io/badge/303-commands-cyan?style=for-the-badge" alt="Commands"/>
+  <img src="https://img.shields.io/badge/299-commands-cyan?style=for-the-badge" alt="Commands"/>
   <img src="https://img.shields.io/badge/dependencies-zero-brightgreen?style=for-the-badge" alt="Zero Dependencies"/>
   <img src="https://img.shields.io/badge/platform-linux-lightgrey?style=for-the-badge" alt="Linux"/>
   <img src="https://img.shields.io/github/languages/code-size/Mark44928/NoNameOS?style=for-the-badge" alt="Code Size"/>
@@ -34,12 +34,12 @@
 </p>
 
 <blockquote align="center">
-  <b>One file. Zero dependencies. 54 games. 303 commands. One terminal.</b>
+  <b>One file. Zero dependencies. 54 games. 299 commands. One terminal.</b>
   <br/><sub><i>Simulated OS meets sandbox playground — all in a single .cpp</i></sub>
 </blockquote>
 
 <p align="center">
-  <b>A pure C++ terminal operating-system simulation featuring an interactive shell with pipes, scripts and persistence, a virtual filesystem, 54 built-in games, and 303 commands — all contained in a single source file.</b><br/>
+  <b>A pure C++ terminal operating-system simulation featuring an interactive shell with pipes, scripts and persistence, a virtual filesystem, 54 built-in games, and 299 commands — all contained in a single source file.</b><br/>
   <sub>No external dependencies. No framework. No build system headaches. Just compile and run.</sub>
 </p>
 
@@ -107,7 +107,7 @@
 
 | Category | What You Get | Highlights |
 |----------|-------------|------------|
-| **Interactive Shell** | Pipes, redirects, chains, globs, TAB-complete, scripts, persistence, themes, 303 commands | Arrows, history, Ctrl+R search, fuzzy suggestions |
+| **Interactive Shell** | Pipes, redirects, chains, globs, TAB-complete, scripts, persistence, themes, 299 commands | Arrows, history, Ctrl+R search, fuzzy suggestions |
 | **Virtual Filesystem** | Files, directories, symlinks, permissions, trash | Timestamps, sizes, `ls -l`, `chmod` |
 | **48 Games** | Arcade, puzzle, strategy, word, reflex games | Tetris, Othello, Blackjack, Wordle, Battleship |
 | **System Tools** | Text editor, calculators, system info | `kernel`, `netstat`, `traceroute`, `report` |
@@ -822,7 +822,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 │  ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐    │
 │  │ Terminal I/O │───▶│  Shell (REPL)   │───▶│  Dispatcher  │    │
 │  │ termios.h    │    │ cooked_readline │    │  if/else map │    │
-│  │  fcntl.h     │    │ history, arrows │    │  303 cmds    │    │
+│  │  fcntl.h     │    │ history, arrows │    │  299 cmds    │    │
 │  └──────────────┘    └─────────────────┘    └───────┬──────┘    │
 │                                                     │           │
 │                    ┌────────────────────────────────┼─────┐     │
@@ -856,7 +856,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 | **STL Containers** | `map<string, FSNode>` | Virtual filesystem backed by associative containers |
 | **MT19937 RNG** | `mt19937 rng{random_device{}()}` | Modern C++ random number generation |
 | **ANSI Colors** | `namespace color` | 256-color and truecolor RGB terminal rendering |
-| **Single Dispatch** | exec_segment in main() | One massive if/else chain routes all 303 commands (plus pipes/chains engine around it) |
+| **Single Dispatch** | exec_segment in main() | One massive if/else chain routes all 299 commands (plus pipes/chains engine around it) |
 
 ## Fun Facts
 
@@ -874,7 +874,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 
 | Version | Lines | Games | Commands | Key Changes |
 |---------|-------|-------|----------|-------------|
-| **v4.2.0** | 9,102 | 54 | 303 | sha256sum (FIPS 180-4, in-process) · stat (type/mode/size/words) · rotating boot tip |
+| **v4.2.0** | 9,010 | 54 | 299 | sha256sum (FIPS 180-4, in-process) · stat (type/mode/size/words) · rotating boot tip |
 | **v4.1.0** | 8,980 | 54 | 301 | roulette · slotmachine · towers · poker · darts · bowling wired into the dispatcher (were dead code) · emoticon mood table · update-readme.sh now idempotent |
 | **v4.0.0** | 8,533 | 48 | 286 | war · yahtzee · higherlower · artillery · bitwise regex utime ipcalc budget keytest · snow wave starfield · coffee potato banana goose · gruvbox + rose themes |
 | **v3.0.0** | 7,893 | 44 | 269 | pipes · redirects · && ; · globs · TAB · Ctrl+R · .nnsh scripts · persistence · themes · prompt · pkg · chess clicker pet fishing · crunch pack news stopwatch-laps |

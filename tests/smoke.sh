@@ -102,6 +102,8 @@ fi
 assert_has "stat file"   "echo /s2.txt a b c\nstat /s2.txt"   "Words:"
 assert_has "stat dir"    "mkdir /statdir\nstat /statdir"      "Type:   directory"
 assert_has "stat missing" "stat /nope"                        "no such file"
+assert_has "which ls"   "which ls"                  "/bin/ls"
+assert_has "which phantom" "which piano"               "piano not found"
 assert_has "boot tip"    "version"                            "tip:"
 assert_has "v4.2.0 banner" "version"                         "NoNameOS v4.2.0"
 

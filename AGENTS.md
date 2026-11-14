@@ -43,7 +43,7 @@ clang++ -std=c++17 -Wall -Wextra -O2 NoNameOS.cpp -o nonameos -lpthread  # Termu
 | 5.8 | 800 | v3 shell globals: `g_stdin_buf/g_stdin_live`, `g_script_vars`, `g_prompt_fmt` (`%u %h %d %t %%`), tab/cwd completion |
 | 6 | 819 | input: `kbhit` (:827), `getkey` (cross-call `pend` escape buffer), `readline_global` (TAB + Ctrl+R), `KEY_*=1000+` (:750) |
 | 6.5 | 1198 | `cooked_readline()` (:1203) — drains kbhit; getline fallback when `g_term_saved==0` |
-| 7 | 1244 | `ALL_COMMANDS` set **826 distinct** entries (:1244), `edit_dist`/`closest_cmd` (threshold 4), text-tool helpers |
+| 7 | 1244 | `ALL_COMMANDS` set **299 dispatched** entries (:1244), `edit_dist`/`closest_cmd` (threshold 4), text-tool helpers |
 | 8 | 1644 | v1/v2 games: snake, minesweeper, tictactoe, hangman, rps, 2048, tetris, pong, sudoku, flappy, ... |
 | 11.5 | 4124 | v2 games/system/eggs/effects: othello…bingo, kernel/boot/netstat…, llm/rain/fire/stream… |
 | 11.7 | 5110 | v3 engine helpers: `persist_save/load`, `vfs_escape/unescape`, `expand_globs`, `filter_source`, `script_subst`, `PKG_DB`+`g_installed_pkgs` |

@@ -17,12 +17,10 @@ if [[ ! -f "$README" ]]; then echo "Error: $README not found"; exit 1; fi
 LINES=$(wc -l < "$SRC" | tr -d ' ')
 VERSION=$(grep -oP 'const string VERSION = "\K[^"]+' "$SRC" | head -1)
 
-# "commands" means commands that actually dispatch. The ALL_COMMANDS set also
-# contains reserved names (future commands); counting those would advertise
-# commands that print "command not found".
+# ALL_COMMANDS holds exactly the commands that dispatch (kept in sync with
+# the `cmd == "..."` chain), so the badge can count either.
 CMDS_RAW=$(sed -n '/^const set<string> ALL_COMMANDS/,/};/p' "$SRC")
-TOTAL=$(echo "$CMDS_RAW" | grep -oP '"[^"]+"' | wc -l | tr -d ' ')
-COMMANDS=$(grep -oP 'cmd == "\K[^"]+' "$SRC" | sort -u | wc -l | tr -d ' ')
+COMMANDS=$(echo "$CMDS_RAW" | grep -oP '"[^"]+"' | wc -l | tr -d ' ')
 
 # Games list (must match the ALL_COMMANDS entries exactly)
 GAMES="snake tetris pong sudoku flappy minesweeper tictactoe ttt hangman rps adventure guess 2048 typing reaction nummem memory connect4 lightsout puzzle breakout whack wordle quiz trivia othello mastermind simon blackjack battleship slots maze nim buzz bulls twentyone jumble arith bingo chess clicker pet fishing play war yahtzee higherlower artillery roulette slotmachine towers poker darts bowling"
@@ -42,7 +40,7 @@ LINES_FMT=$(printf "%'d" "$LINES")
 
 echo "Lines:     $LINES_FMT"
 echo "Version:   $VERSION"
-echo "Commands:  $COMMANDS dispatched (of $TOTAL reserved names)"
+echo "Commands:  $COMMANDS (= dispatched set)"
 echo "Games:     $GAME_COUNT  Eggs: $EGG_COUNT"
 
 # --- Update the README (regex patches, safe to re-run) ---

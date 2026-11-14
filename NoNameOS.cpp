@@ -1166,116 +1166,39 @@ string cooked_readline() {
 // edit_dist: Levenshtein distance for "did you mean?" suggestions
 // closest_cmd: Finds the nearest valid command for typo correction
 
-const set<string> ALL_COMMANDS = {"ls","cd","mkdir","touch","cat","echo","rm","clear","exit","play","cowsay",
-    "pwd","whoami","date","history","grep","find","cfetch","ps","uname","uptime","cal","rainbow",
-    "man","help","nano","calc","guess","trivia","adventure","snake","minesweeper","tictactoe","ttt",
-    "hangman","rps","yes","env","hostname","sleep","which","head","tail","sort","wc","tee","alias",
-    "users","banner","fortune","factor","shuf","cp","mv","chmod","su","unalias","tree","watch",
-    "ping","top","df","seq","printenv","todo","notes","stopwatch","timer","lolcat","sl",
-    "train","who","useradd","userdel","2048","typing","reaction","nummem","rev","tr","cut",
-    "paste","uniq","nl","fold","basename","dirname","free","dmesg","lscpu","lsusb","arch",
-    "nproc","du","locate","pom","alarm","bc","ln","trash",
-    "tetris","pong","sudoku","flappy","memory","connect4","lightsout","puzzle","breakout","whack",
-    "colors","weather","crypto","epoch","uuid","base64","rot13","uppercase","lowercase",
-    "wordcount","matrix","cmtheme","countdown","ascii","hexdump","password","sha256sum","stat",
-    "quote","joke","ip","uptime2","mem","cpu","disk","calc2",
-    "bmi","tip","units","roman","binary","morse","bar","sparkline",
-    "colorgen","palette","diff","csv","stats","age","datecalc","encode",
-    "hash","djb2","md5","sha1","urlencode","urldecode","reverse","capitalize",
-    "repeat","scrabble","zodiac","emoji","random","pick","dice",
-    "coin","worldclock","quiz","wordle",
-    "sudo","sandwich","42","meaning","life","konami","hack","hacker",
-    "rickroll","rick","beep","bell","yes-master","yes-sir",
-    "glhf","gg","lenny","shrug","tableflip","unflip","dealwithit",
-    "disco","dance","loading","wait",
-    "version","sudo-make-sandwich","open",
-    "othello","mastermind","simon","blackjack","battleship","slots","maze","nim",
-    "buzz","bulls","twentyone","jumble","arith","bingo",
-    "kernel","boot","shutdown","netstat","dns","traceroute","lsblk","mount",
-    "fib","primes","collatz","sine","cube","shell","logout","report",
-    "mac","geoip","dict","log","llm","gpt","blockchain","mine","neo",
-    "rabbit","dlc","kitchen","toaster","canon","spinner","progress",
-    "gauge","rain","fire","stream","type","up",
-    "chess","clicker","pet","fishing",
-    "run","set","save","load","persist","theme","prompt","news",
-    "crunch","pack","packlist","unpack","pkg",
-    "nyancat","starwars","sheep",
-    "war","yahtzee","higherlower","artillery",
-    "bitwise","regex","utime","ipcalc","budget","keytest",
-    "snow","wave","starfield",
-    "coffee","potato","banana","goose",
-    "unicode","asciiart","qr","barcode","emoticon","roulette","slotmachine",
-    "towers","poker","darts","bowling","spaceinvaders","asteroids",
-    "moonbuggy","lunarlander","breakout2","pacman","frogger","centipede","defender",
-    "galaga","donkeykong","mario","zelda","tetris2","snake2","pong2",
-    "checkers","backgammon","go","mahjong","dominoes","yahtzee2","monopoly",
-    "risk","scrabble2","clue","connect5","reversi","hex","chess2","shogi",
-    "base","convert","temp","volume","area","length","weight","currency",
-    "timezone","sunrise","moonphase","horoscope","tarot","iqlist","iqtest",
-    "memorytest","typingspeed","reactiontime","reflex","aim","colorblind",
-    "hearing","vision","mathquiz","spelling","trivia2","hangman2","wordsearch",
-    "crossword","anagram","palindrome","haiku","limerick","poetry","story",
-    "joke2","riddle","proverb","quote2","fact","trivia3","movie","book",
-    "music","artist","lyrics","chord","metronome","tuner","bpm","beat",
-    "audio","video","image","photo","camera","filter","effect","animation",
-    "pixel","vector","svg","canvas","draw","paint","sketch","doodle",
-    "meme","gif","sticker","emoji2","unicode2","ascii2","binary2","hex2",
-    "octal","decimal","scientific","engineering","fraction","percent","ratio",
-    "statistics","probability","combinatorics","permutation","factorial2","fib2",
-    "prime2","collatz2","sine2","cosine","tangent","logarithm","exponent",
-    "square","cube2","power","root","modulo","divide","multiply","add",
-    "subtract","average","median","mode","range","variance","stddev",
-    "correlation","regression","distribution","normal","binomial","poisson",
-    "chi2","ttest","anova","hypothesis","confidence","margin","significance",
-    "network","server","client","socket","http","https","ftp","ssh",
-    "telnet","ping2","traceroute2","netstat2","ifconfig","ip2","dns2","whois",
-    "port","scan","firewall","proxy","vpn","tor","encryption","decryption",
-    "hash2","md52","sha256","sha512","crc32","xor","aes","des","rsa",
-    "pgp","ssl","tls","certificate","key","signature","verify","sign",
-    "file","directory","folder","path","filename","extension","size2","type2",
-    "permission","owner","group","timestamp","modified","created","accessed",
-    "search","find2","locate2","grep2","awk","sed","perl","python",
-    "ruby","java","c","cpp","go2","rust","swift","kotlin","javascript",
-    "typescript","php","bash","shell2","script","compile","run2","debug",
-    "test","unit","integration","coverage","lint","format","minify","compress",
-    "archive","zip","tar","gz","bz2","xz","rar","7z","extract","unzip",
-    "backup","restore","sync","copy2","move2","delete2","remove2","rename2",
-    "edit","view","read","write","append","prepend","insert","replace2",
-    "undo","redo","cut2","paste2","copy3","select","highlight","comment",
-    "indent","format2","beautify","minify2","validate","check","verify2","test2",
-    "build","make","compile2","link","library","import","export","include",
-    "define","macro","function","class","object","instance","method","property",
-    "variable","array","list2","map2","set2","stack","queue","heap",
-    "tree2","graph","node","edge","vertex","path2","cycle","connected",
-    "algorithm","sort2","search2","binarysearch","quicksort","mergesort",
-    "heapsort","bubblesort","insertionsort","selectionsort","radixsort",
-    "bucket","counting","shellsort","comb","pigeonhole","gnome","bogo",
-    "data","structure","collection","iteration","recursion","divide2","conquer",
-    "dynamic","greedy","brute","backtrack","branch","bound","memoization",
-    "cache","buffer","stream2","pipe","channel","message","event","signal2",
-    "thread","process","concurrency","parallel","async","await","future",
-    "promise","callback","handler","listener","observer","publish","subscribe",
-    "emit","on","off","once","remove3","add2","delete3","update2","modify",
-    "system","kernel2","os2","platform","architecture","hardware","software",
-    "firmware","driver","device","input","output","storage","memory2",
-    "cache2","register","cpu2","gpu","ram","rom","disk2","ssd","hdd",
-    "usb","hdmi","display","monitor","keyboard","mouse","touch","gesture",
-    "voice","speech","audio2","sound","music2","play2","stop2","pause2",
-    "resume","rewind","forward","skip","previous","next","volume2","mute",
-    "equalizer","bass","treble","balance","fade","pan","mix","master",
-    "record","capture","encode2","decode2","compress2","decompress","sample",
-    "bitrate","frequency","wavelength","amplitude","phase","waveform",
-    "spectrum","fft","filter2","noise","echo2","reverb","delay","chorus",
-    "flanger","phaser","distortion","overdrive","compressor","limiter",
-    "gate","expander","normalization","dither","resample","convert2","split",
-    "merge","mix2","layer","track","channel2","bus","effect2","plugin",
-    "virtual","synth","midi","oscillator","envelope","lfo","modulation",
-    "sequencer","drum","sample2","loop","pattern","beat2","rhythm",
-    "tempo","sync2","quantize","swing","groove","fill","break2","intro",
-    "outro","verse","chorus2","bridge","solo","riff","lick","scale",
-    "mode2","key2","note","chord2","interval","progression","harmony",
-    "melody","counterpoint","voice2","instrument","piano","guitar","bass2",
-    "drums","strings","brass","woodwind","percussion","vocal","choir"};
+const set<string> ALL_COMMANDS = {
+    "2048","42","adventure","age","alarm","alias","arch","arith","artillery","ascii",
+    "asciiart","banana","banner","bar","barcode","base64","basename","battleship","bc",
+    "beep","bell","binary","bingo","bitwise","blackjack","blockchain","bmi","boot",
+    "bowling","breakout","budget","bulls","buzz","cal","calc","calc2","canon",
+    "capitalize","cat","cd","cfetch","chess","chmod","clear","clicker","cmtheme","coffee",
+    "coin","collatz","colorgen","colors","connect4","countdown","cowsay","cp","cpu",
+    "crunch","crypto","csv","cube","cut","dance","darts","date","datecalc","dealwithit",
+    "df","dice","dict","diff","dirname","disco","disk","djb2","dlc","dmesg","dns","du",
+    "echo","emoji","emoticon","encode","env","epoch","exit","factor","fib","find","fire",
+    "fishing","flappy","fold","fortune","free","gauge","geoip","gg","glhf","goose","gpt",
+    "grep","guess","hack","hacker","hangman","hash","head","help","hexdump","higherlower",
+    "history","hostname","ip","ipcalc","joke","jumble","kernel","keytest","kitchen",
+    "konami","lenny","life","lightsout","llm","ln","load","loading","locate","log",
+    "logout","lolcat","lowercase","ls","lsblk","lscpu","lsusb","mac","man","mastermind",
+    "matrix","maze","md5","meaning","mem","memory","mine","minesweeper","mkdir","morse",
+    "mount","mv","nano","neo","netstat","news","nim","nl","notes","nproc","nummem",
+    "nyancat","open","othello","pack","packlist","palette","password","paste","persist",
+    "pet","pick","ping","pkg","play","poker","pom","pong","potato","primes","printenv",
+    "progress","prompt","ps","puzzle","pwd","qr","quiz","quote","rabbit","rain",
+    "rainbow","random","reaction","regex","repeat","report","rev","reverse","rick",
+    "rickroll","rm","roman","rot13","roulette","rps","run","sandwich","save","scrabble",
+    "seq","set","sha1","sha256sum","sheep","shell","shrug","shuf","shutdown","simon",
+    "sine","sl","sleep","slotmachine","slots","snake","snow","sort","sparkline","spinner",
+    "starfield","starwars","stat","stats","stopwatch","stream","su","sudo",
+    "sudo-make-sandwich","sudoku","tableflip","tail","tee","tetris","theme","tictactoe",
+    "timer","tip","toaster","todo","top","touch","towers","tr","traceroute","train",
+    "trash","tree","trivia","ttt","twentyone","type","typing","unalias","uname","unflip",
+    "unicode","uniq","units","unpack","up","uppercase","uptime","uptime2","urldecode",
+    "urlencode","useradd","userdel","users","utime","uuid","version","wait","war","watch",
+    "wave","wc","weather","whack","which","who","whoami","wordcount","wordle",
+    "worldclock","yahtzee","yes","yes-master","yes-sir","zodiac"
+};
 
 size_t edit_dist(const string& a, const string& b) {
     size_t n = a.size(), m = b.size();
@@ -5010,6 +4933,7 @@ static string vfs_escape(const string& s) {
         if (c == '\\') o += "\\\\";
         else if (c == '\n') o += "\\n";
         else if (c == '\t') o += "\\t";
+        else if (c == '\r') o += "\\r";
         else o += c;
     }
     return o;
@@ -5021,6 +4945,7 @@ static string vfs_unescape(const string& s) {
             i++;
             if (s[i] == 'n') o += '\n';
             else if (s[i] == 't') o += '\t';
+            else if (s[i] == 'r') o += '\r';
             else if (s[i] == '\\') o += '\\';
             else { o += '\\'; o += s[i]; }
         } else o += s[i];
@@ -6085,6 +6010,7 @@ void cmd_budget(const string& args, map<string,FSNode>& fs) {
         getline(ds, desc);
         size_t a = desc.find_first_not_of(" \t");
         desc = a == string::npos ? "(unnamed)" : desc.substr(a);
+        desc.erase(remove(desc.begin(), desc.end(), '|'), desc.end());
         ostringstream os;
         os << fixed << setprecision(2) << amt;
         auto prev = vfs_read("/home/budget.save", fs, "/");
