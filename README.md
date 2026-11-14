@@ -215,7 +215,7 @@ them now run:
 - `fishing` — cast, wait for the bite, react fast; rarity table + catch log (`fishing stats`)
 
 ### Personalization & tools
-- **Color themes** — `theme set matrix|dracula|ocean|sunset|mono` swaps the whole palette (saved)
+- **Color themes** — `theme set matrix|dracula|ocean|sunset|mono|gruvbox|rose|tokyonight|everforest` swaps the whole palette (saved); `theme preview <name>` shows a sample first and `theme random` picks one for you
 - **Custom prompt** — `prompt set "[%t] %u@%d > "` with `%u %h %d %t %%` tokens (saved)
 - **Package manager** — `pkg install figlet|nyancat|starwars|sheep` unlocks bonus toys
 - `news` MOTD headlines, `crunch` column math, `pack/packlist/unpack` archiver, laps-capable `stopwatch`

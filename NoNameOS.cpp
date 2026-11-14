@@ -211,6 +211,8 @@ const vector<ThemeSpec> THEME_DB = {
     {"mono",     "grayscale, zero color",              255,250,255,255,255,245,255,255,231,245,240},
     {"gruvbox",  "warm retro brown/yellow",            214,196,172,108,161,137,208,223,146,108,240},
     {"rose",     "pink pastel citrus",                 211,203,216,152,205,145,212,211,168,176,240},
+    {"tokyonight","neon blues on midnight violet",      114,204,215,111,141, 60,111,111,252,141, 61},
+    {"everforest","soft forest greens and moss",       108,167,180,109,150,245,150,108,252,150, 65},
 };
 static string g_theme_name = "nonameos";
 
@@ -7130,8 +7132,10 @@ void cmd_bowling() {
             tm t_buf;
             localtime_r(&now, &t_buf);
             char buf[64];
+            char iso[32];
             strftime(buf, sizeof(buf), "%a %b %d %H:%M:%S %Y", &t_buf);
-            cout << buf << "\n";
+            strftime(iso, sizeof(iso), "%Y-%m-%d %H:%M:%S", &t_buf);
+            cout << clr::bold << clr::white << buf << clr::reset << clr::dgray << "  (" << iso << ")" << clr::reset << "\n";
         }
         else if (cmd == "history") {
             // Display the current shell session's command history with line numbers
@@ -7244,9 +7248,9 @@ void cmd_bowling() {
             long long days = elapsed / 86400;
             long long hours = (elapsed % 86400) / 3600;
             long long mins = (elapsed % 3600) / 60;
-            cout << " up " << days << " day" << (days != 1 ? "s" : "")
-                 << ", " << (hours < 10 ? "0" : "") << hours << ":" << (mins < 10 ? "0" : "") << mins
-                 << ",  " << current_user << ",  load average: 0.00, 0.00, 0.00\n";
+            cout << " up " << clr::bold << clr::lcyan << days << clr::reset << " day" << (days != 1 ? "s" : "")
+                 << ", " << clr::bold << clr::lcyan << (hours < 10 ? "0" : "") << hours << ":" << (mins < 10 ? "0" : "") << mins << clr::reset
+                 << ",  " << clr::white << current_user << clr::reset << ",  " << clr::gray << "load average: 0.00, 0.00, 0.00" << clr::reset << "\n";
         }
         else if (cmd == "cal") {
             time_t now = time(nullptr);
@@ -7766,7 +7770,22 @@ void cmd_bowling() {
 
                 auto it = manpages.find(args);
                 if (it != manpages.end()) {
-                    cout << it->second << "\n";
+                    const string& page = it->second;
+                    size_t start = 0;
+                    bool first = true;
+                    while (true) {
+                        size_t nl = page.find('\n', start);
+                        if (nl == string::npos) nl = page.size();
+                        string line = page.substr(start, nl - start);
+                        if (line == "NAME" || line == "SYNOPSIS" || line == "DESCRIPTION")
+                            cout << clr::bold << clr::lcyan << line << clr::reset << "\n";
+                        else if (first) cout << clr::gray << line << clr::reset << "\n";
+                        else cout << line << "\n";
+                        first = false;
+                        start = nl + 1;
+                        if (nl == page.size()) break;
+                    }
+                    cout << "\n";
                 } else {
                     cout << "\033[31merror:\033[0m no manual entry for " << args << "\n";
                 }
@@ -8798,13 +8817,37 @@ void cmd_bowling() {
             } else {
                 istringstream ts(args); string sub, nm;
                 ts >> sub >> nm;
-                bool valid = false;
-                for (const auto& t : THEME_DB) if (t.name == nm) valid = true;
+                const ThemeSpec* spec = nullptr;
+                for (const auto& t : THEME_DB) if (t.name == nm) spec = &t;
+                bool valid = spec != nullptr;
                 if (sub == "set" && valid) {
                     apply_theme(nm);
                     persist_save(file_system, aliases, SYSTEM_USERS);
                     cout << "  " << clr::success << "Theme '" << nm << "' active (saved)." << clr::reset << "\n";
-                } else cout << "Usage: theme set <nonameos|matrix|dracula|ocean|sunset|mono|gruvbox|rose>\n";
+                } else if (sub == "preview" && valid) {
+                    // Render a small sample without switching or saving.
+                    cout << "\n  " << clr::bold + clr::fg256(spec->hdr) << nm << " preview" << clr::reset << "\n\n";
+                    cout << "  " << clr::bold + clr::fg256(spec->pu) << "user"
+                         << clr::fg256(spec->ps) << "@" << clr::fg256(spec->ph) << "nonameos"
+                         << clr::reset << ":" << clr::fg256(spec->pd) << "~/projects" << clr::reset << "\n";
+                    cout << "  " << clr::fg256(spec->acc) << uni("❯", ">") << " " << clr::reset
+                         << clr::fg256(spec->inf) << "ls -la" << clr::reset << "\n";
+                    cout << "  " << clr::bold + clr::fg256(spec->ok) << "✓ success" << clr::reset
+                         << "   " << clr::bold + clr::fg256(spec->warn) << "! warning" << clr::reset
+                         << "   " << clr::bold + clr::fg256(spec->err) << "✗ error" << clr::reset << "\n";
+                    cout << "  " << clr::fg256(spec->mut) << "muted footnote text" << clr::reset << "\n";
+                    cout << "  " << clr::muted << "apply with: theme set " << nm << clr::reset << "\n\n";
+                } else if (sub == "random") {
+                    std::mt19937 rng((unsigned)std::chrono::steady_clock::now().time_since_epoch().count());
+                    std::uniform_int_distribution<size_t> dist(0, THEME_DB.size() - 1);
+                    nm = THEME_DB[dist(rng)].name;
+                    apply_theme(nm);
+                    persist_save(file_system, aliases, SYSTEM_USERS);
+                    cout << "  " << clr::success << "Random theme: '" << nm << "' (saved)." << clr::reset << "\n";
+                } else {
+                    cout << "Usage: theme list | theme set <name> | theme preview <name> | theme random\n"
+                         << "       names: nonameos|matrix|dracula|ocean|sunset|mono|gruvbox|rose|tokyonight|everforest\n";
+                }
             }
         }
         else if (cmd == "prompt") {
@@ -8989,6 +9032,7 @@ void cmd_bowling() {
             cout << "\n  " << clr::error << uni("✗","x") << " " << clr::bold << "command not found: " << clr::reset << clr::error << cmd << clr::reset << "\n";
             string sug = closest_cmd(cmd);
             if (!sug.empty()) cout << "  " << clr::muted << "Did you mean " << clr::lcyan << clr::bold << sug << clr::reset << clr::muted << "?" << clr::reset << "\n";
+            else cout << "  " << clr::muted << "Type " << clr::lcyan << clr::bold << "help" << clr::reset << clr::muted << " to see what this shell can do." << clr::reset << "\n";
             cout << "\n";
         }
 
