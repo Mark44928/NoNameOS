@@ -16,3 +16,5 @@ jobs:
         run: make CXXFLAGS='-std=c++17 -Wall -Wextra -Werror -O2 -Wno-comment'
       - name: Smoke test
         run: bash tests/smoke.sh
+      - name: Installer smoke test
+        run: bash tests/install-smoke.sh
