@@ -293,6 +293,14 @@ Or use `make`:
 git clone https://github.com/Mark44928/NoNameOS.git && cd NoNameOS && make && ./nonameos
 ```
 
+Or use the installer (builds and installs to `$PREFIX/bin` on Termux,
+`~/.local/bin` elsewhere):
+```bash
+git clone https://github.com/Mark44928/NoNameOS.git && cd NoNameOS && ./install.sh
+# fzf menu appears when fzf is already installed (never installed for you)
+# remove it later with: ./install.sh --uninstall
+```
+
 ---
 
 
