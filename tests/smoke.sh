@@ -99,6 +99,12 @@ if printf '%s\n' "$hash_out" | grep -q 'b94d27b9934d3e08a52e52d7da7dabfac484efe3
 else
   FAIL=$((FAIL + 1)); printf 'smoke FAIL: sha256sum digest mismatch\n'
 fi
+sha1_out=$(printf 'echo /s1.txt abc\nsha1sum /s1.txt\nexit\n' | HOME="$TMPDIR/smoke-home" timeout 20 "$BIN" 2>&1 | strip)
+if printf '%s\n' "$sha1_out" | grep -q 'a9993e364706816aba3e25717850c26c9cd0d89d'; then
+  PASS=$((PASS + 1))
+else
+  FAIL=$((FAIL + 1)); printf 'smoke FAIL: sha1sum digest mismatch\n'
+fi
 assert_has "stat file"   "echo /s2.txt a b c\nstat /s2.txt"   "Words:"
 assert_has "stat dir"    "mkdir /statdir\nstat /statdir"      "Type:   directory"
 assert_has "stat missing" "stat /nope"                        "no such file"

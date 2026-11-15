@@ -568,7 +568,7 @@ string help_text(const string& cmd) {
         {"banner","ASCII banner"},{"fortune","random quote"},
         {"factor","factorize number"},{"crypto","fake crypto prices"},{"shuf","shuffle text"},
         {"head","first 10 lines"},{"tail","last 10 lines"},
-        {"sort","sort lines"},{"wc","count lines/words/chars"},{"sha256sum","SHA-256 of a file"},{"stat","file metadata"},
+        {"sort","sort lines"},{"wc","count lines/words/chars"},{"sha256sum","SHA-256 of a file"},{"sha1sum","SHA-1 of a file"},{"stat","file metadata"},
         {"tee","write and display"},{"nano","line editor"},
         {"calc","calculator"},{"bc","better calculator"},
         {"play","AsciiDash game"},{"guess","number guessing game"},
@@ -1188,7 +1188,7 @@ const set<string> ALL_COMMANDS = {
     "progress","prompt","ps","puzzle","pwd","qr","quiz","quote","rabbit","rain",
     "rainbow","random","reaction","regex","repeat","report","rev","reverse","rick",
     "rickroll","rm","roman","rot13","roulette","rps","run","sandwich","save","scrabble",
-    "seq","set","sha1","sha256sum","sheep","shell","shrug","shuf","shutdown","simon",
+    "seq","set","sha1","sha1sum","sha256sum","sheep","shell","shrug","shuf","shutdown","simon",
     "sine","sl","sleep","slotmachine","slots","snake","snow","sort","sparkline","spinner",
     "starfield","starwars","stat","stats","stopwatch","stream","su","sudo",
     "sudo-make-sandwich","sudoku","tableflip","tail","tee","tetris","theme","tictactoe",
@@ -2786,6 +2786,53 @@ string hash(const string& msg) {
     return string(buf, 64);
 }
 } // namespace sha256impl
+
+// ---- SHA-1 (FIPS 180-4) — real digest, not the DJB2 `sha1` alias ----
+namespace sha1impl {
+static inline unsigned int rotl(unsigned int x, unsigned int n) { return (x << n) | (x >> (32 - n)); }
+
+string hash(const string& msg) {
+    unsigned int h[5] = {0x67452301,0xefcdab89,0x98badcfe,0x10325476,0xc3d2e1f0};
+    vector<unsigned char> m(msg.begin(), msg.end());
+    unsigned long long bitlen = (unsigned long long)m.size() * 8ULL;
+    m.push_back(0x80);
+    while (m.size() % 64 != 56) m.push_back(0x00);
+    for (int i = 7; i >= 0; i--) m.push_back((unsigned char)(bitlen >> (i * 8)));
+    for (size_t off = 0; off < m.size(); off += 64) {
+        unsigned int w[80];
+        for (int i = 0; i < 16; i++)
+            w[i] = ((unsigned int)m[off + i * 4] << 24) | ((unsigned int)m[off + i * 4 + 1] << 16)
+                 | ((unsigned int)m[off + i * 4 + 2] << 8) | (unsigned int)m[off + i * 4 + 3];
+        for (int i = 16; i < 80; i++)
+            w[i] = rotl(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
+        unsigned int a = h[0], b = h[1], c = h[2], d = h[3], e = h[4];
+        for (int i = 0; i < 80; i++) {
+            unsigned int f, k;
+            if (i < 20)      { f = (b & c) | ((~b) & d);           k = 0x5a827999; }
+            else if (i < 40) { f = b ^ c ^ d;                      k = 0x6ed9eba1; }
+            else if (i < 60) { f = (b & c) | (b & d) | (c & d);    k = 0x8f1bbcdc; }
+            else             { f = b ^ c ^ d;                      k = 0xca62c1d6; }
+            unsigned int tmp = rotl(a, 5) + f + e + k + w[i];
+            e = d; d = c; c = rotl(b, 30); b = a; a = tmp;
+        }
+        h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e;
+    }
+    char buf[41];
+    for (int i = 0; i < 5; i++) snprintf(buf + i * 8, 9, "%08x", h[i]);
+    return string(buf, 40);
+}
+} // namespace sha1impl
+
+void cmd_sha1sum(const string& args, map<string,FSNode>& fs, const string& cdir) {
+    if (args.empty() && g_stdin_live) {
+        cout << "  " << clr::cyan << sha1impl::hash(g_stdin_buf) << clr::reset << "\n";
+        return;
+    }
+    if (args.empty()) { cout << "Usage: sha1sum <file>\n"; return; }
+    auto c = vfs_read(args, fs, cdir);
+    if (!c) { cout << "error: file not found.\n"; return; }
+    cout << "  " << clr::cyan << sha1impl::hash(*c) << clr::reset << "  " << args << "\n";
+}
 
 void cmd_sha256sum(const string& args, map<string,FSNode>& fs, const string& cdir) {
     // Stdin path first, like wc/grep: `cat <file> | sha256sum` must produce the
@@ -7608,6 +7655,7 @@ void cmd_bowling() {
                     {"sort", "SORT(1)\t\t\tUser Commands\n\nNAME\n\tsort - sort file contents\n\nSYNOPSIS\n\tsort <file>\n\nDESCRIPTION\n\tSort the lines of a VFS file alphabetically."},
                     {"wc", "WC(1)\t\t\tUser Commands\n\nNAME\n\twc - count lines, words, and characters\n\nSYNOPSIS\n\twc <file>\n\nDESCRIPTION\n\tDisplay line, word, and character counts for a VFS file."},
                     {"sha256sum", "SHA256SUM(1)\t\tUser Commands\n\nNAME\n\tsha256sum - SHA-256 checksum of a file\n\nSYNOPSIS\n\tsha256sum <file>\n\nDESCRIPTION\n\tPrint the SHA-256 digest (FIPS 180-4) of a VFS file, computed in-process."},
+                    {"sha1sum", "SHA1SUM(1)\t\tUser Commands\n\nNAME\n\tsha1sum - SHA-1 checksum of a file\n\nSYNOPSIS\n\tsha1sum <file>\n\nDESCRIPTION\n\tPrint the SHA-1 digest (FIPS 180-4) of a VFS file, computed in-process."},
                     {"stat", "STAT(1)\t\t\tUser Commands\n\nNAME\n\tstat - display file status\n\nSYNOPSIS\n\tstat <path>\n\nDESCRIPTION\n\tShow type, mode, size, line/word count and creation stamp of a VFS path."},
                     {"tee", "TEE(1)\t\t\tUser Commands\n\nNAME\n\ttee - write to file and display\n\nSYNOPSIS\n\ttee <file> <text>\n\nDESCRIPTION\n\tWrite text to a VFS file and also display it on stdout."},
                     {"cp", "CP(1)\t\t\tUser Commands\n\nNAME\n\tcp - copy files\n\nSYNOPSIS\n\tcp <source> <dest>\n\nDESCRIPTION\n\tCopy a VFS file from source to destination."},
@@ -8256,6 +8304,7 @@ void cmd_bowling() {
         else if (cmd == "bowling") { cmd_bowling(); }
         else if (cmd == "wordcount") { cmd_wordcount(args, file_system, current_dir); }
         else if (cmd == "sha256sum") { cmd_sha256sum(args, file_system, current_dir); }
+        else if (cmd == "sha1sum") { cmd_sha1sum(args, file_system, current_dir); }
         else if (cmd == "stat") { cmd_stat(args, file_system, current_dir); }
         else if (cmd == "matrix") {
             if (args == "-r") {
