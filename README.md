@@ -122,6 +122,14 @@
 
 ## What's New in v4.2.0
 
+### Boot menu and recovery
+- A fake GRUB-style boot menu on interactive terminals: Normal, Safe Mode and
+  Recovery Shell (Up/Down or 1-3, Enter; 5-second default countdown)
+- **Safe Mode** skips saved-session restore and boot delays
+- **Recovery Shell** can continue, delete `~/.nonameos.vfs`, or power off
+- Scripts and CI skip the menu automatically; set `NONAME_NO_BOOT_MENU=1` to
+  force that behavior in an interactive shell
+
 ### Real file-integrity tools (no external binaries)
 - `sha256sum <file>` — SHA-256 (FIPS 180-4) computed **in-process** by a
   self-contained implementation, so checksums work offline with zero
@@ -922,9 +930,9 @@ Tiny, dependency-free tools from the same family:
 
 - [plusafetch](https://github.com/Mark44928/plusafetch) — C++23 fetch for Termux — ~23 ms, zero subprocesses on the default path
 - [Plusalator](https://github.com/Mark44928/Plusalator) — C++17 calculator REPL — Qalculate-flavored, ghost autosuggest, 18 themes
-- [GrubBlastersHTML](https://github.com/Mark44928/GrubBlastersHTML) — Worms-style artillery in one HTML file — 70 weapons, fully destructible terrain
+- [GrubBlastersHTML](https://github.com/Mark44928/GrubBlastersHTML) — Turn-based artillery in one HTML file — 72 weapons, fully destructible terrain
 - [SnakTUI](https://github.com/Mark44928/SnakTUI) — modern Snake for your terminal — Textual + Python
-- [Easy-Termux-Package-Manager](https://github.com/Mark44928/Easy-Termux-Package-Manager) — fzf-driven package manager for Termux — snapshots, audit, 183 tests
+- [Easy-Termux-Package-Manager](https://github.com/Mark44928/Easy-Termux-Package-Manager) — fzf-driven package manager for Termux — snapshots, audit, 186 tests
 - [Greenit](https://github.com/Mark44928/Greenit) — green-injected theme family — dark + light, single palette.json
 - [CalculaHTML](https://github.com/Mark44928/CalculaHTML) — static HTML calculator — 15 themes + System mode, zero deps
 - [android12-fastfetch](https://github.com/Mark44928/android12-fastfetch) — fastfetch config for Android 12 + native X11 Termux desktops

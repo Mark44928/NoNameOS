@@ -6534,6 +6534,125 @@ void cmd_bowling() {
 // Initializes terminal, shows boot logo, runs the command loop
 // Handles VFS setup, aliases, and dispatches to command handlers
 
+static int read_boot_key() {
+    struct pollfd p{STDIN_FILENO, POLLIN, 0};
+    if (poll(&p, 1, 120) <= 0) return 0;
+    unsigned char c = 0;
+    if (read(STDIN_FILENO, &c, 1) != 1) return 0;
+    if (c == 27) {
+        unsigned char seq[2] = {0, 0};
+        for (int i = 0; i < 2; ++i) {
+            struct pollfd q{STDIN_FILENO, POLLIN, 0};
+            if (poll(&q, 1, 15) <= 0 || read(STDIN_FILENO, &seq[i], 1) != 1) break;
+        }
+        if (seq[0] == '[' && seq[1] == 'A') return 1001;
+        if (seq[0] == '[' && seq[1] == 'B') return 1002;
+        return 0;
+    }
+    if (c == '\n' || c == '\r') return 1000;
+    if (c == 'w' || c == 'k') return 1001;
+    if (c == 's' || c == 'j') return 1002;
+    if (c >= '1' && c <= '3') return c;
+    return 0;
+}
+
+static string box_pad(const string& s, int width) {
+    return s + string(max(0, width - (int)s.size()), ' ');
+}
+
+static void draw_boot_menu(int selected, int seconds) {
+    const vector<string> entries = {
+        string("NoNameOS ") + VERSION + " (normal)",
+        "NoNameOS (safe mode)",
+        "NoNameOS (recovery shell)"
+    };
+    const int W = 62;
+    const string TL = uni("╔", "+"), TR = uni("╗", "+");
+    const string BL = uni("╚", "+"), BR = uni("╝", "+");
+    const string H = uni("═", "-"), V = uni("║", "|");
+    auto top = [&](const string& l, const string& r) {
+        cout << "  " << clr::cyan << l << repeat(W, H) << r << clr::reset << "\n";
+    };
+    auto row = [&](const string& body) {
+        cout << "  " << clr::cyan << V << clr::reset << box_pad(body, W)
+             << clr::cyan << V << clr::reset << "\n";
+    };
+    cout << "\033[2J\033[H";
+    top(TL, TR);
+    row("  GNU GRUB 2.12-NoName  (fake boot menu)");
+    cout << "  " << clr::cyan << uni("╠", "+") << repeat(W, H) << uni("╣", "+")
+         << clr::reset << "\n";
+    for (int i = 0; i < (int)entries.size(); ++i) {
+        string body = string("  ") + (i == selected ? "> " : "  ") + entries[i];
+        cout << "  " << clr::cyan << V << clr::reset;
+        if (i == selected) cout << clr::bold << box_pad(body, W) << clr::reset;
+        else cout << clr::gray << box_pad(body, W) << clr::reset;
+        cout << clr::cyan << V << clr::reset << "\n";
+    }
+    top(BL, BR);
+    cout << "  " << clr::dgray << "Use Up/Down or 1-3, Enter to boot. Default in "
+         << seconds << "s." << clr::reset << "\n";
+    cout.flush();
+}
+
+static int bootloader_menu() {
+    if (!isatty(STDIN_FILENO)) return 0;
+    const char* skip = getenv("NONAME_NO_BOOT_MENU");
+    if (skip && *skip) return 0;
+    int selected = 0;
+    for (int left = 5; left > 0; --left) {
+        draw_boot_menu(selected, left);
+        for (int tick = 0; tick < 10; ++tick) {
+            if (g_sigint) return 0;
+            int k = read_boot_key();
+            if (k == 1000) return selected;
+            if (k == 1001) { selected = (selected + 2) % 3; draw_boot_menu(selected, left); }
+            else if (k == 1002) { selected = (selected + 1) % 3; draw_boot_menu(selected, left); }
+            else if (k >= '1' && k <= '3') { selected = k - '1'; draw_boot_menu(selected, left); }
+        }
+    }
+    return selected;
+}
+
+static int recovery_menu() {
+    const vector<string> entries = {
+        "Continue to shell",
+        "Delete saved session and continue",
+        "Power off"
+    };
+    int selected = 0;
+    const int W = 62;
+    const string TL = uni("╔", "+"), TR = uni("╗", "+");
+    const string BL = uni("╚", "+"), BR = uni("╝", "+");
+    const string H = uni("═", "-"), V = uni("║", "|");
+    for (;;) {
+        cout << "\033[2J\033[H";
+        cout << "  " << clr::amber << TL << repeat(W, H) << TR << clr::reset << "\n";
+        cout << "  " << clr::amber << V << clr::reset
+             << box_pad("  NoNameOS recovery shell", W)
+             << clr::amber << V << clr::reset << "\n";
+        cout << "  " << clr::amber << uni("╠", "+") << repeat(W, H)
+             << uni("╣", "+") << clr::reset << "\n";
+        for (int i = 0; i < (int)entries.size(); ++i) {
+            string body = string("  ") + (i == selected ? "> " : "  ") + entries[i];
+            cout << "  " << clr::amber << V << clr::reset;
+            if (i == selected) cout << clr::bold << box_pad(body, W) << clr::reset;
+            else cout << clr::gray << box_pad(body, W) << clr::reset;
+            cout << clr::amber << V << clr::reset << "\n";
+        }
+        cout << "  " << clr::amber << BL << repeat(W, H) << BR << clr::reset << "\n";
+        cout << "  " << clr::dgray << "Enter selects. Saved session: "
+             << persist_path() << clr::reset << "\n";
+        cout.flush();
+        if (g_sigint) return 0;
+        int k = read_boot_key();
+        if (k == 1001) selected = (selected + 2) % 3;
+        else if (k == 1002) selected = (selected + 1) % 3;
+        else if (k >= '1' && k <= '3') selected = k - '1';
+        else if (k == 1000) return selected;
+    }
+}
+
     int main() {
     signal(SIGINT, sigint_handler);
     // Handle SIGTSTP/SIGCONT so Ctrl+Z suspends cleanly (terminal restored) instead of
@@ -6565,6 +6684,15 @@ void cmd_bowling() {
         }
     }
 
+    const int boot_mode = bootloader_menu();
+    const bool safe_boot = boot_mode != 0;
+    const bool recovery_boot = boot_mode == 2;
+    if (safe_boot) {
+        cout << "  " << clr::amber << "Safe boot: saved session will not be restored."
+             << clr::reset << "\n";
+        boot_delay(700);
+    }
+
     // --- Boot Logo ---
     const vector<string> logo = {
         "    _   __      _   __                     ____  _____",
@@ -6582,7 +6710,7 @@ void cmd_bowling() {
         if (b < 0) b = 0;
         string color = clr::rgb(r, g, b);
         cout << color << clr::bold << logo[i] << clr::reset << "\n";
-        this_thread::sleep_for(chrono::milliseconds(40));
+        if (!safe_boot) this_thread::sleep_for(chrono::milliseconds(40));
     }
     cout << "\n";
 
@@ -6591,7 +6719,7 @@ void cmd_bowling() {
     cout << string(20, ' ') << clr::gray << " " << clr::cyan << VERSION << clr::reset << clr::gray << " · Pure C++ OS Simulation" << clr::reset << "\n";
     cout << string(20, ' ') << clr::dgray << "═══════════════════════════════════════════" << clr::reset << "\n";
     cout << "\n";
-    this_thread::sleep_for(chrono::milliseconds(300));
+    if (!safe_boot) this_thread::sleep_for(chrono::milliseconds(300));
 
     // --- Animated boot sequence ---
     const vector<pair<string, int>> boot_steps = {
@@ -6613,7 +6741,7 @@ void cmd_bowling() {
         }
         cout << clr::dgray << "]" << clr::reset << " " << clr::gray << boot_steps[i].first << clr::reset;
         cout.flush();
-        this_thread::sleep_for(chrono::milliseconds(boot_steps[i].second * 30));
+        if (!safe_boot) this_thread::sleep_for(chrono::milliseconds(boot_steps[i].second * 30));
     }
     cout << "\n\n";
 
@@ -6621,7 +6749,20 @@ void cmd_bowling() {
     cout << "  " << clr::success << uni("✓","+") << " " << clr::bold << "NoNameOS " << VERSION << " booted successfully" << clr::reset << "\n";
     cout << "  " << clr::muted << "Type " << clr::lcyan << "help" << clr::muted << " for available commands" << clr::reset << "\n";
     cout << "  " << clr::dgray << "↑↓ history  ←→ cursor  Backspace delete" << clr::reset << "\n\n";
-    this_thread::sleep_for(chrono::milliseconds(400));
+    boot_delay(safe_boot ? 0 : 400);
+    if (recovery_boot) {
+        const int action = recovery_menu();
+        if (action == 1) {
+            if (remove(persist_path().c_str()) == 0)
+                cout << "  " << clr::success << "Saved session removed." << clr::reset << "\n";
+            else
+                cout << "  " << clr::amber << "No saved session to remove." << clr::reset << "\n";
+            boot_delay(600);
+        } else if (action == 2) {
+            cout << "  " << clr::gray << "Powering off." << clr::reset << "\n";
+            return 0;
+        }
+    }
 
     // v4.2.0: rotating tip of the day — small surfaces of features people miss.
     {
@@ -6656,7 +6797,7 @@ void cmd_bowling() {
     aliases["ttt"] = "tictactoe";
 
     // v3.0: restore persisted session (VFS, aliases, users, packages)
-    {
+    if (!safe_boot) {
         int restored_nodes = (int)file_system.size();
         if (persist_load(file_system, aliases, SYSTEM_USERS)) {
             restored_nodes = (int)file_system.size();
@@ -6666,6 +6807,8 @@ void cmd_bowling() {
             for (const auto& p : g_installed_pkgs) cout << p << " ";
             if (!g_installed_pkgs.empty()) cout << clr::reset << "\n";
         }
+    } else {
+        cout << "  " << clr::muted << "Safe boot: default VFS, aliases and users loaded." << clr::reset << "\n";
     }
 
     // v3.0 MOTD headline under the boot banner
