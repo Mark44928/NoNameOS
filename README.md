@@ -12,6 +12,7 @@
 
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS shell screenshot"/>
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20261113-0633.png" width="560" alt="NoNameOS v4.2.0 shell — boot log, typed commands and ls output visible"/>
+<img src="https://github.com/Mark44928/NoNameOS/raw/main/docs/screenshot-shell.png" width="700" alt="NoNameOS shell — cfetch, theme list and fortune"/>
 <p align="center"><sub><i>An earlier build (v0.3.1), shown for comparison.</i></sub></p>
 </div>
 
