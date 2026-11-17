@@ -5011,8 +5011,18 @@ static void persist_save(const map<string,FSNode>& fs,
                          const map<string,string>& aliases,
                          const vector<string>& users) {
     if (!persist_enabled) return;
-    FILE* f = fopen(persist_path().c_str(), "w");
-    if (!f) return;
+    // Write to a unique temp file in the same directory, then rename: a crash
+    // mid-save must not truncate the only copy of the session, and mkstemp
+    // prevents following a pre-planted symlink at a predictable temp path.
+    string tmp_path = persist_path() + ".XXXXXX";
+    int tmp_fd = mkstemp(tmp_path.data());
+    if (tmp_fd < 0) return;
+    FILE* f = fdopen(tmp_fd, "w");
+    if (!f) {
+        close(tmp_fd);
+        remove(tmp_path.c_str());
+        return;
+    }
     fprintf(f, "NNOS3\n");
     fprintf(f, "T %s\n", g_theme_name.c_str());
     fprintf(f, "P %s\n", vfs_escape(g_prompt_fmt).c_str());
@@ -5029,7 +5039,13 @@ static void persist_save(const map<string,FSNode>& fs,
         else if (node.is_dir) fprintf(f, "D %s\n", vfs_escape(path).c_str());
         else fprintf(f, "F %s\t%s\t%s\n", vfs_escape(path).c_str(), node.mode.c_str(), vfs_escape(node.content).c_str());
     }
-    fclose(f);
+    if (fclose(f) != 0) {
+        remove(tmp_path.c_str()); // write failed: keep the previous session file
+        return;
+    }
+    if (rename(tmp_path.c_str(), persist_path().c_str()) != 0) {
+        remove(tmp_path.c_str()); // rename failed: don't leave stale .tmp files
+    }
 }
 
 static bool persist_load(map<string,FSNode>& fs,
