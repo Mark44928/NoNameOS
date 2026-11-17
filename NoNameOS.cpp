@@ -362,28 +362,28 @@ namespace expr {
             skipws();
             if (peek() == '-') { i++; double v; if (!unary(v)) return false; out = -v; return true; }
             if (peek() == '+') { i++; double v; if (!unary(v)) return false; out = v; return true; }
-            return primary(out);
+            return power(out);
         }
         bool power(double& out) {
-            if (!unary(out)) return false;
+            if (!primary(out)) return false;
             skipws();
             if (peek() == '^') {
                 i++;
                 double rhs;
-                if (!power(rhs)) return false; // right-associative
+                if (!unary(rhs)) return false; // right-associative
                 out = pow(out, rhs);
             }
             return true;
         }
         bool term(double& out) {
-            if (!power(out)) return false;
+            if (!unary(out)) return false;
             while (true) {
                 skipws();
                 char c = peek();
                 if (c == '*' || c == '/' || c == '%') {
                     i++;
                     double rhs;
-                    if (!power(rhs)) return false;
+                    if (!unary(rhs)) return false;
                     if (c == '*') out = out * rhs;
                     else if (c == '/') { if (rhs == 0) { error = true; return false; } out = out / rhs; }
                     else { if (rhs == 0) { error = true; return false; } out = fmod(out, rhs); }
@@ -5150,6 +5150,7 @@ static string expand_globs(const string& args, map<string,FSNode>& fs, const str
             if (glob_match(base, rel)) hits.push_back(tok.substr(0, slash != string::npos ? slash + 1 : 0) + rel);
         }
         sort(hits.begin(), hits.end());
+        if (hits.empty()) hits.push_back(tok); // keep unmatched patterns (bash default)
         for (const auto& h : hits) { if (!first) out += " "; out += h; first = false; }
     }
     return out;
@@ -6669,7 +6670,38 @@ static int recovery_menu() {
     }
 }
 
-    int main() {
+static int run_selftest() {
+    int passed = 0, failed = 0;
+    auto check = [&](const string& name, bool ok) {
+        cout << (ok ? "PASS " : "FAIL ") << name << "\n";
+        if (ok) ++passed; else ++failed;
+    };
+    double value = 0;
+    check("expression precedence", expr::evaluate("2+3*4", value) && value == 14);
+    check("right-associative power", expr::evaluate("2^3^2", value) && value == 512);
+    check("unary precedence", expr::evaluate("-2^2", value) && value == -4);
+    check("modulo", expr::evaluate("10%4", value) && value == 2);
+    check("expression errors", !expr::evaluate("1+*2", value) && !expr::evaluate("1/0", value));
+
+    const string payload = "line 1\nline\t2\\tail";
+    check("vfs escape roundtrip", vfs_unescape(vfs_escape(payload)) == payload);
+    check("traversal guard", has_traversal("../etc") && has_traversal("a/../b") && !has_traversal("a/b"));
+
+    map<string,FSNode> fs;
+    fs["/a/"] = FSNode(false, "x");
+    fs["/link/"] = FSNode(true, "");
+    fs["/link/"].is_link = true;
+    fs["/link/"].link_target = "/a/";
+    check("vfs symlink resolution", resolved_path(fs, "/link/") == "/a/");
+    check("help registry", !help_text("ls").empty() && ALL_COMMANDS.count("ls") == 1);
+    check("command entrypoint", ALL_COMMANDS.count("help") == 1 && ALL_COMMANDS.count("exit") == 1);
+
+    cout << "selftest: " << passed << " passed, " << failed << " failed\n";
+    return failed == 0 ? 0 : 1;
+}
+
+    int main(int argc, char** argv) {
+    if (argc > 1 && string(argv[1]) == "--selftest") return run_selftest();
     signal(SIGINT, sigint_handler);
     // Handle SIGTSTP/SIGCONT so Ctrl+Z suspends cleanly (terminal restored) instead of
     // leaving the shell in raw mode, and SIGCONT re-applies raw mode on resume.

@@ -83,6 +83,8 @@ assert_has "write and cat"     "echo /p1 hello && cat /p1"   "hello"
 assert_has "pipe into wc"      "echo /p2 a b c && cat /p2 | wc" "1  3  5"
 assert_has "piped digest matches file" "echo /p3 hi there && sha256sum /p3 && cat /p3 | sha256sum" "9b96a1fe1d548cbbc960cc6a0286668fd74a763667b06366fb2324269fcabaa4"
 assert_has "glob"              "ls /e*"                      "geometry"
+assert_has "calc multiplication" "calc 2+3*4"                "= 14"
+assert_has "calc unary power"    "calc -2^2"                  "= -4"
 assert_has "vfs mkdir"         "mkdir /smoke && ls /"        "smoke"
 assert_has "help lists new"    "help"                       "towers"
 
@@ -112,6 +114,13 @@ assert_has "which ls"   "which ls"                  "/bin/ls"
 assert_has "which phantom" "which piano"               "piano not found"
 assert_has "boot tip"    "version"                            "tip:"
 assert_has "v4.2.0 banner" "version"                         "NoNameOS v4.2.0"
+
+selftest_out=$(HOME="$TMPDIR/smoke-home" timeout 20 "$BIN" --selftest 2>&1)
+if printf '%s\n' "$selftest_out" | grep -qF "selftest: 10 passed, 0 failed"; then
+  PASS=$((PASS + 1))
+else
+  FAIL=$((FAIL + 1)); printf 'smoke FAIL: --selftest output mismatch\n%s\n' "$selftest_out"
+fi
 
 echo
 echo "smoke: $PASS passed, $FAIL failed"

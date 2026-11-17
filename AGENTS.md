@@ -99,7 +99,7 @@ clang++ -std=c++17 -Wall -Wextra -O2 NoNameOS.cpp -o nonameos -lpthread  # Termu
 
 ```bash
 make clean && make          # zero warnings required
-bash tests/smoke.sh         # 32 piped-REPL assertions (CI runs this too)
+bash tests/smoke.sh         # 35 piped-REPL assertions (CI runs this too)
 ./nonameos                  # smoke: help · TAB complete · Ctrl+R · pipes · chains
 printf '%s\n' 'echo /t.txt hi' 'cat /t.txt' 'cat /t.txt | grep hi' \
   'ls > /o.txt' 'wc /o.txt' 'bogus && echo NO' 'theme list' 'pkg list' 'exit' | ./nonameos
