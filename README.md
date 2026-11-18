@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/logo.svg" width="760" alt="NoNameOS logo"/>
+
 <pre>
     _   __      _   __                     ____  _____
    / | / /___  / | / /___ _____ ___  ___  / __ \/ ___/
