@@ -59,7 +59,7 @@ rm -rf "$TMPDIR/smoke-home"
 mkdir -p "$TMPDIR/smoke-home"
 
 # --- basics ---
-assert_has "version banner"    "version"                     "NoNameOS v4.2.0"
+assert_has "version banner"    "version"                     "NoNameOS v4.3.0"
 assert_has "unknown command"   "definitelyNotACmd"           "command not found: definitelyNotACmd"
 
 # --- v4.1.0 commands (must be dispatched, not "command not found") ---
@@ -113,10 +113,13 @@ assert_has "stat missing" "stat /nope"                        "no such file"
 assert_has "which ls"   "which ls"                  "/bin/ls"
 assert_has "which phantom" "which piano"               "piano not found"
 assert_has "boot tip"    "version"                            "tip:"
-assert_has "v4.2.0 banner" "version"                         "NoNameOS v4.2.0"
+assert_has "v4.3.0 banner" "version"                         "NoNameOS v4.3.0"
+
+# --- v4.3.0: motd ---
+assert_has "motd runs"    "motd"                              "MOTD"
 
 selftest_out=$(HOME="$TMPDIR/smoke-home" timeout 20 "$BIN" --selftest 2>&1)
-if printf '%s\n' "$selftest_out" | grep -qF "selftest: 10 passed, 0 failed"; then
+if printf '%s\n' "$selftest_out" | grep -qF "selftest: 11 passed, 0 failed"; then
   PASS=$((PASS + 1))
 else
   FAIL=$((FAIL + 1)); printf 'smoke FAIL: --selftest output mismatch\n%s\n' "$selftest_out"

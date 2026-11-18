@@ -96,7 +96,7 @@ static void sigcont_handler(int) {
 }
 
 static const auto program_start = chrono::steady_clock::now();
-const string VERSION = "v4.2.0";
+const string VERSION = "v4.3.0";
 
 // v3.0 UNICODE RENDERING — global on/off/auto
 // When off (auto-detected or user-forced), all ornamental Unicode in output is
@@ -630,7 +630,7 @@ string help_text(const string& cmd) {
         {"run","execute a .nnsh script"},{"set","define a script variable"},
         {"save","save session now"},{"load","load saved session"},
         {"persist","toggle session persistence"},{"theme","list/set color themes"},
-        {"prompt","customize prompt template"},{"news","NoNameOS Daily headlines"},
+        {"prompt","customize prompt template"},{"news","NoNameOS Daily headlines"},{"motd","message of the day: POSIX/Termux shell tips"},
         {"crunch","column math over file data"},{"pack","bundle files into .npk archive"},
         {"packlist","list .npk contents"},{"unpack","extract an .npk archive"},
         {"pkg","package manager (bonus toys)"},{"joke","random joke"},
@@ -1181,7 +1181,7 @@ const set<string> ALL_COMMANDS = {
     "history","hostname","ip","ipcalc","joke","jumble","kernel","keytest","kitchen",
     "konami","lenny","life","lightsout","llm","ln","load","loading","locate","log",
     "logout","lolcat","lowercase","ls","lsblk","lscpu","lsusb","mac","man","mastermind",
-    "matrix","maze","md5","meaning","mem","memory","mine","minesweeper","mkdir","morse",
+    "matrix","maze","md5","meaning","mem","memory","mine","minesweeper","mkdir","morse","motd",
     "mount","mv","nano","neo","netstat","news","nim","nl","notes","nproc","nummem",
     "nyancat","open","othello","pack","packlist","palette","password","paste","persist",
     "pet","pick","ping","pkg","play","poker","pom","pong","potato","primes","printenv",
@@ -5708,6 +5708,26 @@ static void cmd_news() {
     cout << "  " << clr::muted << "weather: simulated · markets: vibes · sports: snake won" << clr::reset << "\n\n";
 }
 
+// Deterministic tip collection — built-in, offline, same output every run.
+static const vector<string> MOTD_TIPS = {
+    "POSIX: `cd -` jumps straight back to the previous directory.",
+    "POSIX: `2>/dev/null` discards stderr; `2>&1` merges stderr into stdout.",
+    "Shell: quote your variables — \"$var\" — so spaces never split words.",
+    "Shell: `command -v <name>` checks whether a command exists, and where.",
+    "Shell: `!!` reruns the last command; `!$` reuses its last argument.",
+    "Shell: `set -euo pipefail` makes scripts fail loudly, not silently.",
+    "Termux: `pkg search <name>` finds packages; `pkg upgrade` updates them.",
+    "Termux: `termux-wake-lock` keeps long jobs alive with the screen off.",
+};
+static void cmd_motd() {
+    cout << "\n  " << clr::bold << clr::header << "MOTD — NoNameOS Message of the Day" << clr::reset << "\n";
+    cout << "  " << clr::dgray << vsep(48) << clr::reset << "\n";
+    for (const auto& tip : MOTD_TIPS)
+        cout << "  " << clr::warning << "• " << clr::reset << clr::white << tip << clr::reset << "\n";
+    cout << "  " << clr::dgray << vsep(48) << clr::reset << "\n";
+    cout << "  " << clr::muted << "POSIX · Termux · shell — built in, no network" << clr::reset << "\n\n";
+}
+
 // ═══════════════════════════════════════════════════════════════
 // SECTION 11.9: v4.0.0 — New Games (war, yahtzee, higherlower,
 //                     artillery) and Tools, Effects & Eggs
@@ -6695,6 +6715,7 @@ static int run_selftest() {
     check("vfs symlink resolution", resolved_path(fs, "/link/") == "/a/");
     check("help registry", !help_text("ls").empty() && ALL_COMMANDS.count("ls") == 1);
     check("command entrypoint", ALL_COMMANDS.count("help") == 1 && ALL_COMMANDS.count("exit") == 1);
+    check("motd entrypoint", ALL_COMMANDS.count("motd") == 1 && !help_text("motd").empty());
 
     cout << "selftest: " << passed << " passed, " << failed << " failed\n";
     return failed == 0 ? 0 : 1;
@@ -6992,6 +7013,7 @@ static int run_selftest() {
             section("v4.0 Easter Eggs", "coffee, potato, banana, goose");
             section("v4.1.0 Games", "roulette, slotmachine, towers, poker\ndarts, bowling");
             section("v4.1.0 Tools", "emoticon, qr, barcode, asciiart");
+            section("v4.3.0 Shell", "motd");
 
             cout << "\n  " << clr::dgray << vsep(42) << clr::reset << "\n";
             cout << "  " << clr::dim << "Tip: " << clr::muted << "type " << clr::lcyan << "help <cmd>" << clr::muted << " or " << clr::lcyan << "man <cmd>" << clr::muted << " for details" << clr::reset << "\n\n";
@@ -8960,6 +8982,7 @@ static int run_selftest() {
             else { cout << "  Usage: unicode on|off|auto|test\n"; }
         }
         else if (cmd == "news") { cmd_news(); }
+        else if (cmd == "motd") { cmd_motd(); }
         else if (cmd == "crunch") {
             // crunch <file> <column> sum|avg|min|max|count
             istringstream cs(args);

@@ -8,7 +8,7 @@
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 </pre>
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260808-140453.png" width="700" alt="NoNameOS v2.0.0 running in Termux"/>
-<p align="center"><sub><i>NoNameOS v2.0.0 running in Termux on a MyPhone myT10. Current v4.2.0 adds more games, commands, and full color themes.</i></sub></p>
+<p align="center"><sub><i>NoNameOS v2.0.0 running in Termux on a MyPhone myT10. Current v4.3.0 adds more games, commands, and full color themes.</i></sub></p>
 
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS shell screenshot"/>
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20261113-0633.png" width="560" alt="NoNameOS v4.2.0 shell — boot log, typed commands and ls output visible"/>
@@ -21,12 +21,12 @@
 <h1 align="center">NoNameOS</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v4.2.0-green?style=for-the-badge" alt="Version"/>
+  <img src="https://img.shields.io/badge/version-v4.3.0-green?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/language-C%2B%2B17-blue?style=for-the-badge" alt="C++17"/>
   <img src="https://img.shields.io/badge/license-GPLv3-purple?style=for-the-badge" alt="License"/>
-  <img src="https://img.shields.io/badge/9010-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
+  <img src="https://img.shields.io/badge/9273-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
   <img src="https://img.shields.io/badge/54-games-red?style=for-the-badge" alt="Games"/>
-  <img src="https://img.shields.io/badge/299-commands-cyan?style=for-the-badge" alt="Commands"/>
+  <img src="https://img.shields.io/badge/301-commands-cyan?style=for-the-badge" alt="Commands"/>
   <img src="https://img.shields.io/badge/dependencies-zero-brightgreen?style=for-the-badge" alt="Zero Dependencies"/>
   <img src="https://img.shields.io/badge/platform-linux-lightgrey?style=for-the-badge" alt="Linux"/>
   <img src="https://img.shields.io/github/languages/code-size/Mark44928/NoNameOS?style=for-the-badge" alt="Code Size"/>
@@ -35,12 +35,12 @@
 </p>
 
 <blockquote align="center">
-  <b>One file. Zero dependencies. 54 games. 299 commands. One terminal.</b>
+  <b>One file. Zero dependencies. 54 games. 301 commands. One terminal.</b>
   <br/><sub><i>Simulated OS meets sandbox playground — all in a single .cpp</i></sub>
 </blockquote>
 
 <p align="center">
-  <b>A pure C++ terminal operating-system simulation featuring an interactive shell with pipes, scripts and persistence, a virtual filesystem, 54 built-in games, and 299 commands — all contained in a single source file.</b><br/>
+  <b>A pure C++ terminal operating-system simulation featuring an interactive shell with pipes, scripts and persistence, a virtual filesystem, 54 built-in games, and 301 commands — all contained in a single source file.</b><br/>
   <sub>No external dependencies. No framework. No build system headaches. Just compile and run.</sub>
 </p>
 
@@ -81,6 +81,7 @@
 - [Why NoNameOS?](#why-nonameos)
 - [Perfect For](#perfect-for)
 - [Features](#features)
+- [What's New in v4.3.0](#whats-new-in-v430)
 - [What's New in v4.2.0](#whats-new-in-v420)
 - [What's New in v4.1.0](#whats-new-in-v410)
 - [What's New in v4.0.0](#whats-new-in-v400)
@@ -108,7 +109,7 @@
 
 | Category | What You Get | Highlights |
 |----------|-------------|------------|
-| **Interactive Shell** | Pipes, redirects, chains, globs, TAB-complete, scripts, persistence, themes, 299 commands | Arrows, history, Ctrl+R search, fuzzy suggestions |
+| **Interactive Shell** | Pipes, redirects, chains, globs, TAB-complete, scripts, persistence, themes, 301 commands | Arrows, history, Ctrl+R search, fuzzy suggestions |
 | **Virtual Filesystem** | Files, directories, symlinks, permissions, trash | Timestamps, sizes, `ls -l`, `chmod` |
 | **48 Games** | Arcade, puzzle, strategy, word, reflex games | Tetris, Othello, Blackjack, Wordle, Battleship |
 | **System Tools** | Text editor, calculators, system info | `kernel`, `netstat`, `traceroute`, `report` |
@@ -118,6 +119,16 @@
 | **Productivity** | Todo list, notes, timers, password gen | `pom`, `countdown`, `worldclock` |
 | **Visual Effects** | Matrix rain, rainbow text, color themes | `matrix`, `lolcat`, `colors`, `disco` |
 | **Fun & Easter Eggs** | 25+ hidden commands | `sudo`, `rickroll`, `konami`, `hack` |
+
+---
+
+## What's New in v4.3.0
+
+### `motd` — message of the day
+- `motd` prints a deterministic, built-in collection of POSIX, Termux and
+  shell tips — offline, no randomness, no network, same output every run.
+- Wired into `ALL_COMMANDS`, `help`, `help motd`, the dispatcher and
+  `--selftest`; `which motd` and TAB completion work as usual.
 
 ---
 
@@ -445,7 +456,7 @@ g++ -O2 NoNameOS.cpp -o nonameos -lpthread
 </details>
 
 <details>
-<summary><b>🛠️ Tools (25 commands)</b></summary>
+<summary><b>🛠️ Tools (26 commands)</b></summary>
 
 | Command | Usage | Description |
 |---------|-------|-------------|
@@ -474,6 +485,7 @@ g++ -O2 NoNameOS.cpp -o nonameos -lpthread
 | `train` | `train` | Same as `sl` |
 | `sha256sum` | `sha256sum <file>` | SHA-256 digest of a VFS file (also reads piped stdin) |
 | `stat` | `stat <path>` | Type, mode, size, line/word count and creation stamp |
+| `motd` | `motd` | Deterministic message of the day: POSIX/Termux/shell tips |
 
 </details>
 
@@ -602,12 +614,12 @@ $ ./nonameos
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 
                     ═══════════════════════════════════════════
-                     v4.2.0 · Pure C++ OS Simulation
+                     v4.3.0 · Pure C++ OS Simulation
                     ═══════════════════════════════════════════
 
   [━━━━━━━━━━━━━━━━━━━━━━━━━] System ready
 
-  ✓ NoNameOS v4.2.0 booted successfully
+  ✓ NoNameOS v4.3.0 booted successfully
   Type help for available commands
   ↑↓ history  ←→ cursor  Backspace delete
 
@@ -845,7 +857,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 │  ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐    │
 │  │ Terminal I/O │───▶│  Shell (REPL)   │───▶│  Dispatcher  │    │
 │  │ termios.h    │    │ cooked_readline │    │  if/else map │    │
-│  │  fcntl.h     │    │ history, arrows │    │  299 cmds    │    │
+│  │  fcntl.h     │    │ history, arrows │    │  301 cmds    │    │
 │  └──────────────┘    └─────────────────┘    └───────┬──────┘    │
 │                                                     │           │
 │                    ┌────────────────────────────────┼─────┐     │
@@ -879,7 +891,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 | **STL Containers** | `map<string, FSNode>` | Virtual filesystem backed by associative containers |
 | **MT19937 RNG** | `mt19937 rng{random_device{}()}` | Modern C++ random number generation |
 | **ANSI Colors** | `namespace color` | 256-color and truecolor RGB terminal rendering |
-| **Single Dispatch** | exec_segment in main() | One massive if/else chain routes all 299 commands (plus pipes/chains engine around it) |
+| **Single Dispatch** | exec_segment in main() | One massive if/else chain routes all 301 commands (plus pipes/chains engine around it) |
 
 ## Fun Facts
 
@@ -897,6 +909,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 
 | Version | Lines | Games | Commands | Key Changes |
 |---------|-------|-------|----------|-------------|
+| **v4.3.0** | 9,273 | 54 | 301 | motd (deterministic message of the day: POSIX/Termux/shell tips) |
 | **v4.2.0** | 9,010 | 54 | 299 | sha256sum (FIPS 180-4, in-process) · stat (type/mode/size/words) · rotating boot tip |
 | **v4.1.0** | 8,980 | 54 | 301 | roulette · slotmachine · towers · poker · darts · bowling wired into the dispatcher (were dead code) · emoticon mood table · update-readme.sh now idempotent |
 | **v4.0.0** | 8,533 | 48 | 286 | war · yahtzee · higherlower · artillery · bitwise regex utime ipcalc budget keytest · snow wave starfield · coffee potato banana goose · gruvbox + rose themes |
@@ -942,7 +955,7 @@ Tiny, dependency-free tools from the same family:
 - [Plusalator](https://github.com/Mark44928/Plusalator) — C++17 calculator REPL — Qalculate-flavored, ghost autosuggest, 18 themes
 - [GrubBlastersHTML](https://github.com/Mark44928/GrubBlastersHTML) — Turn-based artillery in one HTML file — 72 weapons, fully destructible terrain
 - [SnakTUI](https://github.com/Mark44928/SnakTUI) — Snake game for the terminal — Textual + Python
-- [Easy-Termux-Package-Manager](https://github.com/Mark44928/Easy-Termux-Package-Manager) — fzf-driven package manager for Termux — snapshots, audit, 193 tests
+- [Easy-Termux-Package-Manager](https://github.com/Mark44928/Easy-Termux-Package-Manager) — fzf-driven package manager for Termux — snapshots, audit, 194 tests
 - [Greenit](https://github.com/Mark44928/Greenit) — green-injected theme family — dark + light, single palette.json
 - [CalculaHTML](https://github.com/Mark44928/CalculaHTML) — static HTML calculator — 15 themes + System mode, zero deps
 - [android12-fastfetch](https://github.com/Mark44928/android12-fastfetch) — fastfetch config for Android 12 + native X11 Termux desktops
