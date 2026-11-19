@@ -217,6 +217,7 @@ const vector<ThemeSpec> THEME_DB = {
     {"rose",     "pink pastel citrus",                 211,203,216,152,205,145,212,211,168,176,240},
     {"tokyonight","neon blues on midnight violet",      114,204,215,111,141, 60,111,111,252,141, 61},
     {"everforest","soft forest greens and moss",       108,167,180,109,150,245,150,108,252,150, 65},
+    {"bluney",   "calm blue family palette",           111,204,215,111, 75,245,117,117,255,111, 61},
 };
 static string g_theme_name = "nonameos";
 
@@ -6970,6 +6971,23 @@ static int run_selftest() {
         ostringstream sink;
         streambuf* oldbuf = nullptr;
         if (capture_out || !redir_file.empty()) { oldbuf = cout.rdbuf(sink.rdbuf()); }
+        auto flush_out = [&]() -> bool {
+            if (oldbuf) cout.rdbuf(oldbuf);
+            string outp = sink.str();
+            if (!redir_file.empty()) {
+                if (has_traversal(redir_file)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; return false; }
+                string fullp = resolve_user_path(redir_file, current_dir);
+                string body = outp;
+                if (append_mode) {
+                    auto prev = vfs_read(redir_file, file_system, current_dir);
+                    if (prev) body = *prev + outp;
+                }
+                file_system[fullp] = FSNode(false, body);
+            } else if (capture_out) {
+                captured = outp;
+            }
+            return true;
+        };
 
         // ───────── dispatch chain (moved from v2 main loop) ─────────
         bool ok = true;
@@ -6977,7 +6995,7 @@ static int run_selftest() {
         if (cmd == "help") {
             if (!args.empty()) {
                 cout << "\n  " << clr::accent << clr::bold << args << clr::reset << " — " << clr::gray << help_text(args) << clr::reset << "\n\n";
-                return true;
+                return flush_out();
             }
             cout << "\n  " << clr::bold << clr::cyan << "NoNameOS " << VERSION << clr::reset << "\n  " << clr::dgray << vsep(42) << clr::reset << "\n";
 
@@ -7145,6 +7163,14 @@ static int run_selftest() {
                 if (file_system.find(trash_dir) == file_system.end())
                     file_system[trash_dir] = FSNode(true, "");
                 string ts = to_string(chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count());
+                auto unique_trash_key = [&](const string& name) {
+                    string key = trash_dir + ts + "_" + name;
+                    int n = 1;
+                    while (file_system.find(key) != file_system.end()) {
+                        key = trash_dir + ts + "_" + to_string(n++) + "_" + name;
+                    }
+                    return key;
+                };
                 if (args.rfind("-r ", 0) == 0) {
                     string dirname = args.substr(3);
                     string dpath = resolve_user_path(dirname, current_dir);
@@ -7160,7 +7186,7 @@ static int run_selftest() {
                     for (const string& p : to_erase) {
                         string pname = p;
                         if (!pname.empty() && pname.back() == '/') pname.pop_back();
-                        file_system[trash_dir + ts + "_" + pname.substr(pname.find_last_of('/') + 1)] = file_system[p];
+                        file_system[unique_trash_key(pname.substr(pname.find_last_of('/') + 1))] = file_system[p];
                         file_system.erase(p);
                     }
                     cout << "\033[32mTrashed " << dirname << " recursively.\033[0m\n";
@@ -7175,7 +7201,7 @@ static int run_selftest() {
                         if (file_system.find(src) != file_system.end() && !file_system[src].is_dir) {
                             string name = one.substr(one.find_last_of('/') + 1);
                             if (name.empty()) name = src;
-                            file_system[trash_dir + ts + "_" + name] = file_system[src];
+                            file_system[unique_trash_key(name)] = file_system[src];
                             file_system.erase(src);
                             trashed++;
                         } else missing++;
@@ -7598,6 +7624,13 @@ static int run_selftest() {
                         if (src_dir_exists) {
                             string full_dst_dir = full_dst;
                             if (!full_dst_dir.empty() && full_dst_dir.back() != '/') full_dst_dir += "/";
+                            if (file_system.find(full_dst) != file_system.end() && file_system[full_dst].is_dir) {
+                                // moving a directory into an existing directory: nest it, don't merge
+                                string basename_src = full_src;
+                                while (!basename_src.empty() && basename_src.back() == '/') basename_src.pop_back();
+                                basename_src = basename_src.substr(basename_src.find_last_of('/') + 1);
+                                full_dst_dir = full_dst + basename_src + "/";
+                            }
                             if (full_dst_dir == full_src_dir) {
                                 cout << "\033[31merror:\033[0m source and destination are the same.\n";
                             } else {
@@ -8956,7 +8989,7 @@ static int run_selftest() {
                     cout << "  " << clr::success << "Random theme: '" << nm << "' (saved)." << clr::reset << "\n";
                 } else {
                     cout << "Usage: theme list | theme set <name> | theme preview <name> | theme random\n"
-                         << "       names: nonameos|matrix|dracula|ocean|sunset|mono|gruvbox|rose|tokyonight|everforest\n";
+                         << "       names: nonameos|matrix|dracula|ocean|sunset|mono|gruvbox|rose|tokyonight|everforest|bluney\n";
                 }
             }
         }
@@ -9070,15 +9103,18 @@ static int run_selftest() {
                     if (curp.empty()) return;
                     string rel = curp;
                     while (!rel.empty() && rel.front() == '/') rel = rel.substr(1);
-                    if (rel.empty() || has_traversal("/" + rel)) { curp.clear(); return; } // safety: never unpack .. paths
+                    // FS keys end with '/' for files too — strip trailing slashes for name math
+                    string bare = rel;
+                    while (!bare.empty() && bare.back() == '/') bare.pop_back();
+                    if (bare.empty() || has_traversal("/" + bare)) { curp.clear(); return; } // safety: never unpack .. paths
                     string key;
                     if (dst.empty()) {
-                        key = "/" + rel;                       // restore original absolute tree
+                        key = "/" + bare + "/";                  // restore original absolute tree
                     } else {
                         string dirp = resolve_user_path(dst, current_dir);
                         if (dirp.back() != '/') dirp += "/";
-                        size_t sl = rel.rfind('/');
-                        key = dirp + (sl == string::npos ? rel : rel.substr(sl + 1));
+                        size_t sl = bare.rfind('/');
+                        key = dirp + (sl == string::npos ? bare : bare.substr(sl + 1)) + "/";
                     }
                     FSNode n(false, vfs_unescape(escacc));
                     n.mode = curm.size() == 9 ? curm : "rw-r--r--";
@@ -9147,20 +9183,7 @@ static int run_selftest() {
             cout << "\n";
         }
 
-        if (oldbuf) cout.rdbuf(oldbuf);
-        string outp = sink.str();
-        if (!redir_file.empty()) {
-            if (has_traversal(redir_file)) { cout << "\033[31merror:\033[0m path traversal not allowed.\n"; return false; }
-            string fullp = resolve_user_path(redir_file, current_dir);
-            string body = outp;
-            if (append_mode) {
-                auto prev = vfs_read(redir_file, file_system, current_dir);
-                if (prev) body = *prev + outp;
-            }
-            file_system[fullp] = FSNode(false, body);
-        } else if (capture_out) {
-            captured = outp;
-        }
+        if (!flush_out()) return false;
         return ok;
     };
 
