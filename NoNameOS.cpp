@@ -204,21 +204,21 @@ namespace clr {
 struct ThemeSpec {
     const char* name;
     const char* desc;
-    int ok, err, warn, inf, acc, mut, hdr, pu, ph, pd, ps; // 256-color indexes
+    string ok, err, warn, inf, acc, mut, hdr, pu, ph, pd, ps; // ANSI escapes or 256 indexes
 };
 const vector<ThemeSpec> THEME_DB = {
-    {"nonameos", "classic green/blue defaults",        46,196,226, 39,213,245, 75, 46,231, 39,252},
-    {"matrix",   "all-green hacker terminal",          46, 46, 70, 34, 48, 28, 40, 46, 34, 34, 22},
-    {"dracula",  "purple/pink pastel dark",            120,210, 51,141,213,245,176,176,252,141, 61},
-    {"ocean",    "deep blues and cyans",               120,203,226, 39, 75,244, 33, 44,231, 39, 17},
-    {"sunset",   "warm orange/red gradient",           154,196,214,208,201,180,209,208,255,209, 94},
-    {"mono",     "grayscale, zero color",              255,250,255,255,255,245,255,255,231,245,240},
-    {"gruvbox",  "warm retro brown/yellow",            214,196,172,108,161,137,208,223,146,108,240},
-    {"rose",     "pink pastel citrus",                 211,203,216,152,205,145,212,211,168,176,240},
-    {"tokyonight","neon blues on midnight violet",      114,204,215,111,141, 60,111,111,252,141, 61},
-    {"everforest","soft forest greens and moss",       108,167,180,109,150,245,150,108,252,150, 65},
-    {"bluney",   "calm blue family palette",           111,204,215,111, 75,245,117,117,255,111, 61},
-    {"yellen",   "golden family palette",              221,166,229,229,221,137,223,221,230,178, 58},
+    {"nonameos", "classic green/blue defaults",        clr::fg256(46),clr::fg256(196),clr::fg256(226), clr::fg256(39),clr::fg256(213),clr::fg256(245), clr::fg256(75), clr::fg256(46),clr::fg256(231), clr::fg256(39),clr::fg256(252)},
+    {"matrix",   "all-green hacker terminal",          clr::fg256(46), clr::fg256(46), clr::fg256(70),  clr::fg256(34), clr::fg256(48), clr::fg256(28),  clr::fg256(40), clr::fg256(46), clr::fg256(34),  clr::fg256(34), clr::fg256(22)},
+    {"dracula",  "canonical Dracula",                  clr::rgb(80,250,123), clr::rgb(255,85,85), clr::rgb(255,184,108), clr::rgb(139,233,253), clr::rgb(189,147,249), clr::rgb(98,114,164), clr::rgb(255,121,198), clr::rgb(189,147,249), clr::rgb(248,248,242), clr::rgb(80,250,123), clr::rgb(98,114,164)},
+    {"ocean",    "deep blues and cyans",               clr::fg256(120),clr::fg256(203),clr::fg256(226), clr::fg256(39),  clr::fg256(75), clr::fg256(244), clr::fg256(33), clr::fg256(44), clr::fg256(231), clr::fg256(39), clr::fg256(17)},
+    {"sunset",   "warm orange/red gradient",           clr::fg256(154),clr::fg256(196),clr::fg256(214),clr::fg256(208),clr::fg256(201),clr::fg256(180),clr::fg256(209),clr::fg256(208),clr::fg256(255),clr::fg256(209),clr::fg256(94)},
+    {"mono",     "grayscale, zero color",              clr::fg256(255),clr::fg256(250),clr::fg256(255), clr::fg256(255), clr::fg256(255), clr::fg256(245), clr::fg256(255), clr::fg256(255), clr::fg256(231), clr::fg256(245), clr::fg256(240)},
+    {"gruvbox",  "canonical Gruvbox Dark",             clr::rgb(184,187,38), clr::rgb(251,73,52), clr::rgb(250,189,47), clr::rgb(131,165,152), clr::rgb(211,134,155), clr::rgb(168,153,132), clr::rgb(254,128,25), clr::rgb(235,219,178), clr::rgb(168,153,132), clr::rgb(131,165,152), clr::rgb(102,92,84)},
+    {"rose",     "pink pastel citrus",                 clr::fg256(211),clr::fg256(203),clr::fg256(216),clr::fg256(152),clr::fg256(205),clr::fg256(145),clr::fg256(212),clr::fg256(211),clr::fg256(168),clr::fg256(176),clr::fg256(240)},
+    {"tokyonight","canonical Tokyo Night",              clr::rgb(158,206,106), clr::rgb(247,118,142), clr::rgb(224,175,104), clr::rgb(125,207,255), clr::rgb(187,154,247), clr::rgb(86,95,137), clr::rgb(122,162,247), clr::rgb(122,162,247), clr::rgb(192,202,245), clr::rgb(158,206,106), clr::rgb(65,76,104)},
+    {"everforest","canonical Everforest Dark (medium)", clr::rgb(167,192,128), clr::rgb(230,126,128), clr::rgb(219,188,127), clr::rgb(131,192,146), clr::rgb(214,153,182), clr::rgb(133,146,137), clr::rgb(127,187,179), clr::rgb(167,192,128), clr::rgb(211,198,170), clr::rgb(131,192,146), clr::rgb(71,82,88)},
+    {"bluney",   "calm blue family palette",           clr::fg256(111),clr::fg256(204),clr::fg256(215),clr::fg256(111), clr::fg256(75), clr::fg256(245), clr::fg256(117),clr::fg256(117),clr::fg256(255),clr::fg256(111), clr::fg256(61)},
+    {"yellen",   "golden family palette",              clr::fg256(221),clr::fg256(166),clr::fg256(229),clr::fg256(229),clr::fg256(221),clr::fg256(137),clr::fg256(223),clr::fg256(221),clr::fg256(230),clr::fg256(178),clr::fg256(58)},
 };
 static string g_theme_name = "nonameos";
 
@@ -227,17 +227,17 @@ static void apply_theme(const string& name) {
     for (const auto& x : THEME_DB) if (name == x.name) t = &x;
     if (!t) t = &THEME_DB[0];
     g_theme_name = t->name;
-    clr::_sem_success = clr::bold + clr::fg256(t->ok);
-    clr::_sem_error   = clr::bold + clr::fg256(t->err);
-    clr::_sem_warning = clr::bold + clr::fg256(t->warn);
-    clr::_sem_info    = clr::bold + clr::fg256(t->inf);
-    clr::_sem_accent  = clr::bold + clr::fg256(t->acc);
-    clr::_sem_muted   = clr::fg256(t->mut);
-    clr::_sem_header  = clr::bold + clr::fg256(t->hdr);
-    clr::_sem_puser   = clr::bold + clr::fg256(t->pu);
-    clr::_sem_phost   = clr::fg256(t->ph);
-    clr::_sem_pdir    = clr::fg256(t->pd);
-    clr::_sem_psep    = clr::fg256(t->ps);
+    clr::_sem_success = clr::bold + t->ok;
+    clr::_sem_error   = clr::bold + t->err;
+    clr::_sem_warning = clr::bold + t->warn;
+    clr::_sem_info    = clr::bold + t->inf;
+    clr::_sem_accent  = clr::bold + t->acc;
+    clr::_sem_muted   = t->mut;
+    clr::_sem_header  = clr::bold + t->hdr;
+    clr::_sem_puser   = clr::bold + t->pu;
+    clr::_sem_phost   = t->ph;
+    clr::_sem_pdir    = t->pd;
+    clr::_sem_psep    = t->ps;
 }
 // Initialize default palette immediately (before any output happens)
 static const bool g_theme_boot = [] { apply_theme("nonameos"); return true; }();
@@ -8955,7 +8955,7 @@ static int run_selftest() {
                 for (const auto& t : THEME_DB)
                     cout << "   " << (t.name == g_theme_name ? clr::success + uni("▸",">") + " " : "  ")
                          << setw(9) << t.name
-                         << " " << clr::fg256(t.acc) << "█████" << clr::fg256(t.ok) << "███" << clr::fg256(t.inf) << "██" << clr::reset
+                         << " " << t.acc << "█████" << t.ok << "███" << t.inf << "██" << clr::reset
                          << "  " << clr::gray << t.desc << clr::reset << "\n";
                 cout << "\n";
             } else {
@@ -8970,16 +8970,16 @@ static int run_selftest() {
                     cout << "  " << clr::success << "Theme '" << nm << "' active (saved)." << clr::reset << "\n";
                 } else if (sub == "preview" && valid) {
                     // Render a small sample without switching or saving.
-                    cout << "\n  " << clr::bold + clr::fg256(spec->hdr) << nm << " preview" << clr::reset << "\n\n";
-                    cout << "  " << clr::bold + clr::fg256(spec->pu) << "user"
-                         << clr::fg256(spec->ps) << "@" << clr::fg256(spec->ph) << "nonameos"
-                         << clr::reset << ":" << clr::fg256(spec->pd) << "~/projects" << clr::reset << "\n";
-                    cout << "  " << clr::fg256(spec->acc) << uni("❯", ">") << " " << clr::reset
-                         << clr::fg256(spec->inf) << "ls -la" << clr::reset << "\n";
-                    cout << "  " << clr::bold + clr::fg256(spec->ok) << "✓ success" << clr::reset
-                         << "   " << clr::bold + clr::fg256(spec->warn) << "! warning" << clr::reset
-                         << "   " << clr::bold + clr::fg256(spec->err) << "✗ error" << clr::reset << "\n";
-                    cout << "  " << clr::fg256(spec->mut) << "muted footnote text" << clr::reset << "\n";
+                    cout << "\n  " << clr::bold + spec->hdr << nm << " preview" << clr::reset << "\n\n";
+                    cout << "  " << clr::bold + spec->pu << "user"
+                         << spec->ps << "@" << spec->ph << "nonameos"
+                         << clr::reset << ":" << spec->pd << "~/projects" << clr::reset << "\n";
+                    cout << "  " << spec->acc << uni("❯", ">") << " " << clr::reset
+                         << spec->inf << "ls -la" << clr::reset << "\n";
+                    cout << "  " << clr::bold + spec->ok << "✓ success" << clr::reset
+                         << "   " << clr::bold + spec->warn << "! warning" << clr::reset
+                         << "   " << clr::bold + spec->err << "✗ error" << clr::reset << "\n";
+                    cout << "  " << spec->mut << "muted footnote text" << clr::reset << "\n";
                     cout << "  " << clr::muted << "apply with: theme set " << nm << clr::reset << "\n\n";
                 } else if (sub == "random") {
                     std::mt19937 rng((unsigned)std::chrono::steady_clock::now().time_since_epoch().count());
