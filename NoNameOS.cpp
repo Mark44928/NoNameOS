@@ -218,6 +218,7 @@ const vector<ThemeSpec> THEME_DB = {
     {"tokyonight","neon blues on midnight violet",      114,204,215,111,141, 60,111,111,252,141, 61},
     {"everforest","soft forest greens and moss",       108,167,180,109,150,245,150,108,252,150, 65},
     {"bluney",   "calm blue family palette",           111,204,215,111, 75,245,117,117,255,111, 61},
+    {"yellen",   "golden family palette",              221,166,229,229,221,137,223,221,230,178, 58},
 };
 static string g_theme_name = "nonameos";
 
@@ -8989,7 +8990,7 @@ static int run_selftest() {
                     cout << "  " << clr::success << "Random theme: '" << nm << "' (saved)." << clr::reset << "\n";
                 } else {
                     cout << "Usage: theme list | theme set <name> | theme preview <name> | theme random\n"
-                         << "       names: nonameos|matrix|dracula|ocean|sunset|mono|gruvbox|rose|tokyonight|everforest|bluney\n";
+                         << "       names: nonameos|matrix|dracula|ocean|sunset|mono|gruvbox|rose|tokyonight|everforest|bluney|yellen\n";
                 }
             }
         }
