@@ -1,15 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" role="img" aria-labelledby="t d">
   <title id="t">NoNameOS</title>
-  <desc id="d">NoNameOS logo: a cyan CRT terminal on a dark panel.</desc>
-  <rect width="1200" height="300" rx="28" fill="#080D14"/>
-  <rect x="1" y="1" width="1198" height="298" rx="27" fill="none" stroke="#21445A" stroke-width="2"/>
-  <circle cx="150" cy="150" r="96" fill="#0D1922" stroke="#203E54" stroke-width="2"/>
-  <rect x="84" y="80" width="132" height="104" rx="12" fill="#102331" stroke="#61D7FF" stroke-width="4"/>
-  <rect x="98" y="94" width="104" height="70" rx="5" fill="#071019"/>
-  <path d="M109 115l11 9-11 9M126 133h18" fill="none" stroke="#61D7FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M129 184v18M170 184v18M109 202h82" stroke="#61D7FF" stroke-width="5" stroke-linecap="round"/>
-  <circle cx="199" cy="166" r="3" fill="#3DFF9D"/>
-  <text x="316" y="158" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="92" font-weight="800" letter-spacing="5" fill="#E6FBFF">NONAMEOS</text>
-  <text x="320" y="207" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" letter-spacing="4" fill="#79ACC4">SHELL · C++ SYSTEM SIMULATION</text>
-  <text x="1138" y="252" text-anchor="end" font-family="ui-monospace,monospace" font-size="14" letter-spacing="3" fill="#436576">MARK44928</text>
+  <desc id="d">Minimal NoNameOS logo: a cyan terminal window and a dark wordmark.</desc>
+  <rect width="1200" height="300" rx="28" fill="#0B0D12"/>
+  <g fill="none" stroke="#2DE2E6" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="86" y="100" width="128" height="100" rx="12"/>
+    <path d="M112 138 L136 154 L112 170 M150 170 H184"/>
+  </g>
+  <text x="300" y="180" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif" font-size="80" font-weight="650" letter-spacing="-2" fill="#F5F7FA">NoNameOS</text>
 </svg>
