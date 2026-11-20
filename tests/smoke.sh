@@ -119,6 +119,7 @@ assert_has "v4.3.0 banner" "version"                         "NoNameOS v4.3.0"
 assert_has "motd runs"    "motd"                              "MOTD"
 assert_has "bluney theme" "theme preview bluney"             "bluney"
 assert_has "yellen theme" "theme preview yellen"             "yellen"
+assert_has "greenit theme" "theme preview greenit"           "greenit"
 
 
 selftest_out=$(HOME="$TMPDIR/smoke-home" timeout 20 "$BIN" --selftest 2>&1)

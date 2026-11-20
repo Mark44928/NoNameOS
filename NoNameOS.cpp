@@ -217,6 +217,7 @@ const vector<ThemeSpec> THEME_DB = {
     {"rose",     "pink pastel citrus",                 clr::fg256(211),clr::fg256(203),clr::fg256(216),clr::fg256(152),clr::fg256(205),clr::fg256(145),clr::fg256(212),clr::fg256(211),clr::fg256(168),clr::fg256(176),clr::fg256(240)},
     {"tokyonight","canonical Tokyo Night",              clr::rgb(158,206,106), clr::rgb(247,118,142), clr::rgb(224,175,104), clr::rgb(125,207,255), clr::rgb(187,154,247), clr::rgb(86,95,137), clr::rgb(122,162,247), clr::rgb(122,162,247), clr::rgb(192,202,245), clr::rgb(158,206,106), clr::rgb(65,76,104)},
     {"everforest","canonical Everforest Dark (medium)", clr::rgb(167,192,128), clr::rgb(230,126,128), clr::rgb(219,188,127), clr::rgb(131,192,146), clr::rgb(214,153,182), clr::rgb(133,146,137), clr::rgb(127,187,179), clr::rgb(167,192,128), clr::rgb(211,198,170), clr::rgb(131,192,146), clr::rgb(71,82,88)},
+    {"greenit",  "green family palette",                clr::fg256(114),clr::fg256(173),clr::fg256(186),clr::fg256(79),clr::fg256(114),clr::fg256(101),clr::fg256(157),clr::fg256(114),clr::fg256(230),clr::fg256(79),clr::fg256(65)},
     {"bluney",   "calm blue family palette",           clr::fg256(111),clr::fg256(204),clr::fg256(215),clr::fg256(111), clr::fg256(75), clr::fg256(245), clr::fg256(117),clr::fg256(117),clr::fg256(255),clr::fg256(111), clr::fg256(61)},
     {"yellen",   "golden family palette",              clr::fg256(221),clr::fg256(166),clr::fg256(229),clr::fg256(229),clr::fg256(221),clr::fg256(137),clr::fg256(223),clr::fg256(221),clr::fg256(230),clr::fg256(178),clr::fg256(58)},
 };
@@ -8990,7 +8991,7 @@ static int run_selftest() {
                     cout << "  " << clr::success << "Random theme: '" << nm << "' (saved)." << clr::reset << "\n";
                 } else {
                     cout << "Usage: theme list | theme set <name> | theme preview <name> | theme random\n"
-                         << "       names: nonameos|matrix|dracula|ocean|sunset|mono|gruvbox|rose|tokyonight|everforest|bluney|yellen\n";
+                         << "       names: nonameos|matrix|dracula|ocean|sunset|mono|gruvbox|rose|tokyonight|everforest|greenit|bluney|yellen\n";
                 }
             }
         }

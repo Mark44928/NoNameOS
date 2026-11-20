@@ -237,7 +237,7 @@ them now run:
 - `fishing` — cast, wait for the bite, react fast; rarity table + catch log (`fishing stats`)
 
 ### Personalization & tools
-- **Color themes** — `theme set matrix|dracula|ocean|sunset|mono|gruvbox|rose|tokyonight|everforest|bluney|yellen` swaps the whole palette (saved); `theme preview <name>` shows a sample first and `theme random` picks one for you
+- **Color themes** — `theme set matrix|dracula|ocean|sunset|mono|gruvbox|rose|tokyonight|everforest|greenit|bluney|yellen` swaps the whole palette (saved); `theme preview <name>` shows a sample first and `theme random` picks one for you
 - **Custom prompt** — `prompt set "[%t] %u@%d > "` with `%u %h %d %t %%` tokens (saved)
 - **Package manager** — `pkg install figlet|nyancat|starwars|sheep` unlocks bonus toys
 - `news` MOTD headlines, `crunch` column math, `pack/packlist/unpack` archiver, laps-capable `stopwatch`
@@ -953,6 +953,8 @@ Tiny, dependency-free tools from the same family:
 - [Pythonator](https://github.com/Mark44928/Pythonator) — Python rewrite of Plusalator — stdlib-only, `--eval`/`--json`
 - [Solvamath](https://github.com/Mark44928/Solvamath) — terminal math puzzle game — seven puzzle types, daily seed, achievements
 - [Bluney](https://github.com/Mark44928/Bluney) — blue-injected theme family — dark + light, single palette.json
+- [Fluffless Prompt](https://github.com/Mark44928/FlufflessPrompt) — quiet Oh My Zsh theme — Git state, exit codes, clock
+- [Weatui](https://github.com/Mark44928/Weatui) — friendly Open-Meteo weather TUI — saved cities, forecasts, no API key
 - [Yellen](https://github.com/Mark44928/Yellen) — golden-yellow theme family — dark + light, single palette.json
 - [Mark44928](https://github.com/Mark44928) — profile and project index
 - [plusafetch](https://github.com/Mark44928/plusafetch) — C++23 fetch for Termux — ~23 ms, zero subprocesses on the default path
