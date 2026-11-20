@@ -29,7 +29,7 @@ clang++ -std=c++17 -Wall -Wextra -O2 NoNameOS.cpp -o nonameos -lpthread  # Termu
 - Full `-O2` build takes >120s on this Termux device. Fast gate (~60s): `clang++ -std=c++17 -Wall -Wextra -O0 -fsyntax-only NoNameOS.cpp`.
 - Binaries gitignored — never commit. `make readme` runs the idempotent `update-readme.sh`, which regex-patches badges and version strings in place (there are no `<!--STAT:*-->` anchors any more) and prints the counts it derived — trust those, not hand-counted numbers. Version History rows stay hand-maintained.
 - Zero-warning rule: `-Wall -Wextra` must stay clean (verified Termux clang 21).
-- `VERSION = "v4.3.0"` at `NoNameOS.cpp:95` — bump with README badges/history.
+- `VERSION = "v4.4.0"` at `NoNameOS.cpp:99` — bump with README badges/history.
 
 ## Architecture — Sections (`grep '// SECTION' NoNameOS.cpp`)
 
@@ -43,7 +43,7 @@ clang++ -std=c++17 -Wall -Wextra -O2 NoNameOS.cpp -o nonameos -lpthread  # Termu
 | 5.8 | 800 | v3 shell globals: `g_stdin_buf/g_stdin_live`, `g_script_vars`, `g_prompt_fmt` (`%u %h %d %t %%`), tab/cwd completion |
 | 6 | 819 | input: `kbhit` (:827), `getkey` (cross-call `pend` escape buffer), `readline_global` (TAB + Ctrl+R), `KEY_*=1000+` (:750) |
 | 6.5 | 1198 | `cooked_readline()` (:1203) — drains kbhit; getline fallback when `g_term_saved==0` |
-| 7 | 1244 | `ALL_COMMANDS` set **301 dispatched** entries (:1244), `edit_dist`/`closest_cmd` (threshold 4), text-tool helpers |
+| 7 | 1244 | `ALL_COMMANDS` set **303 dispatched** entries (:1244), `edit_dist`/`closest_cmd` (threshold 4), text-tool helpers |
 | 8 | 1644 | v1/v2 games: snake, minesweeper, tictactoe, hangman, rps, 2048, tetris, pong, sudoku, flappy, ... |
 | 11.5 | 4124 | v2 games/system/eggs/effects: othello…bingo, kernel/boot/netstat…, llm/rain/fire/stream… |
 | 11.7 | 5110 | v3 engine helpers: `persist_save/load`, `vfs_escape/unescape`, `expand_globs`, `filter_source`, `script_subst`, `PKG_DB`+`g_installed_pkgs` |
@@ -99,7 +99,7 @@ clang++ -std=c++17 -Wall -Wextra -O2 NoNameOS.cpp -o nonameos -lpthread  # Termu
 
 ```bash
 make clean && make          # zero warnings required
-bash tests/smoke.sh         # 37 piped-REPL assertions (CI runs this too)
+bash tests/smoke.sh         # 42 piped-REPL assertions (CI runs this too)
 ./nonameos                  # smoke: help · TAB complete · Ctrl+R · pipes · chains
 printf '%s\n' 'echo /t.txt hi' 'cat /t.txt' 'cat /t.txt | grep hi' \
   'ls > /o.txt' 'wc /o.txt' 'bogus && echo NO' 'theme list' 'pkg list' 'exit' | ./nonameos

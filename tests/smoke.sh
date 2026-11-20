@@ -59,7 +59,7 @@ rm -rf "$TMPDIR/smoke-home"
 mkdir -p "$TMPDIR/smoke-home"
 
 # --- basics ---
-assert_has "version banner"    "version"                     "NoNameOS v4.3.0"
+assert_has "version banner"    "version"                     "NoNameOS v4.4.0"
 assert_has "unknown command"   "definitelyNotACmd"           "command not found: definitelyNotACmd"
 
 # --- v4.1.0 commands (must be dispatched, not "command not found") ---
@@ -113,13 +113,18 @@ assert_has "stat missing" "stat /nope"                        "no such file"
 assert_has "which ls"   "which ls"                  "/bin/ls"
 assert_has "which phantom" "which piano"               "piano not found"
 assert_has "boot tip"    "version"                            "tip:"
-assert_has "v4.3.0 banner" "version"                         "NoNameOS v4.3.0"
+assert_has "v4.4.0 banner" "version"                         "NoNameOS v4.4.0"
 
 # --- v4.3.0: motd ---
 assert_has "motd runs"    "motd"                              "MOTD"
 assert_has "bluney theme" "theme preview bluney"             "bluney"
 assert_has "yellen theme" "theme preview yellen"             "yellen"
 assert_has "greenit theme" "theme preview greenit"           "greenit"
+
+# --- v4.4.0: hex / oct converters ---
+assert_has "hex decimal" "hex 255"  "0xFF"
+assert_has "hex 0x"      "hex 0x10" "0x10"
+assert_has "oct decimal" "oct 8"    "010"
 
 
 selftest_out=$(HOME="$TMPDIR/smoke-home" timeout 20 "$BIN" --selftest 2>&1)

@@ -96,7 +96,7 @@ static void sigcont_handler(int) {
 }
 
 static const auto program_start = chrono::steady_clock::now();
-const string VERSION = "v4.3.0";
+const string VERSION = "v4.4.0";
 
 // v3.0 UNICODE RENDERING — global on/off/auto
 // When off (auto-detected or user-forced), all ornamental Unicode in output is
@@ -1180,13 +1180,13 @@ const set<string> ALL_COMMANDS = {
     "df","dice","dict","diff","dirname","disco","disk","djb2","dlc","dmesg","dns","du",
     "echo","emoji","emoticon","encode","env","epoch","exit","factor","fib","find","fire",
     "fishing","flappy","fold","fortune","free","gauge","geoip","gg","glhf","goose","gpt",
-    "grep","guess","hack","hacker","hangman","hash","head","help","hexdump","higherlower",
+    "grep","guess","hack","hacker","hangman","hash","head","help","hex","hexdump","higherlower",
     "history","hostname","ip","ipcalc","joke","jumble","kernel","keytest","kitchen",
     "konami","lenny","life","lightsout","llm","ln","load","loading","locate","log",
     "logout","lolcat","lowercase","ls","lsblk","lscpu","lsusb","mac","man","mastermind",
     "matrix","maze","md5","meaning","mem","memory","mine","minesweeper","mkdir","morse","motd",
     "mount","mv","nano","neo","netstat","news","nim","nl","notes","nproc","nummem",
-    "nyancat","open","othello","pack","packlist","palette","password","paste","persist",
+    "nyancat","oct","open","othello","pack","packlist","palette","password","paste","persist",
     "pet","pick","ping","pkg","play","poker","pom","pong","potato","primes","printenv",
     "progress","prompt","ps","puzzle","pwd","qr","quiz","quote","rabbit","rain",
     "rainbow","random","reaction","regex","repeat","report","rev","reverse","rick",
@@ -3556,6 +3556,24 @@ void cmd_binary(const string& args) {
     string bin;
     while (n > 0) { bin = (n % 2 ? "1" : "0") + bin; n /= 2; }
     cout << "  " << clr::cyan << bin << clr::reset << "\n";
+}
+
+void cmd_hex(const string& args) {
+    if (args.empty()) { cout << "Usage: hex <number>   (decimal or 0x…)\n"; return; }
+    long n;
+    try { n = stol(args, nullptr, 0); }
+    catch (...) { cout << "error: invalid number '" << args << "'\n"; return; }
+    if (n < 0) { cout << "error: hex needs a non-negative number\n"; return; }
+    cout << "  0x" << hex << uppercase << n << dec << "\n";
+}
+
+void cmd_oct(const string& args) {
+    if (args.empty()) { cout << "Usage: oct <number>   (decimal or 0…)\n"; return; }
+    long n;
+    try { n = stol(args, nullptr, 0); }
+    catch (...) { cout << "error: invalid number '" << args << "'\n"; return; }
+    if (n < 0) { cout << "error: oct needs a non-negative number\n"; return; }
+    cout << "  0" << oct << n << dec << "\n";
 }
 
 void cmd_morse(const string& args) {
@@ -7033,7 +7051,7 @@ static int run_selftest() {
             section("v4.0 Easter Eggs", "coffee, potato, banana, goose");
             section("v4.1.0 Games", "roulette, slotmachine, towers, poker\ndarts, bowling");
             section("v4.1.0 Tools", "emoticon, qr, barcode, asciiart");
-            section("v4.3.0 Shell", "motd");
+            section("v4.4.0 Shell", "motd");
 
             cout << "\n  " << clr::dgray << vsep(42) << clr::reset << "\n";
             cout << "  " << clr::dim << "Tip: " << clr::muted << "type " << clr::lcyan << "help <cmd>" << clr::muted << " or " << clr::lcyan << "man <cmd>" << clr::muted << " for details" << clr::reset << "\n\n";
@@ -8605,6 +8623,8 @@ static int run_selftest() {
         else if (cmd == "units") { cmd_units(args); }
         else if (cmd == "roman") { cmd_roman(args); }
         else if (cmd == "binary") { cmd_binary(args); }
+        else if (cmd == "hex") { cmd_hex(args); }
+        else if (cmd == "oct") { cmd_oct(args); }
         else if (cmd == "morse") { cmd_morse(args); }
         else if (cmd == "bar") { cmd_bar(args); }
         else if (cmd == "sparkline") { cmd_sparkline(args); }

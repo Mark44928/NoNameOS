@@ -10,7 +10,7 @@
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 </pre>
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260808-140453.png" width="700" alt="NoNameOS v2.0.0 running in Termux"/>
-<p align="center"><sub><i>NoNameOS v2.0.0 running in Termux on a MyPhone myT10. Current v4.3.0 adds more games, commands, and full color themes.</i></sub></p>
+<p align="center"><sub><i>NoNameOS v2.0.0 running in Termux on a MyPhone myT10. Current v4.4.0 adds more games, commands, and full color themes.</i></sub></p>
 
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20260524-150528~2.png" width="500" alt="NoNameOS shell screenshot"/>
 <img src="https://github.com/Mark44928/NoNameOS/raw/main/Screenshot_20261113-0633.png" width="560" alt="NoNameOS v4.2.0 shell — boot log, typed commands and ls output visible"/>
@@ -23,12 +23,12 @@
 <h1 align="center">NoNameOS</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v4.3.0-green?style=for-the-badge" alt="Version"/>
+  <img src="https://img.shields.io/badge/version-v4.4.0-green?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/language-C%2B%2B17-blue?style=for-the-badge" alt="C++17"/>
   <img src="https://img.shields.io/badge/license-GPLv3-purple?style=for-the-badge" alt="License"/>
-  <img src="https://img.shields.io/badge/9273-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
+  <img src="https://img.shields.io/badge/9318-lines_of_code-orange?style=for-the-badge" alt="Lines"/>
   <img src="https://img.shields.io/badge/54-games-red?style=for-the-badge" alt="Games"/>
-  <img src="https://img.shields.io/badge/301-commands-cyan?style=for-the-badge" alt="Commands"/>
+  <img src="https://img.shields.io/badge/303-commands-cyan?style=for-the-badge" alt="Commands"/>
   <img src="https://img.shields.io/badge/dependencies-zero-brightgreen?style=for-the-badge" alt="Zero Dependencies"/>
   <img src="https://img.shields.io/badge/platform-linux-lightgrey?style=for-the-badge" alt="Linux"/>
   <img src="https://img.shields.io/github/languages/code-size/Mark44928/NoNameOS?style=for-the-badge" alt="Code Size"/>
@@ -83,6 +83,7 @@
 - [Why NoNameOS?](#why-nonameos)
 - [Perfect For](#perfect-for)
 - [Features](#features)
+- [What's New in v4.4.0](#whats-new-in-v440)
 - [What's New in v4.3.0](#whats-new-in-v430)
 - [What's New in v4.2.0](#whats-new-in-v420)
 - [What's New in v4.1.0](#whats-new-in-v410)
@@ -121,6 +122,15 @@
 | **Productivity** | Todo list, notes, timers, password gen | `pom`, `countdown`, `worldclock` |
 | **Visual Effects** | Matrix rain, rainbow text, color themes | `matrix`, `lolcat`, `colors`, `disco` |
 | **Fun & Easter Eggs** | 25+ hidden commands | `sudo`, `rickroll`, `konami`, `hack` |
+
+---
+
+## What's New in v4.4.0
+
+### `hex` and `oct` — number-base converters
+- `hex 255` prints `0xFF`; accepts decimal or `0x…` input.
+- `oct 8` prints `010`; accepts decimal or `0…` input.
+- Both are wired into `ALL_COMMANDS`, the dispatcher and the smoke suite.
 
 ---
 
@@ -526,7 +536,7 @@ g++ -O2 NoNameOS.cpp -o nonameos -lpthread
 </details>
 
 <details>
-<summary><b>🔄 Converters & Encoding (10 commands)</b></summary>
+<summary><b>🔄 Converters & Encoding (12 commands)</b></summary>
 
 | Command | Usage | Description |
 |---------|-------|-------------|
@@ -535,6 +545,8 @@ g++ -O2 NoNameOS.cpp -o nonameos -lpthread
 | `morse` | `morse <text>` | Convert text to Morse code |
 | `roman` | `roman <num>` | Convert number to Roman numerals (1-3999) |
 | `binary` | `binary <num>` | Convert number to binary |
+| `hex` | `hex <num>` | Convert decimal or `0x…` to hexadecimal |
+| `oct` | `oct <num>` | Convert decimal or `0…` to octal |
 | `hash` | `hash <text>` | Generate DJB2 hash |
 | `urlencode` | `urlencode <text>` | URL-encode text |
 | `urldecode` | `urldecode <text>` | URL-decode text |
@@ -616,12 +628,12 @@ $ ./nonameos
 /_/ |_/\____/_/ |_|\__,_/_/ /_/ /_/\___/\____//____/
 
                     ═══════════════════════════════════════════
-                     v4.3.0 · Pure C++ OS Simulation
+                     v4.4.0 · Pure C++ OS Simulation
                     ═══════════════════════════════════════════
 
   [━━━━━━━━━━━━━━━━━━━━━━━━━] System ready
 
-  ✓ NoNameOS v4.3.0 booted successfully
+  ✓ NoNameOS v4.4.0 booted successfully
   Type help for available commands
   ↑↓ history  ←→ cursor  Backspace delete
 
@@ -911,6 +923,7 @@ Because naming things is hard. The author couldn't decide on a name, so... NoNam
 
 | Version | Lines | Games | Commands | Key Changes |
 |---------|-------|-------|----------|-------------|
+| **v4.4.0** | 9,318 | 54 | 303 | `hex` and `oct` number-base converters |
 | **v4.3.0** | 9,273 | 54 | 301 | motd (deterministic message of the day: POSIX/Termux/shell tips) |
 | **v4.2.0** | 9,010 | 54 | 299 | sha256sum (FIPS 180-4, in-process) · stat (type/mode/size/words) · rotating boot tip |
 | **v4.1.0** | 8,980 | 54 | 301 | roulette · slotmachine · towers · poker · darts · bowling wired into the dispatcher (were dead code) · emoticon mood table · update-readme.sh now idempotent |
